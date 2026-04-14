@@ -16,6 +16,7 @@ import 'package:image/image.dart' as imglib;
 import 'package:intl/intl.dart';
 import 'package:hris_app/core/utils/constants.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
+import 'package:geolocator/geolocator.dart';
 
 class FaceVerificationResult {
   final String imagePath;
@@ -26,10 +27,12 @@ class FaceVerificationResult {
 class FaceVerificationPage extends StatefulWidget {
   final bool isClockIn;
   final bool isRegistration;
+  final Map<String, dynamic>? userProfile;
   const FaceVerificationPage({
     super.key, 
     this.isClockIn = true,
     this.isRegistration = false,
+    this.userProfile,
   });
 
   @override
@@ -42,16 +45,13 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   DateTime _currentTime = DateTime.now();
   final MLService _mlService = MLService();
   bool _isVerifying = false;
-
-  // Placeholder DeviceID and GPS (to be replaced by actual loc/device plugins if needed)
-  final String _mockLatitude = "-6.200000";
-  final String _mockLongitude = "106.816666";
-  final String _mockDeviceId = "DEVICE-XYZ-123";
+  Position? _currentPosition;
 
   @override
   void initState() {
     super.initState();
     _mlService.initialize();
+    _fetchCurrentLocation();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -59,6 +59,19 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         });
       }
     });
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      if (mounted) {
+        setState(() {
+          _currentPosition = pos;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) print("Error fetching location: $e");
+    }
   }
 
   @override
@@ -155,13 +168,18 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         throw Exception("Wajah tidak cocok. Harap pastikan wajah Anda terlihat jelas.");
       }
 
-      // 4. Submit if success - Just pop result back to HomePage
+      // 5. Submit to Backend if face matches locally
       if (mounted) {
-        Navigator.of(context).pop(
-          FaceVerificationResult(
-            imagePath: _capturedImagePath!,
-            embedding: currentEmbedding,
-          ),
+        context.read<AttendanceBloc>().add(
+          widget.isClockIn
+              ? SubmitClockInEvent(
+                  photoPath: _capturedImagePath!,
+                  embedding: currentEmbedding,
+                )
+              : SubmitClockOutEvent(
+                  photoPath: _capturedImagePath!,
+                  embedding: currentEmbedding,
+                ),
         );
       }
     } catch (e) {
@@ -304,28 +322,35 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Lokasi Saat Ini',
-                                style: GoogleFonts.inter(
-                                    fontSize: 12, color: Colors.grey[600]),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Perkebunan Pandeyan KM 11',
-                                style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF111827)),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                                Text(
+                                  'Lokasi Saat Ini',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12, color: Colors.grey[600]),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _currentPosition != null 
+                                      ? '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}'
+                                      : 'Mencari lokasi...',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF111827)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (widget.userProfile?['BranchName'] != null)
+                                  Text(
+                                    'Branch: ${widget.userProfile!['BranchName']}',
+                                    style: GoogleFonts.inter(fontSize: 11, color: Colors.blue[600]),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
                 const SizedBox(height: 32),
 

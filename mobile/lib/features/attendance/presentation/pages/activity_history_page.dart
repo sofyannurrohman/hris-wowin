@@ -241,7 +241,7 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
                 Row(
                   children: [
                     _buildBadge('Regular', Colors.green),
-                    if (record.status == 'late') ...[
+                    if (record.status.toLowerCase() == 'late') ...[
                       const SizedBox(width: 8),
                       _buildBadge('Late In', Colors.orange),
                     ],

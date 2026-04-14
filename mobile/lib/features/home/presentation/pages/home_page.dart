@@ -81,44 +81,31 @@ class _HomeViewState extends State<HomeView> {
 
 
 
-  Future<FaceVerificationResult?> _takeSelfie({bool isClockIn = true}) async {
-    return await Navigator.of(context).push<FaceVerificationResult>(
-      MaterialPageRoute(builder: (_) => FaceVerificationPage(isClockIn: isClockIn)),
+  void _onClockInPressed(Map<String, dynamic>? profile) async {
+    try {
+      await _takeSelfie(isClockIn: true, profile: profile);
+    } catch (e) {
+      SnackBarUtils.showError(context, e.toString());
+    }
+  }
+
+  void _onClockOutPressed(Map<String, dynamic>? profile) async {
+    try {
+      await _takeSelfie(isClockIn: false, profile: profile);
+    } catch (e) {
+      SnackBarUtils.showError(context, e.toString());
+    }
+  }
+
+  Future<void> _takeSelfie({required bool isClockIn, Map<String, dynamic>? profile}) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FaceVerificationPage(
+          isClockIn: isClockIn,
+          userProfile: profile,
+        ),
+      ),
     );
-  }
-
-  void _onClockInPressed() async {
-    try {
-      final result = await _takeSelfie(isClockIn: true);
-      if (result == null) return;
-
-      if (!mounted) return;
-      context.read<AttendanceBloc>().add(
-        SubmitClockInEvent(
-          photoPath: result.imagePath,
-          embedding: result.embedding,
-        ),
-      );
-    } catch (e) {
-      SnackBarUtils.showError(context, e.toString());
-    }
-  }
-
-  void _onClockOutPressed() async {
-    try {
-      final result = await _takeSelfie(isClockIn: false);
-      if (result == null) return;
-
-      if (!mounted) return;
-      context.read<AttendanceBloc>().add(
-        SubmitClockOutEvent(
-          photoPath: result.imagePath,
-          embedding: result.embedding,
-        ),
-      );
-    } catch (e) {
-      SnackBarUtils.showError(context, e.toString());
-    }
   }
 
   @override
@@ -208,7 +195,7 @@ class _HomeViewState extends State<HomeView> {
                             faceUrl: profile?['FaceReferenceURL'],
                           ),
                           const SizedBox(height: 24),
-                          _buildMainActionCard(context, primaryBlue, history),
+                          _buildMainActionCard(context, primaryBlue, history, profile),
                           const SizedBox(height: 24),
                           _buildStatsGrid(stats),
                           const SizedBox(height: 24),
@@ -349,7 +336,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildMainActionCard(BuildContext context, Color primaryBlue, List<Attendance> history) {
+  Widget _buildMainActionCard(BuildContext context, Color primaryBlue, List<Attendance> history, Map<String, dynamic>? profile) {
     final timeStr = DateFormat('hh : mm').format(_currentTime);
     final amPmStr = DateFormat('a').format(_currentTime);
 
@@ -404,7 +391,7 @@ class _HomeViewState extends State<HomeView> {
           ),
           const SizedBox(height: 24),
           InkWell(
-            onTap: hasClockedIn ? _onClockOutPressed : _onClockInPressed,
+            onTap: () => hasClockedIn ? _onClockOutPressed(profile) : _onClockInPressed(profile),
             borderRadius: BorderRadius.circular(100),
             child: Container(
               width: 140,
@@ -598,8 +585,8 @@ class _HomeViewState extends State<HomeView> {
           title: isClockIn ? 'Clock In' : 'Clock Out',
           dateStr: DateFormat('MMM dd').format(record.checkIn),
           timeStr: DateFormat('hh:mm a').format(isClockIn ? record.checkIn : (record.checkOut ?? record.checkIn)),
-          status: record.status == 'on_time' ? 'On Time' : (record.status == 'late' ? 'Late' : 'On Time'),
-          statusColor: record.status == 'late' ? Colors.orange : Colors.green,
+          status: record.status.toLowerCase() == 'on_time' ? 'On Time' : (record.status.toLowerCase() == 'late' ? 'Late' : 'On Time'),
+          statusColor: record.status.toLowerCase() == 'late' ? Colors.orange : Colors.green,
         );
       }).toList(),
     );
