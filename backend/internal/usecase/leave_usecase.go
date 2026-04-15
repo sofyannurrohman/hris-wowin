@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,11 +29,11 @@ func NewLeaveUseCase(repo repository.LeaveRepository, employeeRepo repository.Em
 }
 
 type SubmitLeaveRequest struct {
-	LeaveTypeID   string `json:"leave_type_id" binding:"required"`
-	StartDate     string `json:"start_date" binding:"required"` // e.g. "2026-11-01"
-	EndDate       string `json:"end_date" binding:"required"`
-	Reason        string `json:"reason" binding:"required"`
-	AttachmentURL string `json:"attachment_url"`
+	LeaveTypeID   string `json:"leave_type_id" form:"leave_type_id" binding:"required"`
+	StartDate     string `json:"start_date" form:"start_date" binding:"required"`
+	EndDate       string `json:"end_date" form:"end_date" binding:"required"`
+	Reason        string `json:"reason" form:"reason" binding:"required"`
+	AttachmentURL string `json:"attachment_url" form:"attachment_url"`
 }
 
 type LeaveBalanceResponse struct {
@@ -84,6 +85,11 @@ func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) err
 	leaveType, err := u.repo.GetLeaveTypeByID(leaveTypeID)
 	if err != nil {
 		return errors.New("leave type not found")
+	}
+
+	// VALIDATION: Sakit must have attachment
+	if strings.Contains(strings.ToLower(leaveType.Name), "sakit") && req.AttachmentURL == "" {
+		return errors.New("Surat izin dokter wajib dilampirkan untuk izin sakit")
 	}
 
 	var balanceToUpdate *domain.LeaveBalance

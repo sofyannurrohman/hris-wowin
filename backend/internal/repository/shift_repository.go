@@ -28,7 +28,7 @@ func (r *shiftRepository) Create(shift *domain.Shift) error {
 
 func (r *shiftRepository) FindAll() ([]domain.Shift, error) {
 	var shifts []domain.Shift
-	if err := r.db.Find(&shifts).Error; err != nil {
+	if err := r.db.Preload("Branch").Find(&shifts).Error; err != nil {
 		return nil, err
 	}
 	return shifts, nil
@@ -36,7 +36,7 @@ func (r *shiftRepository) FindAll() ([]domain.Shift, error) {
 
 func (r *shiftRepository) FindByID(id uuid.UUID) (*domain.Shift, error) {
 	var shift domain.Shift
-	if err := r.db.Where("id = ?", id).First(&shift).Error; err != nil {
+	if err := r.db.Preload("Branch").Where("id = ?", id).First(&shift).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}

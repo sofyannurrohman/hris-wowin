@@ -26,7 +26,7 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
 
   Future<void> _onSubmitLeave(SubmitLeaveRequested event, Emitter<LeaveState> emit) async {
     emit(LeaveLoading());
-    final result = await submitLeaveUseCase(event.leaveTypeId, event.startDate, event.endDate, event.reason);
+    final result = await submitLeaveUseCase(event.leaveTypeId, event.startDate, event.endDate, event.reason, attachmentPath: event.attachmentPath);
     result.fold(
       (failure) => emit(LeaveActionFailure(failure.message)),
       (_) => emit(const LeaveActionSuccess('Leave submitted successfully!')),

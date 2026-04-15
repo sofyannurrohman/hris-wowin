@@ -29,6 +29,7 @@ type CreateShiftRequest struct {
 	BreakStart *time.Time `json:"breakStart"`
 	BreakEnd   *time.Time `json:"breakEnd"`
 	IsFlexible bool       `json:"isFlexible"`
+	BranchID   *uuid.UUID `json:"branchId"`
 }
 
 type UpdateShiftRequest struct {
@@ -38,6 +39,7 @@ type UpdateShiftRequest struct {
 	BreakStart *time.Time `json:"breakStart"`
 	BreakEnd   *time.Time `json:"breakEnd"`
 	IsFlexible bool       `json:"isFlexible"`
+	BranchID   *uuid.UUID `json:"branchId"`
 }
 
 func NewShiftUseCase(repo repository.ShiftRepository) ShiftUseCase {
@@ -52,6 +54,7 @@ func (u *shiftUseCase) CreateShift(req *CreateShiftRequest) error {
 		EndTime:    req.EndTime,
 		BreakStart: req.BreakStart,
 		BreakEnd:   req.BreakEnd,
+		BranchID:   req.BranchID,
 		IsFlexible: req.IsFlexible,
 	}
 
@@ -80,6 +83,7 @@ func (u *shiftUseCase) UpdateShift(id uuid.UUID, req *UpdateShiftRequest) error 
 	shift.EndTime = req.EndTime
 	shift.BreakStart = req.BreakStart
 	shift.BreakEnd = req.BreakEnd
+	shift.BranchID = req.BranchID
 	shift.IsFlexible = req.IsFlexible
 
 	return u.repo.Update(shift)

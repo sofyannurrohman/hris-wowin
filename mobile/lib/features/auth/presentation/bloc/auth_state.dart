@@ -13,7 +13,18 @@ class AuthLoading extends AuthState {}
 
 class Authenticated extends AuthState {}
 
-class Unauthenticated extends AuthState {}
+class Unauthenticated extends AuthState {
+  final bool isBiometricSupported;
+  final bool isBiometricEnabled;
+
+  const Unauthenticated({
+    this.isBiometricSupported = false,
+    this.isBiometricEnabled = false,
+  });
+
+  @override
+  List<Object> get props => [isBiometricSupported, isBiometricEnabled];
+}
 
 class AuthError extends AuthState {
   final String message;

@@ -6,6 +6,7 @@ import 'package:hris_app/features/leave/presentation/bloc/leave_event.dart';
 import 'package:hris_app/features/leave/presentation/bloc/leave_state.dart';
 import 'package:hris_app/features/leave/domain/entities/leave_balance.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 
 class LeavePage extends StatefulWidget {
@@ -47,6 +48,8 @@ class _LeaveViewState extends State<LeaveView> {
   DateTime? _endDate;
   String? _selectedLeaveTypeId;
   List<LeaveBalance> _balances = [];
+  XFile? _attachment;
+  final ImagePicker _picker = ImagePicker();
 
   void _presentDatePicker(bool isStart) async {
     final pickedDate = await showDatePicker(
@@ -66,6 +69,15 @@ class _LeaveViewState extends State<LeaveView> {
     }
   }
 
+  void _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _attachment = image;
+      });
+    }
+  }
+
   void _submitLeave() {
     if (_startDate == null || _endDate == null || _reasonController.text.isEmpty || _selectedLeaveTypeId == null) {
       SnackBarUtils.showError(context, 'Please fill all fields (Type, Date, Reason)');
@@ -75,11 +87,19 @@ class _LeaveViewState extends State<LeaveView> {
     final startStr = DateFormat('yyyy-MM-dd').format(_startDate!);
     final endStr = DateFormat('yyyy-MM-dd').format(_endDate!);
 
+    // VALIDATION: Sakit must have attachment
+    final selectedBalance = _balances.firstWhere((element) => element.leaveTypeId == _selectedLeaveTypeId);
+    if (selectedBalance.leaveTypeName.toLowerCase().contains('sakit') && _attachment == null) {
+      SnackBarUtils.showError(context, 'Surat izin dokter wajib dilampirkan untuk izin sakit');
+      return;
+    }
+
     context.read<LeaveBloc>().add(SubmitLeaveRequested(
           leaveTypeId: _selectedLeaveTypeId!,
           startDate: startStr,
           endDate: endStr,
           reason: _reasonController.text,
+          attachmentPath: _attachment?.path,
         ));
   }
 
@@ -87,7 +107,7 @@ class _LeaveViewState extends State<LeaveView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pengajuan Cuti'),
+        title: const Text('Pengajuan Cuti / Izin'),
         leading: Navigator.of(context).canPop()
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -104,6 +124,7 @@ class _LeaveViewState extends State<LeaveView> {
               _startDate = null;
               _endDate = null;
               _selectedLeaveTypeId = null;
+              _attachment = null;
             });
             context.read<LeaveBloc>().add(const FetchMyLeavesRequested());
             context.read<LeaveBloc>().add(const FetchLeaveBalancesRequested());
@@ -126,13 +147,13 @@ class _LeaveViewState extends State<LeaveView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text('Pengajuan Cuti', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text('Pengajuan Cuti / Izin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _selectedLeaveTypeId,
-                        hint: Text(_balances.isEmpty ? 'Memuat tipe cuti...' : 'Pilih Tipe Cuti'),
+                        hint: Text(_balances.isEmpty ? 'Memuat tipe...' : 'Pilih Tipe Cuti / Izin'),
                         decoration: const InputDecoration(
-                          labelText: 'Tipe Cuti',
+                          labelText: 'Tipe Layanan',
                           border: OutlineInputBorder(),
                         ),
                         items: _balances.map((balance) {
@@ -182,9 +203,46 @@ class _LeaveViewState extends State<LeaveView> {
                         maxLines: 3,
                       ),
                       const SizedBox(height: 16),
+                      Text(
+                        'Lampiran (Wajib untuk Sakit)',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: _pickImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[50],
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.attachment_rounded, color: Colors.blue[700]),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _attachment == null ? 'Pilih Foto Surat Dokter' : (_attachment!.name.length > 30 ? '...${_attachment!.name.substring(_attachment!.name.length - 20)}' : _attachment!.name),
+                                  style: TextStyle(color: _attachment == null ? Colors.grey : Colors.black87),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_attachment != null)
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                                  onPressed: () => setState(() => _attachment = null),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: _submitLeave,
-                        child: const Text('Ajukan Cuti'),
+                        child: const Text('Ajukan Sekarang'),
                       )
                     ],
                   ),
@@ -195,7 +253,7 @@ class _LeaveViewState extends State<LeaveView> {
             const Padding(
               padding: EdgeInsets.all(8.0),
               child: Text(
-                'My Leave History',
+                'Riwayat Pengajuan',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -274,12 +332,12 @@ class _LeaveViewState extends State<LeaveView> {
           Expanded(
             child: Text(
               isPaid
-                  ? 'Cuti ini berbayar (Gaji tetap dibayarkan).'
-                  : 'Cuti ini tidak berbayar (Akan ada pemotongan gaji).',
+                  ? 'Pengajuan ini berbayar (Gaji tetap dibayarkan).'
+                  : 'Pengajuan ini tidak berbayar (Terdapat pemotongan gaji pokok).',
               style: TextStyle(
                 fontSize: 12,
                 color: isPaid ? Colors.blue[700] : Colors.orange[700],
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),

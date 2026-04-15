@@ -9,6 +9,8 @@ import 'package:hris_app/features/leave/presentation/bloc/leave_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:hris_app/features/home/presentation/pages/home_page.dart';
 import 'package:hris_app/features/auth/presentation/pages/login_page.dart';
+import 'package:hris_app/features/auth/presentation/pages/splash_screen.dart';
+import 'package:hris_app/core/theme/app_theme.dart';
 import 'package:hris_app/core/network/api_client.dart';
 
 void main() async {
@@ -47,25 +49,31 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'SIK PT Wowin Purnomo Putra',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
-          useMaterial3: true,
-        ),
-        home: BlocBuilder<AuthBloc, AuthState>(
-          builder: (context, state) {
-            if (state is Authenticated) {
-              return const HomePage();
-            } else if (state is Unauthenticated || state is AuthError) {
-              return const LoginPage();
-            }
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          },
-        ),
+        theme: AppTheme.lightTheme,
+        home: const SplashScreen(),
       ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is Authenticated) {
+          return const HomePage();
+        } else if (state is Unauthenticated || state is AuthError) {
+          return const LoginPage();
+        }
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      },
     );
   }
 }

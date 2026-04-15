@@ -34,6 +34,7 @@ type RegisterRequest struct {
 	EmployeeID    string            `json:"employee_id" binding:"required"`
 	Password      string            `json:"password" binding:"required,min=6"`
 	JobPositionID string            `json:"job_position_id" binding:"required"`
+	BranchID      string            `json:"branch_id" binding:"required"`
 	FaceEmbedding domain.FloatArray `json:"face_embedding"`
 	Selfie        string            `json:"selfie"` // Base64
 }
@@ -78,10 +79,16 @@ func (u *authUseCase) Register(req RegisterRequest) error {
 		return errors.New("invalid job position ID format")
 	}
 
+	branchID, err := uuid.Parse(req.BranchID)
+	if err != nil {
+		return errors.New("invalid branch ID format")
+	}
+
 	employee := &domain.Employee{
 		FirstName:        req.Name,
 		EmployeeIDNumber: req.EmployeeID,
 		JobPositionID:    &jobPosID,
+		BranchID:         &branchID,
 		JoinDate:         time.Now(),
 	}
 

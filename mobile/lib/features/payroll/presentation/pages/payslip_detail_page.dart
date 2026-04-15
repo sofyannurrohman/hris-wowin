@@ -2,14 +2,67 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/payslip.dart';
+import '../services/payslip_pdf_service.dart';
+import 'package:local_auth/local_auth.dart';
 
-class PayslipDetailPage extends StatelessWidget {
+class PayslipDetailPage extends StatefulWidget {
   final Payslip payslip;
 
   const PayslipDetailPage({super.key, required this.payslip});
 
   @override
+  State<PayslipDetailPage> createState() => _PayslipDetailPageState();
+}
+
+class _PayslipDetailPageState extends State<PayslipDetailPage> {
+  bool _isAuthenticated = false;
+  final LocalAuthentication auth = LocalAuthentication();
+
+  @override
+  void initState() {
+    super.initState();
+    _authenticate();
+  }
+
+  Future<void> _authenticate() async {
+    try {
+      final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
+      final bool canAuthenticate = canAuthenticateWithBiometrics || await auth.isDeviceSupported();
+
+      if (!canAuthenticate) {
+        setState(() => _isAuthenticated = true); // Fallback if no biometrics
+        return;
+      }
+
+      final bool didAuthenticate = await auth.authenticate(
+        localizedReason: 'Silakan verifikasi identitas Anda untuk melihat slip gaji.',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false,
+        ),
+      );
+
+      if (didAuthenticate) {
+        setState(() => _isAuthenticated = true);
+      } else {
+        if (mounted) Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isAuthenticated = true); // Fallback on error for now
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_isAuthenticated) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final payslip = widget.payslip;
     const primaryBlue = Color(0xFF1B60F1);
     const bgGray = Color(0xFFF9FAFB);
     const textColor = Color(0xFF111827);
@@ -41,6 +94,13 @@ class PayslipDetailPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: primaryBlue),
+            onPressed: () => PayslipPdfService.generateAndPrint(payslip),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),

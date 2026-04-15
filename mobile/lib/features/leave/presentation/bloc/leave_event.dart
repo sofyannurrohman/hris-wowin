@@ -12,16 +12,18 @@ class SubmitLeaveRequested extends LeaveEvent {
   final String startDate;
   final String endDate;
   final String reason;
+  final String? attachmentPath;
 
   const SubmitLeaveRequested({
     required this.leaveTypeId,
     required this.startDate,
     required this.endDate,
     required this.reason,
+    this.attachmentPath,
   });
 
   @override
-  List<Object?> get props => [leaveTypeId, startDate, endDate, reason];
+  List<Object?> get props => [leaveTypeId, startDate, endDate, reason, attachmentPath];
 }
 
 class FetchLeaveBalancesRequested extends LeaveEvent {

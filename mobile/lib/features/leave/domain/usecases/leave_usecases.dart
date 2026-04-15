@@ -9,8 +9,8 @@ class SubmitLeaveUseCase {
 
   SubmitLeaveUseCase(this.repository);
 
-  Future<Either<Failure, void>> call(String leaveTypeId, String startDate, String endDate, String reason) {
-    return repository.submitLeave(leaveTypeId, startDate, endDate, reason);
+  Future<Either<Failure, void>> call(String leaveTypeId, String startDate, String endDate, String reason, {String? attachmentPath}) {
+    return repository.submitLeave(leaveTypeId, startDate, endDate, reason, attachmentPath: attachmentPath);
   }
 }
 

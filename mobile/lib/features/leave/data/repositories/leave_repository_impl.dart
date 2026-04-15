@@ -12,14 +12,26 @@ class LeaveRepositoryImpl implements LeaveRepository {
   LeaveRepositoryImpl({required this.apiClient});
 
   @override
-  Future<Either<Failure, void>> submitLeave(String leaveTypeId, String startDate, String endDate, String reason) async {
+  Future<Either<Failure, void>> submitLeave(String leaveTypeId, String startDate, String endDate, String reason, {String? attachmentPath}) async {
     try {
-      final response = await apiClient.client.post('time-off/request', data: {
+      final Map<String, dynamic> data = {
         'leave_type_id': leaveTypeId,
         'start_date': startDate,
         'end_date': endDate,
         'reason': reason,
-      });
+      };
+
+      dynamic body;
+      if (attachmentPath != null) {
+        body = FormData.fromMap({
+          ...data,
+          'attachment': await MultipartFile.fromFile(attachmentPath),
+        });
+      } else {
+        body = data;
+      }
+
+      final response = await apiClient.client.post('time-off/request', data: body);
 
       if (response.statusCode == 201) {
         return const Right(null);

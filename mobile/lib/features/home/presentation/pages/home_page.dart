@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:hris_app/injection.dart' as di;
@@ -13,21 +12,31 @@ import 'package:hris_app/features/attendance/presentation/pages/clock_in_failed_
 import 'package:hris_app/features/attendance/presentation/pages/activity_history_page.dart';
 import 'package:hris_app/features/leave/presentation/pages/leave_page.dart';
 import 'package:hris_app/features/profile/presentation/pages/edit_profile_page.dart';
-import 'package:hris_app/features/overtime/presentation/pages/overtime_request_page.dart';
-import 'package:hris_app/features/overtime/presentation/pages/overtime_list_page.dart';
-import 'package:hris_app/features/overtime/presentation/bloc/overtime_bloc.dart';
-import 'package:hris_app/features/profile/presentation/pages/face_registration_page.dart';
+import 'package:hris_app/features/kpi/presentation/bloc/kpi_bloc.dart';
+import 'package:hris_app/features/kpi/presentation/pages/kpi_page.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
 import 'package:hris_app/features/attendance/data/repositories/attendance_repository.dart';
+import 'package:hris_app/core/utils/constants.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
-import 'package:hris_app/core/utils/constants.dart';
+import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:hris_app/features/payroll/presentation/bloc/payroll_bloc.dart';
 import 'package:hris_app/features/payroll/presentation/pages/payslip_list_page.dart';
+import 'package:hris_app/features/overtime/presentation/bloc/overtime_bloc.dart';
+import 'package:hris_app/features/overtime/presentation/pages/overtime_list_page.dart';
+import 'package:hris_app/features/profile/presentation/pages/face_registration_page.dart';
+import 'package:hris_app/features/schedule/presentation/bloc/shift_bloc.dart';
+import 'package:hris_app/features/schedule/presentation/pages/shift_page.dart';
+import 'package:hris_app/features/directory/presentation/pages/directory_page.dart';
+import 'package:hris_app/features/directory/presentation/bloc/directory_bloc.dart';
+import 'package:hris_app/features/approval/presentation/bloc/approval_bloc.dart';
+import 'package:hris_app/features/approval/presentation/pages/approval_page.dart';
+import 'package:hris_app/features/announcement/presentation/bloc/announcement_bloc.dart';
+import 'package:hris_app/features/reimbursement/presentation/pages/reimbursement_list_page.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:shimmer/shimmer.dart';
-// Note: LeavePage, ProfilePage, etc. imports would go here based on navigation needs.
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -58,638 +67,483 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   int _currentIndex = 0;
-  late Timer _timer;
-  DateTime _currentTime = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentTime = DateTime.now();
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-
-
-  void _onClockInPressed(Map<String, dynamic>? profile) async {
-    try {
-      await _takeSelfie(isClockIn: true, profile: profile);
-    } catch (e) {
-      SnackBarUtils.showError(context, e.toString());
-    }
-  }
-
-  void _onClockOutPressed(Map<String, dynamic>? profile) async {
-    try {
-      await _takeSelfie(isClockIn: false, profile: profile);
-    } catch (e) {
-      SnackBarUtils.showError(context, e.toString());
-    }
-  }
-
-  Future<void> _takeSelfie({required bool isClockIn, Map<String, dynamic>? profile}) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => FaceVerificationPage(
-          isClockIn: isClockIn,
-          userProfile: profile,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF1B60F1);
-    const bgGray = Color(0xFFF9FAFB);
-
     return Scaffold(
-      backgroundColor: bgGray,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildDashboardTab(primaryBlue),
-          const ActivityHistoryPage(),
-          const LeavePage(),
-          const EditProfilePage(),
-        ],
+      backgroundColor: AppColors.backgroundAlt,
+      drawer: _buildDrawer(),
+      body: _buildPage(_currentIndex),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return const DashboardTab();
+      case 1:
+        return const Center(child: Text('Presensi Flow'));
+      case 2:
+        return const LeavePage();
+      case 3:
+        return const EditProfilePage();
+      default:
+        return const DashboardTab();
+    }
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, -10))],
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      child: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: primaryBlue,
-        unselectedItemColor: const Color(0xFF9CA3AF),
-        showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
+        backgroundColor: Colors.white,
+        selectedItemColor: AppColors.primaryRed,
+        unselectedItemColor: AppColors.textTertiary,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+        elevation: 0,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'Jadwal'),
-          BottomNavigationBarItem(icon: Icon(Icons.description_outlined), label: 'Pengajuan'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner_rounded), label: 'Presensi'),
+          BottomNavigationBarItem(icon: Icon(Icons.event_available_rounded), label: 'Cuti'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
         ],
       ),
     );
   }
 
-  Widget _buildDashboardTab(Color primaryBlue) {
-    return BlocListener<AttendanceBloc, AttendanceState>(
-      listener: (context, state) {
-        if (state is AttendanceSuccess) {
-          context.read<AttendanceBloc>().add(FetchHomeDataRequested());
-          SnackBarUtils.showSuccess(context, state.message);
-        } else if (state is AttendanceFailure) {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClockInFailedPage(errorMessage: state.errorMessage)));
-        }
-      },
-      child: BlocBuilder<AttendanceBloc, AttendanceState>(
+  Widget _buildDrawer() {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
-          if (state is AttendanceLoading && state is! HomeDataLoaded) {
-            return _buildShimmerDashboard();
-          }
-
           Map<String, dynamic>? profile;
-          AttendanceStats? stats;
-          List<Attendance> history = [];
-
-          if (state is HomeDataLoaded) {
-            profile = state.profile;
-            stats = state.stats;
-            history = state.history;
+          if (state is Authenticated) {
+            // Profile can be fetched if needed, but normally stored in Bloc
           }
-
-          return SafeArea(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                context.read<AttendanceBloc>().add(FetchHomeDataRequested());
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: AnimationLimiter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: AnimationConfiguration.toStaggeredList(
-                        duration: const Duration(milliseconds: 600),
-                        childAnimationBuilder: (widget) => SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(child: widget),
-                        ),
-                        children: [
-                          _buildHeader(),
-                          const SizedBox(height: 24),
-                          _buildGreeting(
-                            profile?['FirstName'] ?? 'User',
-                            faceUrl: profile?['FaceReferenceURL'],
-                          ),
-                          const SizedBox(height: 24),
-                          _buildMainActionCard(context, primaryBlue, history, profile),
-                          const SizedBox(height: 24),
-                          _buildStatsGrid(stats),
-                          const SizedBox(height: 24),
-                          _buildRecentActivityHeader(context, primaryBlue),
-                          const SizedBox(height: 12),
-                          _buildRecentActivityList(history),
-                        ],
-                      ),
+          
+          return Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: AppColors.primaryGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
+                      child: const CircleAvatar(radius: 36, backgroundColor: Colors.white, child: Icon(Icons.person, size: 40, color: AppColors.primaryRed)),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('MENU UTAMA', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 2)),
+                    const SizedBox(height: 4),
+                    const Text('DASHBOARD PANEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
+                      child: Text('ADMINISTRASI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1.5)),
+                    ),
+                    _buildDrawerItem(Icons.payments_rounded, 'Slip Gaji Digital', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<PayrollBloc>(), child: const PayslipListPage())));
+                    }),
+                    _buildDrawerItem(Icons.timer_rounded, 'Lembur', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<OvertimeBloc>(), child: const OvertimeListPage())));
+                    }),
+                    _buildDrawerItem(Icons.receipt_long_rounded, 'Reimbursement', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReimbursementListPage()));
+                    }),
+                    _buildDrawerItem(Icons.face_unlock_rounded, 'Registrasi Wajah', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceRegistrationPage()));
+                    }),
+                    _buildDrawerItem(Icons.trending_up_rounded, 'KPI & Performa', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<KPIBloc>(), child: const KPIPage())));
+                    }),
+                    _buildDrawerItem(Icons.calendar_month_rounded, 'Jadwal Shift', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<ShiftBloc>(), child: const ShiftPage())));
+                    }),
+                    _buildDrawerItem(Icons.contact_phone_rounded, 'Direktori Karyawan', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<DirectoryBloc>(), child: const DirectoryPage())));
+                    }),
+                    _buildDrawerItem(Icons.verified_user_rounded, 'Approval Panel', () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<ApprovalBloc>(), child: const ApprovalPage())));
+                    }, color: AppColors.primaryRed),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                child: InkWell(
+                  onTap: () => _showLogoutConfirmation(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    decoration: BoxDecoration(color: AppColors.error.withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout_rounded, color: AppColors.error),
+                        const SizedBox(width: 16),
+                        Text('Keluar Akun', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w800, fontSize: 14)),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEBF2FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.business, color: Color(0xFF1B60F1)),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'PT Wowin Poernomo Putra',
-                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF111827)),
-                ),
-                Text(
-                  'Employee Portal',
-                  style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280)),
-                ),
-              ],
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
-              ]),
-              child: const Icon(Icons.notifications_none, color: Color(0xFF111827)),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
-              ]),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                onPressed: () => _showLogoutConfirmation(context),
-              ),
-            ),
-          ],
-        )
-      ],
+  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? AppColors.textSecondary, size: 24),
+      title: Text(title, style: TextStyle(color: color ?? AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 14)),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
     );
   }
 
   void _showLogoutConfirmation(BuildContext context) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Logout', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-          content: Text('Apakah Anda yakin ingin keluar dari akun ini?', style: GoogleFonts.inter()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Batal', style: GoogleFonts.inter(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.read<AuthBloc>().add(LogoutRequested());
-              },
-              child: Text('Logout', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold)),
-            ),
-          ],
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Keluar Akun?', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('BATAL', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textTertiary))),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<AuthBloc>().add(LogoutRequested());
+            }, 
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryRed, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: const Text('KELUAR', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DashboardTab extends StatelessWidget {
+  const DashboardTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AttendanceBloc, AttendanceState>(
+      builder: (context, state) {
+        if (state is AttendanceLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        Map<String, dynamic>? profile;
+        List<Attendance> recentActivity = [];
+        Map<String, dynamic>? statistics;
+
+        if (state is HomeDataLoaded) {
+          profile = state.profile;
+          recentActivity = state.recentActivity;
+          statistics = state.statistics;
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            context.read<AttendanceBloc>().add(FetchHomeDataRequested());
+          },
+          child: CustomScrollView(
+            slivers: [
+              _buildSliverAppBar(profile),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStatistics(statistics),
+                      const SizedBox(height: 32),
+                      _buildQuickActions(context),
+                      const SizedBox(height: 32),
+                      _buildAnnouncements(context),
+                      const SizedBox(height: 32),
+                      _buildRecentActivity(recentActivity),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildGreeting(String name, {String? faceUrl}) {
-    final dateStr = DateFormat('EEEE, dd MMM yyyy').format(DateTime.now());
-    
-    // Construct the full URL if faceUrl is relative
-    final String? fullFaceUrl = (faceUrl != null && faceUrl.isNotEmpty) 
-        ? (faceUrl.startsWith('http') ? faceUrl : '${Uri.parse(AppConstants.baseUrl).origin}${faceUrl.startsWith('/') ? faceUrl : '/$faceUrl'}')
-        : null;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Halo, $name!',
-              style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF111827)),
+  Widget _buildSliverAppBar(Map<String, dynamic>? profile) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.white,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppColors.primaryGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(height: 4),
-            Text(
-              dateStr,
-              style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF6B7280)),
-            ),
-          ],
+          ),
         ),
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: const Color(0xFFFFDCA8),
-          backgroundImage: fullFaceUrl != null ? NetworkImage(fullFaceUrl) : null,
-          child: fullFaceUrl == null 
-            ? const Icon(Icons.person, color: Colors.orange, size: 32)
-            : null, // If image fails, you might want to handle it, but for now this is fine.
-        )
+      ),
+      title: Row(
+        children: [
+          const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('WOWIN', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
+              Text('HRIS SYSTEM', style: GoogleFonts.plusJakartaSans(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 2)),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), onPressed: () {}),
+        const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildMainActionCard(BuildContext context, Color primaryBlue, List<Attendance> history, Map<String, dynamic>? profile) {
-    final timeStr = DateFormat('hh : mm').format(_currentTime);
-    final amPmStr = DateFormat('a').format(_currentTime);
+  Widget _buildStatistics(Map<String, dynamic>? stats) {
+    return Row(
+      children: [
+        Expanded(child: _buildStatCard('HADIR', stats?['PresentCount']?.toString() ?? '0', const Color(0xFF10B981))),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('CUTI', stats?['LeaveCount']?.toString() ?? '0', const Color(0xFF3B82F6))),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('ALFA', stats?['AlphaCount']?.toString() ?? '0', AppColors.primaryRed)),
+      ],
+    );
+  }
 
-    bool hasClockedIn = false;
-    if (history.isNotEmpty) {
-      final todayRecord = history.first;
-      if (todayRecord.checkIn.day == DateTime.now().day && todayRecord.checkOut == null) {
-        hasClockedIn = true;
-      }
-    }
-
+  Widget _buildStatCard(String label, String value, Color color) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10)),
-        ],
+        boxShadow: [BoxShadow(color: color.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              'Shift: 07:30 - 16:30',
-              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF4B5563)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                timeStr,
-                style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.bold, color: const Color(0xFF111827), letterSpacing: -1),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                child: Text(
-                  amPmStr,
-                  style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280)),
-                ),
-              )
-            ],
-          ),
-          const SizedBox(height: 24),
-          InkWell(
-            onTap: () => hasClockedIn ? _onClockOutPressed(profile) : _onClockInPressed(profile),
-            borderRadius: BorderRadius.circular(100),
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF387BFF), Color(0xFF104FD4)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(color: primaryBlue.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 12)),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(hasClockedIn ? Icons.logout : Icons.camera_alt, color: Colors.white, size: 36),
-                  const SizedBox(height: 8),
-                  Text(
-                    hasClockedIn ? 'Clock Out' : 'Clock In',
-                    style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  if (!hasClockedIn)
-                    Text(
-                      'Selfie Diperlukan',
-                      style: GoogleFonts.inter(color: Colors.white.withOpacity(0.8), fontSize: 11),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => BlocProvider(
-                      create: (context) => di.sl<PayrollBloc>(),
-                      child: const PayslipListPage(),
-                    ),
-                  ),
-                );
-              },
-              icon: Icon(Icons.receipt_long, color: primaryBlue),
-              label: Text('Slip Gaji', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: primaryBlue)),
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFF0F5FF),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => BlocProvider(
-                      create: (context) => di.sl<OvertimeBloc>(),
-                      child: const OvertimeListPage(),
-                    ),
-                  ),
-                );
-              },
-              icon: Icon(Icons.history_toggle_off, color: primaryBlue),
-              label: Text('Ajukan Lembur', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: primaryBlue)),
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFF0F5FF),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceRegistrationPage()));
-              },
-              icon: Icon(Icons.face, color: Colors.orange),
-              label: Text('Registrasi Wajah', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.orange)),
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.orange.withOpacity(0.1),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.location_on_outlined, color: Color(0xFF6B7280), size: 16),
-              const SizedBox(width: 6),
-              Text(
-                'Pandeyan, Karanganyar',
-                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280)),
-              )
-            ],
-          )
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1)),
         ],
       ),
     );
   }
 
-  Widget _buildStatsGrid(AttendanceStats? stats) {
-    return GridView.count(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.6,
-      children: [
-        _buildStatCard(Icons.access_time, Colors.blue, '${stats?.totalHours.toStringAsFixed(1) ?? "0"}h', 'Total Jam'),
-        _buildStatCard(Icons.watch_later_outlined, Colors.purple, '${stats?.overtimeHours.toStringAsFixed(1) ?? "0"}h', 'Lembur'),
-        _buildStatCard(Icons.calendar_month, Colors.green, '${stats?.attendanceDays ?? "0"}d', 'Hadir'),
-        _buildStatCard(Icons.beach_access_outlined, Colors.orange, '${stats?.leaveDays ?? "0"}d', 'Cuti'),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(IconData icon, Color color, String value, String label) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 8),
-          Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
-          Text(label, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentActivityHeader(BuildContext context, Color primaryBlue) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Recent Activity',
-          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF111827)),
-        ),
-        GestureDetector(
-          onTap: () {
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityHistoryPage()));
-          },
-          child: Text(
-            'View All',
-            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: primaryBlue),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentActivityList(List<Attendance> history) {
-    if (history.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Text('Tidak ada aktivitas terbaru', style: GoogleFonts.inter(color: Colors.grey)),
-        ),
-      );
-    }
+  Widget _buildQuickActions(BuildContext context) {
     return Column(
-      children: history.take(3).map((record) {
-        final isClockIn = record.status != 'checkout'; // Simplified check
-        return _buildActivityTile(
-          icon: isClockIn ? Icons.login : Icons.logout,
-          isClockIn: isClockIn,
-          title: isClockIn ? 'Clock In' : 'Clock Out',
-          dateStr: DateFormat('MMM dd').format(record.checkIn),
-          timeStr: DateFormat('hh:mm a').format(isClockIn ? record.checkIn : (record.checkOut ?? record.checkIn)),
-          status: record.status.toLowerCase() == 'on_time' ? 'On Time' : (record.status.toLowerCase() == 'late' ? 'Late' : 'On Time'),
-          statusColor: record.status.toLowerCase() == 'late' ? Colors.orange : Colors.green,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildActivityTile({
-    required IconData icon,
-    required bool isClockIn,
-    required String title,
-    required String dateStr,
-    required String timeStr,
-    required String status,
-    required Color statusColor,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isClockIn ? const Color(0xFFF0F5FF) : const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: isClockIn ? const Color(0xFF1B60F1) : const Color(0xFF4B5563), size: 20),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
-                  const SizedBox(height: 4),
-                  Text(dateStr, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280))),
-                ],
-              ),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(timeStr, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status,
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
-                ),
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShimmerDashboard() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('AKSES CEPAT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(width: 150, height: 40, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12))),
-                Container(width: 40, height: 40, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-              ],
-            ),
-            const SizedBox(height: 32),
-            Container(width: 200, height: 30, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8))),
-            const SizedBox(height: 24),
-            Container(width: double.infinity, height: 280, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24))),
-            const SizedBox(height: 24),
-            GridView.count(
-              shrinkWrap: true,
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.6,
-              children: List.generate(4, (index) => Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)))),
-            ),
+            _buildActionItem(Icons.qr_code_scanner_rounded, 'Masuk', const Color(0xFF10B981), () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: true)))),
+            _buildActionItem(Icons.logout_rounded, 'Keluar', AppColors.primaryRed, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: false)))),
+            _buildActionItem(Icons.history_rounded, 'Riwayat', const Color(0xFFF59E0B), () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityHistoryPage()))),
+            _buildActionItem(Icons.event_available_rounded, 'Cuti', const Color(0xFF8B5CF6), () { /* Go to Leave tab */ }),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildActionItem(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+        ],
       ),
+    );
+  }
+
+  Widget _buildAnnouncements(BuildContext context) {
+    return BlocProvider(
+      create: (context) => di.sl<AnnouncementBloc>()..add(FetchAnnouncementsRequested()),
+      child: BlocBuilder<AnnouncementBloc, AnnouncementState>(
+        builder: (context, state) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('PENGUMUMAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+                  TextButton(onPressed: () {}, child: const Text('Lihat Semua', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primaryRed))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (state is AnnouncementLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (state is AnnouncementLoaded && state.announcements.isNotEmpty)
+                SizedBox(
+                  height: 160,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: state.announcements.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 16),
+                    itemBuilder: (context, index) {
+                      final ann = state.announcements[index];
+                      return Container(
+                        width: 280,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: AppColors.grayBorder),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.08), shape: BoxShape.circle), child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 16)),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(ann.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(ann.content, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const Spacer(),
+                            Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: const TextStyle(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.campaign_outlined, color: AppColors.textTertiary, size: 32),
+                      SizedBox(height: 12),
+                      Text('Belum ada pengumuman hari ini', style: TextStyle(fontSize: 12, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRecentActivity(List<Attendance> activity) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('AKTIVITAS TERBARU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+        const SizedBox(height: 16),
+        if (activity.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
+            child: const Column(
+              children: [
+                Icon(Icons.history_rounded, color: AppColors.textTertiary, size: 32),
+                SizedBox(height: 12),
+                Text('Belum ada riwayat absensi', style: TextStyle(fontSize: 12, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: activity.length > 5 ? 5 : activity.length,
+            itemBuilder: (context, index) {
+              final att = activity[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.grayBorder)),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: (att.checkOut == null ? const Color(0xFF10B981) : AppColors.primaryRed).withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(att.checkOut == null ? Icons.login_rounded : Icons.logout_rounded, color: att.checkOut == null ? const Color(0xFF10B981) : AppColors.primaryRed, size: 20),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(att.checkOut == null ? 'Absen Masuk' : 'Absen Keluar', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                          const SizedBox(height: 2),
+                          Text(DateFormat('dd MMMM yyyy').format(att.checkIn), style: const TextStyle(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    Text(DateFormat('HH:mm').format(att.checkOut ?? att.checkIn), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 }

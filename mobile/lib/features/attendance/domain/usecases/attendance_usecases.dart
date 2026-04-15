@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:hris_app/core/error/failures.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
-import 'package:hris_app/domain/repositories/attendance_repository.dart';
+import 'package:hris_app/features/attendance/data/repositories/attendance_repository.dart';
 
 class CheckInUseCase {
   final AttendanceRepository repository;

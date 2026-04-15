@@ -7,24 +7,30 @@ abstract class AttendanceEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class SubmitClockInEvent extends AttendanceEvent {
-  final String photoPath;
-  final List<double> embedding;
+class ClockInRequested extends AttendanceEvent {
+  final bool isClockIn;
+  final String? imagePath;
+  final double? latitude;
+  final double? longitude;
 
-  const SubmitClockInEvent({required this.photoPath, required this.embedding});
+  const ClockInRequested({
+    required this.isClockIn,
+    this.imagePath,
+    this.latitude,
+    this.longitude,
+  });
 
   @override
-  List<Object?> get props => [photoPath, embedding];
+  List<Object?> get props => [isClockIn, imagePath, latitude, longitude];
 }
 
-class SubmitClockOutEvent extends AttendanceEvent {
-  final String photoPath;
-  final List<double> embedding;
+class RegisterFaceRequested extends AttendanceEvent {
+  final String imagePath;
 
-  const SubmitClockOutEvent({required this.photoPath, required this.embedding});
+  const RegisterFaceRequested(this.imagePath);
 
   @override
-  List<Object?> get props => [photoPath, embedding];
+  List<Object?> get props => [imagePath];
 }
 
 class FetchHistoryRequested extends AttendanceEvent {
@@ -38,3 +44,24 @@ class FetchHistoryRequested extends AttendanceEvent {
 }
 
 class FetchHomeDataRequested extends AttendanceEvent {}
+
+class SaveOfflineAttendanceEvent extends AttendanceEvent {
+  final String type;
+  final String photoPath;
+  final double latitude;
+  final double longitude;
+
+  const SaveOfflineAttendanceEvent({
+    required this.type,
+    required this.photoPath,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  @override
+  List<Object?> get props => [type, photoPath, latitude, longitude];
+}
+
+class SyncAttendanceQueueRequested extends AttendanceEvent {}
+
+class GetQueueCountRequested extends AttendanceEvent {}

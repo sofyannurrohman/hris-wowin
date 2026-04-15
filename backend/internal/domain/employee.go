@@ -67,6 +67,7 @@ type Employee struct {
 	EmploymentStatus string     `gorm:"type:varchar(50)"`
 	ManagerID        *uuid.UUID `gorm:"type:uuid"`
 
+	Salary           *float64   `gorm:"type:numeric(15,2)"`
 	CreatedAt time.Time `gorm:"default:now()"`
 	UpdatedAt time.Time `gorm:"default:now()"`
 

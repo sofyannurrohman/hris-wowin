@@ -8,6 +8,8 @@ class Leave extends Equatable {
   final String reason;
   final String status;
   final String? leaveTypeName;
+  final String? employeeName;
+  final DateTime? createdAt;
 
   const Leave({
     required this.id,
@@ -17,6 +19,8 @@ class Leave extends Equatable {
     required this.reason,
     required this.status,
     this.leaveTypeName,
+    this.employeeName,
+    this.createdAt,
   });
 
   factory Leave.fromJson(Map<String, dynamic> json) {
@@ -27,11 +31,12 @@ class Leave extends Equatable {
       endDate: json['EndDate'] != null ? DateTime.parse(json['EndDate']).toLocal() : DateTime.now(),
       reason: json['Reason'] ?? '',
       status: json['Status'] ?? 'PENDING',
-      leaveTypeName: json['LeaveType'] != null ? json['LeaveType']['Name'] : null,
+      leaveTypeName: json['LeaveTypeName'] ?? (json['LeaveType'] != null ? json['LeaveType']['Name'] : null),
+      employeeName: json['EmployeeName'],
+      createdAt: json['CreatedAt'] != null ? DateTime.parse(json['CreatedAt']).toLocal() : null,
     );
   }
 
-
   @override
-  List<Object?> get props => [id, userId, startDate, endDate, reason, status];
+  List<Object?> get props => [id, userId, startDate, endDate, reason, status, employeeName, createdAt];
 }

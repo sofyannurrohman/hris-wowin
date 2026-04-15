@@ -9,6 +9,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show File;
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:hris_app/injection.dart' as di;
+import 'package:hris_app/features/auth/domain/repositories/auth_repository.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -30,12 +32,38 @@ class _RegisterPageState extends State<RegisterPage> {
   List<double>? _faceEmbedding;
   String? _selfiePath;
   String? _selectedJobPositionId;
+  String? _selectedBranchId; // Added
 
-  final List<Map<String, String>> _jobPositions = [
-    {'id': 'ff961e50-8c25-4748-aa27-46afa117e109', 'title': 'CTO'},
-    {'id': 'c96ab7f0-141b-4a11-92f4-5eea3dcddf12', 'title': 'Software Engineer'},
-    {'id': 'a6838152-11e3-4e03-a98f-10c918636446', 'title': 'HR Manager'},
-  ];
+  List<Map<String, dynamic>> _jobPositions = []; // Changed to dynamic
+  List<Map<String, dynamic>> _branches = []; // Added
+  bool _isLoadingData = true; // Added
+  
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    final repo = di.sl<AuthRepository>();
+    
+    final branchesResult = await repo.getBranches();
+    final jobsResult = await repo.getJobPositions();
+    
+    if (mounted) {
+      branchesResult.fold(
+        (failure) => SnackBarUtils.showError(context, failure.message),
+        (data) => setState(() => _branches = data),
+      );
+      
+      jobsResult.fold(
+        (failure) => SnackBarUtils.showError(context, failure.message),
+        (data) => setState(() => _jobPositions = data),
+      );
+      
+      setState(() => _isLoadingData = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -56,6 +84,10 @@ class _RegisterPageState extends State<RegisterPage> {
         SnackBarUtils.showError(context, 'Harap pilih posisi pekerjaan');
         return;
       }
+      if (_selectedBranchId == null) {
+        SnackBarUtils.showError(context, 'Harap pilih cabang');
+        return;
+      }
       context.read<AuthBloc>().add(
             RegisterRequested(
               _nameController.text.trim(),
@@ -63,6 +95,7 @@ class _RegisterPageState extends State<RegisterPage> {
               _employeeIdController.text.trim(),
               _passwordController.text,
               _selectedJobPositionId!,
+              _selectedBranchId!,
               embedding: _faceEmbedding,
               selfiePath: _selfiePath,
             ),
@@ -157,45 +190,94 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         const SizedBox(height: 32),
 
-                        // Job Position Dropdown
-                        _buildLabel('Posisi Pekerjaan'),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: _selectedJobPositionId,
-                          items: _jobPositions.map((pos) {
-                            return DropdownMenuItem<String>(
-                              value: pos['id'],
-                              child: Text(pos['title']!),
-                            );
-                          }).toList(),
-                          onChanged: (value) => setState(() => _selectedJobPositionId = value),
-                          decoration: InputDecoration(
-                            hintText: 'Pilih posisi pekerjaan',
-                            hintStyle: GoogleFonts.inter(color: const Color(0xFF9CA3AF), fontSize: 15),
-                            prefixIcon: const Icon(Icons.work_outline, color: const Color(0xFF9CA3AF), size: 22),
-                            filled: true,
-                            fillColor: const Color(0xFFF9FAFB),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        if (_isLoadingData)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                          )
+                        else ...[
+                          // Branch Selection Dropdown
+                          _buildLabel('Cabang'),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedBranchId,
+                            items: _branches.map((branch) {
+                              return DropdownMenuItem<String>(
+                                value: branch['id'],
+                                child: Text(branch['name']),
+                              );
+                            }).toList(),
+                            onChanged: (value) => setState(() => _selectedBranchId = value),
+                            decoration: InputDecoration(
+                              hintText: 'Pilih cabang bekerja',
+                              hintStyle: GoogleFonts.inter(color: const Color(0xFF9CA3AF), fontSize: 15),
+                              prefixIcon: const Icon(Icons.location_on_outlined, color: const Color(0xFF9CA3AF), size: 22),
+                              filled: true,
+                              fillColor: const Color(0xFFF9FAFB),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFF1B60F1), width: 1.5),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF1B60F1), width: 1.5),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Colors.red),
-                            ),
+                            validator: (v) => v == null ? 'Required' : null,
                           ),
-                          validator: (v) => v == null ? 'Required' : null,
-                        ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 20),
+
+                          // Job Position Dropdown
+                          _buildLabel('Posisi Pekerjaan'),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedJobPositionId,
+                            items: _jobPositions.map((pos) {
+                              return DropdownMenuItem<String>(
+                                value: pos['id'],
+                                child: Text(pos['title'] ?? pos['name'] ?? ''), // Job position might use 'title' or 'name'
+                              );
+                            }).toList(),
+                            onChanged: (value) => setState(() => _selectedJobPositionId = value),
+                            decoration: InputDecoration(
+                              hintText: 'Pilih posisi pekerjaan',
+                              hintStyle: GoogleFonts.inter(color: const Color(0xFF9CA3AF), fontSize: 15),
+                              prefixIcon: const Icon(Icons.work_outline, color: const Color(0xFF9CA3AF), size: 22),
+                              filled: true,
+                              fillColor: const Color(0xFFF9FAFB),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Color(0xFF1B60F1), width: 1.5),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Colors.red),
+                              ),
+                            ),
+                            validator: (v) => v == null ? 'Required' : null,
+                          ),
+                          const SizedBox(height: 20),
+                        ],
 
                         // Full Name Field
                         _buildLabel('Nama Lengkap'),

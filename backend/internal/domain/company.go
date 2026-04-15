@@ -34,6 +34,7 @@ type Branch struct {
 	Longitude   float64    `gorm:"type:decimal(11,8)"`
 	RadiusMeter int        `gorm:"default:100"`
 	CreatedAt   time.Time  `gorm:"default:now()"`
+	UpdatedAt   time.Time  `gorm:"default:now()"`
 
 	Company *Company `gorm:"foreignKey:CompanyID"`
 }

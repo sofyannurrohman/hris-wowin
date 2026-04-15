@@ -5,6 +5,7 @@ import 'package:hris_app/features/attendance/presentation/bloc/attendance_bloc.d
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 
 class ActivityHistoryPage extends StatefulWidget {
@@ -59,20 +60,16 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF1B60F1);
-    const bgGray = Color(0xFFF9FAFB);
-    const textColor = Color(0xFF111827);
-
     return Scaffold(
-      backgroundColor: bgGray,
+      backgroundColor: AppColors.backgroundAlt,
       appBar: AppBar(
-        title: Text('Activity History', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: textColor)),
+        title: const Text('RIWAYAT AKTIVITAS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: AppColors.textPrimary)),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
         leading: Navigator.of(context).canPop() 
           ? IconButton(
-              icon: const Icon(Icons.arrow_back, color: textColor),
+              icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
               onPressed: () => Navigator.of(context).pop(),
             )
           : null,
@@ -81,14 +78,14 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
         child: BlocBuilder<AttendanceBloc, AttendanceState>(
           builder: (context, state) {
             if (state is AttendanceLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator(color: AppColors.primaryRed));
             }
 
             if (state is AttendanceFailure) {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Text(state.errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                  child: Text(state.message, textAlign: TextAlign.center, style: TextStyle(color: AppColors.error)),
                 ),
               );
             }
@@ -97,7 +94,7 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Text(state.message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                  child: Text(state.message, textAlign: TextAlign.center, style: TextStyle(color: AppColors.error)),
                 ),
               );
             }
@@ -106,7 +103,7 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Text(state.message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                  child: Text(state.message, textAlign: TextAlign.center, style: TextStyle(color: AppColors.error)),
                 ),
               );
             }
@@ -129,12 +126,12 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
                             physics: const AlwaysScrollableScrollPhysics(),
                             children: [
                               SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                              const Center(child: Text('Tidak ada riwayat kehadiran')),
+                              const Center(child: Text('Tidak ada riwayat kehadiran', style: TextStyle(color: AppColors.textTertiary, fontWeight: FontWeight.w600))),
                             ],
                           )
                         : ListView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16).copyWith(bottom: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16).copyWith(bottom: 120),
                             itemCount: history.length,
                             itemBuilder: (context, index) => _buildHistoryCard(history[index]),
                           ),
@@ -148,9 +145,9 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
+                  CircularProgressIndicator(color: AppColors.primaryRed),
                   SizedBox(height: 16),
-                  Text('Memuat riwayat...'),
+                  Text('Memuat riwayat...', style: TextStyle(color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
                 ],
               ),
             );
@@ -164,29 +161,20 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
+              Icon(Icons.event_note_rounded, color: AppColors.primaryRed, size: 20),
               const SizedBox(width: 12),
-              Text(DateFormat('MMMM yyyy').format(DateTime.now()), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
+              Text(DateFormat('MMMM yyyy').format(DateTime.now()).toUpperCase(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: 1)),
             ],
           ),
-          const Icon(Icons.keyboard_arrow_down, color: Color(0xFF6B7280)),
+          Icon(Icons.unfold_more_rounded, color: AppColors.textTertiary, size: 20),
         ],
       ),
-    );
-  }
-
-  Widget _buildWeekHeader(String week, String dateRange) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(week, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF9CA3AF), letterSpacing: 1.0)),
-        Text(dateRange, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF9CA3AF))),
-      ],
     );
   }
 
@@ -194,24 +182,24 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
     final checkIn = record.checkIn as DateTime;
     final checkOut = record.checkOut as DateTime?;
     
-    final dayStr = DateFormat('EEE').format(checkIn);
+    final dayStr = DateFormat('EEE').format(checkIn).toUpperCase();
     final dateStr = DateFormat('dd').format(checkIn);
-    final monthStr = DateFormat('MMM').format(checkIn);
+    final monthStr = DateFormat('MMM').format(checkIn).toUpperCase();
     
-    final checkInTimeStr = DateFormat('hh:mm a').format(checkIn);
-    final checkOutTimeStr = checkOut != null ? DateFormat('hh:mm a').format(checkOut) : '--:--';
+    final checkInTimeStr = DateFormat('HH:mm').format(checkIn);
+    final checkOutTimeStr = checkOut != null ? DateFormat('HH:mm').format(checkOut) : '--:--';
     
-    final durationHours = record.workDuration / 60; // Assuming workDuration is in minutes
-    final durationStr = '${durationHours.toStringAsFixed(1)}h';
+    final durationHours = record.workDuration / 60; 
+    final durationStr = '${durationHours.toStringAsFixed(1)} jam';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10)),
         ],
       ),
       child: Row(
@@ -220,14 +208,14 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.grayLight,
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               children: [
-                Text(dayStr, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280))),
-                Text(dateStr, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
-                Text(monthStr, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280))),
+                Text(dayStr, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 0.5)),
+                Text(dateStr, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                Text(monthStr, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 0.5)),
               ],
             ),
           ),
@@ -240,19 +228,21 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
               children: [
                 Row(
                   children: [
-                    _buildBadge('Regular', Colors.green),
+                    _buildBadge('Regular', const Color(0xFF10B981)),
                     if (record.status.toLowerCase() == 'late') ...[
                       const SizedBox(width: 8),
-                      _buildBadge('Late In', Colors.orange),
+                      _buildBadge('Terlambat', const Color(0xFFF97316)),
                     ],
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.access_time, size: 14, color: Color(0xFF6B7280)),
-                    const SizedBox(width: 6),
-                    Text('$checkInTimeStr - $checkOutTimeStr', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF4B5563), fontWeight: FontWeight.w500)),
+                    Icon(Icons.access_time_filled_rounded, size: 14, color: AppColors.textTertiary),
+                    const SizedBox(width: 8),
+                    Text('$checkInTimeStr - $checkOutTimeStr', style: TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 4),
+                    const Text('WIB', style: TextStyle(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w800)),
                   ],
                 )
               ],
@@ -260,21 +250,26 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
           ),
           
           // Total Time
-          Text(durationStr, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(durationStr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+              const Text('TOTAL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1)),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildBadge(String text, MaterialColor color) {
+  Widget _buildBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.shade200),
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(text, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color.shade700)),
+      child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.5)),
     );
   }
 

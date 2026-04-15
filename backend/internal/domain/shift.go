@@ -15,10 +15,12 @@ type Shift struct {
 	EndTime    time.Time  `gorm:"type:time;not null"`
 	BreakStart *time.Time `gorm:"type:time"`
 	BreakEnd   *time.Time `gorm:"type:time"`
+	BranchID   *uuid.UUID `gorm:"type:uuid"`
 	IsFlexible bool       `gorm:"default:false"`
 	CreatedAt  time.Time  `gorm:"default:now()"`
 
 	Company *Company `gorm:"foreignKey:CompanyID"`
+	Branch  *Branch  `gorm:"foreignKey:BranchID"`
 }
 
 func (s *Shift) BeforeCreate(tx *gorm.DB) (err error) {

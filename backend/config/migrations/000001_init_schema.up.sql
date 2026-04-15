@@ -21,7 +21,8 @@ CREATE TABLE branches (
     latitude DECIMAL(10, 8), -- Pusat lokasi kantor untuk Geofencing
     longitude DECIMAL(11, 8),
     radius_meter INT DEFAULT 100, -- Batas toleransi jarak absen
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Departemen

@@ -27,6 +27,10 @@ func (h *BranchHandler) SetupRoutes(r *gin.RouterGroup) {
 	}
 }
 
+func (h *BranchHandler) SetupPublicRoutes(r *gin.RouterGroup) {
+	r.GET("/branches", h.GetAll)
+}
+
 func (h *BranchHandler) Create(c *gin.Context) {
 	var req usecase.CreateBranchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

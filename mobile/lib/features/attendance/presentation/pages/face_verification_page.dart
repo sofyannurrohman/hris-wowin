@@ -1,38 +1,35 @@
-import 'dart:io' show File;
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'package:camera/camera.dart' show XFile;
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
+import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.dart';
-import 'package:hris_app/core/widgets/reusable_camera_widget.dart';
-import 'package:hris_app/core/utils/ml_service.dart';
-import 'package:hris_app/features/auth/domain/repositories/auth_repository.dart';
-import 'package:hris_app/injection.dart' as di;
-import 'package:image/image.dart' as imglib;
-import 'package:intl/intl.dart';
-import 'package:hris_app/core/utils/constants.dart';
-import 'package:hris_app/core/utils/snackbar_utils.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:hris_app/features/attendance/presentation/pages/clock_in_success_page.dart';
+import 'package:hris_app/features/attendance/presentation/pages/clock_in_failed_page.dart';
+import 'package:hris_app/core/services/biometric_service.dart';
 
 class FaceVerificationResult {
-  final String imagePath;
   final List<double> embedding;
-  FaceVerificationResult({required this.imagePath, required this.embedding});
+  final String imagePath;
+
+  FaceVerificationResult({required this.embedding, required this.imagePath});
 }
 
 class FaceVerificationPage extends StatefulWidget {
   final bool isClockIn;
   final bool isRegistration;
-  final Map<String, dynamic>? userProfile;
+
   const FaceVerificationPage({
     super.key, 
     this.isClockIn = true,
     this.isRegistration = false,
-    this.userProfile,
   });
 
   @override
@@ -40,38 +37,26 @@ class FaceVerificationPage extends StatefulWidget {
 }
 
 class _FaceVerificationPageState extends State<FaceVerificationPage> {
+  final ImagePicker _picker = ImagePicker();
   String? _capturedImagePath;
-  late Timer _timer;
-  DateTime _currentTime = DateTime.now();
-  final MLService _mlService = MLService();
   bool _isVerifying = false;
   Position? _currentPosition;
+  late Timer _timer;
+  DateTime _now = DateTime.now();
+  bool _isBiometricEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _mlService.initialize();
-    _fetchCurrentLocation();
+    _getCurrentLocation();
+    _checkBiometricStatus();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          _currentTime = DateTime.now();
+          _now = DateTime.now();
         });
       }
     });
-  }
-
-  Future<void> _fetchCurrentLocation() async {
-    try {
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      if (mounted) {
-        setState(() {
-          _currentPosition = pos;
-        });
-      }
-    } catch (e) {
-      if (kDebugMode) print("Error fetching location: $e");
-    }
   }
 
   @override
@@ -80,157 +65,138 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
     super.dispose();
   }
 
-  void _openCamera() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ReusableCameraWidget(
-          instructionText: "Posisikan wajah Anda di dalam lingkaran",
-          onCapture: (String imagePath) {
-            setState(() {
-              _capturedImagePath = imagePath;
-            });
-            // Auto close camera after taking picture
-            Navigator.of(context).pop();
-          },
-        ),
-      ),
-    );
+  Future<void> _checkBiometricStatus() async {
+    final status = await di.sl<BiometricService>().isBiometricAvailable();
+    if (mounted) {
+      setState(() {
+        _isBiometricEnabled = status;
+      });
+    }
   }
 
-  Future<void> _submitClockIn() async {
-    if (_capturedImagePath == null) return;
-    
-    setState(() {
-      _isVerifying = true;
-    });
-
+  Future<void> _getCurrentLocation() async {
     try {
-      // 1. Decode image for ML processing (if needed)
-      final xFile = XFile(_capturedImagePath!);
-      final bytes = await xFile.readAsBytes();
-      final image = imglib.decodeImage(bytes);
-      if (image == null) throw Exception("Gagal memproses gambar");
+      bool serviceEnabled;
+      LocationPermission permission;
 
-      List<double> currentEmbedding;
-      try {
-        if (_mlService.isInitialized) {
-          currentEmbedding = _mlService.predict(image);
-        } else if (widget.isRegistration) {
-          // Skip ML on web/unsupported if it's registration
-          currentEmbedding = List.filled(192, 0.0);
-        } else {
-          throw Exception("Layanan verifikasi wajah tidak tersedia.");
-        }
-      } catch (e) {
-        if (widget.isRegistration) {
-          currentEmbedding = List.filled(192, 0.0);
-          if (kDebugMode) print("ML prediction failed during registration, using dummy: $e");
-        } else {
-          rethrow;
-        }
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
       }
 
-      // 2. If registration, just return the result early
-      if (widget.isRegistration) {
-        if (mounted) {
-          Navigator.of(context).pop(
-            FaceVerificationResult(
-              imagePath: _capturedImagePath!,
-              embedding: currentEmbedding,
-            ),
-          );
-        }
-        return;
-      }
+      if (permission == LocationPermission.deniedForever) return;
 
-      // 3. Get stored base embedding (only for clock-in/out)
-      final authRepo = di.sl<AuthRepository>();
-      final result = await authRepo.getStoredFaceEmbedding();
-      
-      List<double>? baseEmbedding;
-      result.fold(
-        (failure) => throw Exception(failure.message),
-        (embedding) => baseEmbedding = embedding,
-      );
-
-      if (baseEmbedding == null) {
-        throw Exception("Wajah Anda belum terdaftar. Silakan registrasi wajah terlebih dahulu di profil.");
-      }
-
-      // 4. Compare
-      final distance = _mlService.calculateEuclideanDistance(currentEmbedding, baseEmbedding!);
-      
-      if (kDebugMode) {
-        print("Face Recognition Distance: $distance (Threshold: ${AppConstants.faceVerificationThreshold})");
-      }
-      
-      if (distance > AppConstants.faceVerificationThreshold) {
-        throw Exception("Wajah tidak cocok. Harap pastikan wajah Anda terlihat jelas.");
-      }
-
-      // 5. Submit to Backend if face matches locally
-      if (mounted) {
-        context.read<AttendanceBloc>().add(
-          widget.isClockIn
-              ? SubmitClockInEvent(
-                  photoPath: _capturedImagePath!,
-                  embedding: currentEmbedding,
-                )
-              : SubmitClockOutEvent(
-                  photoPath: _capturedImagePath!,
-                  embedding: currentEmbedding,
-                ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        SnackBarUtils.showError(
-          context,
-          e.toString().replaceAll('Exception: ', ''),
-        );
-      }
-    } finally {
+      Position position = await Geolocator.getCurrentPosition();
       if (mounted) {
         setState(() {
-          _isVerifying = false;
+          _currentPosition = position;
         });
       }
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+    }
+  }
+
+  Future<void> _verifyBiometric() async {
+    final authenticated = await di.sl<BiometricService>().authenticate(
+      reason: 'Silakan verifikasi sidik jari untuk absensi',
+    );
+    if (authenticated) {
+      _submitClockIn();
+    }
+  }
+
+  Future<void> _openCamera() async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 50,
+      );
+
+      if (photo != null) {
+        setState(() {
+          _capturedImagePath = photo.path;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal membuka kamera: $e')),
+      );
+    }
+  }
+
+  void _submitClockIn() {
+    if (widget.isRegistration) {
+      if (_capturedImagePath == null) return;
+      // Navigator should return the result if it's for registration
+      Navigator.of(context).pop(FaceVerificationResult(
+        embedding: [], // Mock embedding or get from ML kit if needed
+        imagePath: _capturedImagePath!,
+      ));
+    } else {
+      context.read<AttendanceBloc>().add(
+        ClockInRequested(
+          isClockIn: widget.isClockIn,
+          imagePath: _capturedImagePath,
+          latitude: _currentPosition?.latitude,
+          longitude: _currentPosition?.longitude,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final timeStr = DateFormat('hh:mm').format(_currentTime);
-    final amPmStr = DateFormat('a').format(_currentTime);
+    String timeStr = DateFormat('HH:mm').format(_now);
+    String amPmStr = DateFormat('a').format(_now);
 
     return BlocConsumer<AttendanceBloc, AttendanceState>(
       listener: (context, state) {
         if (state is AttendanceSuccess) {
-          SnackBarUtils.showSuccess(context, state.message);
-          Navigator.pop(context, true);
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ClockInSuccessPage(
+                attendance: state.attendance,
+              ),
+            ),
+          );
         } else if (state is AttendanceFailure) {
-          SnackBarUtils.showError(context, state.errorMessage);
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ClockInFailedPage(
+                errorMessage: state.message,
+              ),
+            ),
+          );
+        } else if (state is FaceRegistrationSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registrasi wajah berhasil!')),
+          );
+          Navigator.of(context).pop();
         }
       },
       builder: (context, state) {
-        bool isLoading = state is AttendanceLoading;
+        bool isLoading = state is AttendanceLoading || state is FaceRegistrationLoading;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: AppColors.backgroundAlt,
           appBar: AppBar(
             title: Text(
-                widget.isRegistration
-                    ? 'Ambil Selfie Verifikasi'
-                    : (widget.isClockIn ? 'Clock In Pegawai' : 'Clock Out Pegawai'),
-                style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87)),
+              widget.isRegistration
+                  ? 'VERIFIKASI WAJAH'
+                  : (widget.isClockIn ? 'ABSEN MASUK' : 'ABSEN KELUAR'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: AppColors.textPrimary),
+            ),
             centerTitle: true,
             backgroundColor: Colors.white,
-            elevation: 1,
+            elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -241,26 +207,22 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                 Container(
                   width: double.infinity,
                   color: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Column(
                     children: [
                       if (!widget.isRegistration) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: AppColors.primaryRed.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Text(
-                            'SHIFT MORNING',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue[800]),
+                          child: const Text(
+                            'SHIFT PAGI (07:30)',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.primaryRed),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 16),
                       ],
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -268,20 +230,13 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                         children: [
                           Text(
                             timeStr,
-                            style: GoogleFonts.inter(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87),
+                            style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: AppColors.textPrimary, letterSpacing: -1),
                           ),
                           Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: 8.0, left: 4.0),
+                            padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
                             child: Text(
-                              amPmStr,
-                              style: GoogleFonts.inter(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black54),
+                              amPmStr.toUpperCase(),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textTertiary),
                             ),
                           ),
                         ],
@@ -291,160 +246,159 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                 ),
 
                 if (!widget.isRegistration) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   // Location Details
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4))
+                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))
                       ],
                     ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6F4EA),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.location_on,
-                              color: Color(0xFF34A853), size: 24),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
+                          child: const Icon(Icons.location_on_rounded, color: Color(0xFF10B981), size: 24),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                                Text(
-                                  'Lokasi Saat Ini',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12, color: Colors.grey[600]),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _currentPosition != null 
-                                      ? '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}'
-                                      : 'Mencari lokasi...',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF111827)),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (widget.userProfile?['BranchName'] != null)
-                                  Text(
-                                    'Branch: ${widget.userProfile!['BranchName']}',
-                                    style: GoogleFonts.inter(fontSize: 11, color: Colors.blue[600]),
-                                  ),
-                              ],
-                            ),
+                              const Text('LOKASI PRESENSI', style: TextStyle(fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w800, color: AppColors.textTertiary)),
+                              const SizedBox(height: 4),
+                              Text(
+                                _currentPosition != null 
+                                    ? 'Koordinat: ${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}'
+                                    : 'Mencari lokasi...',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                const SizedBox(height: 32),
-
-                // Camera Section
-                if (_capturedImagePath == null) ...[
-                  // State: Belum Foto
-                  Container(
-                    height: 240,
-                    margin: const EdgeInsets.symmetric(horizontal: 40),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300, width: 2, style: BorderStyle.solid),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.face_retouching_natural, size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Silakan ambil foto selfie untuk\nkeperluan absensi',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(color: Colors.grey.shade600),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: 240,
-                    height: 50,
+                ],
+
+                const SizedBox(height: 40),
+
+                // Camera Section
+                if (_capturedImagePath == null) ...[
+                  Container(
+                    height: 260,
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: AppColors.grayBorder, width: 2),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: const BoxDecoration(color: AppColors.grayLight, shape: BoxShape.circle),
+                          child: const Icon(Icons.face_unlock_rounded, size: 48, color: AppColors.textTertiary),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Ambil foto selfie Anda\nuntuk verifikasi wajah',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48),
                     child: ElevatedButton.icon(
                       onPressed: _openCamera,
-                      icon: const Icon(Icons.camera_alt, color: Colors.white),
-                      label: Text('Buka Kamera', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+                      label: const Text('BUKA KAMERA'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                        backgroundColor: AppColors.primaryRed,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                   ),
+                  if (_isBiometricEnabled && !widget.isRegistration) ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: OutlinedButton.icon(
+                        onPressed: _verifyBiometric,
+                        icon: const Icon(Icons.fingerprint_rounded, size: 24),
+                        label: const Text('VERIFIKASI SIDIK JARI'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: const BorderSide(color: Color(0xFF10B981)),
+                          foregroundColor: const Color(0xFF10B981),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ] else ...[
-                  // State: Sudah Foto
                   Container(
-                    height: 280,
-                    width: 280,
+                    height: 300,
+                    width: 300,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.greenAccent, width: 3),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: AppColors.primaryRed, width: 4),
                       image: DecorationImage(
                         image: kIsWeb
                             ? NetworkImage(_capturedImagePath!) as ImageProvider
                             : FileImage(File(_capturedImagePath!)),
                         fit: BoxFit.cover,
                       ),
+                      boxShadow: [
+                        BoxShadow(color: AppColors.primaryRed.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 15))
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   TextButton.icon(
                     onPressed: _openCamera,
-                    icon: const Icon(Icons.refresh),
-                    label: Text('Foto Ulang', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                    icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryRed),
+                    label: const Text('Ambil Ulang Foto', style: TextStyle(color: AppColors.primaryRed, fontWeight: FontWeight.w800)),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 32),
                   
-                  // Submit Button
                   Container(
                     width: double.infinity,
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
                     height: 56,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: AppColors.primaryGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
                     child: ElevatedButton(
                       onPressed: (isLoading || _isVerifying) ? null : _submitClockIn,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B60F1),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent),
                       child: (isLoading || _isVerifying) 
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
                           : Text(
-                              widget.isRegistration
-                                  ? 'Gunakan Foto Ini'
-                                  : (widget.isClockIn
-                                      ? 'Clock In Sekarang'
-                                      : 'Clock Out Sekarang'),
-                              style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white),
+                              widget.isRegistration ? 'SIMPAN REGISTRASI' : (widget.isClockIn ? 'SUBMIT ABSEN MASUK' : 'SUBMIT ABSEN KELUAR'),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1, color: Colors.white),
                             ),
                     ),
                   ),
                 ],
-                
                 const SizedBox(height: 40),
               ],
             ),

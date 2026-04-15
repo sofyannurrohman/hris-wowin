@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
-import 'package:hris_app/features/home/presentation/pages/home_page.dart';
 import 'package:hris_app/features/auth/presentation/pages/register_page.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
-import 'package:hris_app/core/widgets/fade_in_animation.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
+import 'package:hris_app/main.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class LoginPage extends StatefulWidget {
@@ -20,6 +20,13 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscureText = true;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<AuthBloc>().add(CheckBiometricSupportRequested());
+  }
 
   @override
   void dispose() {
@@ -39,258 +46,205 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  bool _obscureText = true;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is Authenticated) {
-            SnackBarUtils.showSuccess(context, 'Login Berhasil. Selamat Datang!');
+            SnackBarUtils.showSuccess(context, 'Selamat Datang Kembali!');
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomePage()),
+              MaterialPageRoute(builder: (_) => const AuthWrapper()),
             );
           } else if (state is AuthError) {
             SnackBarUtils.showError(context, state.message);
           }
         },
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28.0),
               child: AnimationLimiter(
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: AnimationConfiguration.toStaggeredList(
                       duration: const Duration(milliseconds: 600),
-                      childAnimationBuilder: (widget) => SlideAnimation(
-                        verticalOffset: 50.0,
-                        child: FadeInAnimation(child: widget),
+                      childAnimationBuilder: (widget) => FadeInAnimation(
+                        child: SlideAnimation(
+                          verticalOffset: 30.0,
+                          child: widget,
+                        ),
                       ),
                       children: [
-                        // Logo image
+                        const SizedBox(height: 60),
+                        // Branding Section
                         Center(
-                          child: Image.asset(
-                            'assets/logo_wowin.png',
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.contain,
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primaryRed.withOpacity(0.12),
+                                      blurRadius: 30,
+                                      offset: const Offset(0, 15),
+                                    ),
+                                  ],
+                                ),
+                                child: Image.asset(
+                                  'assets/logo_wowin.png',
+                                  width: 80,
+                                  height: 80,
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              Text(
+                                'Selamat Datang',
+                                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                  fontSize: 30,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Sistem Informasi Kepegawaian\nPT Wowin Purnomo Putra',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontSize: 14,
+                                  height: 1.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 32),
-                        const Text(
-                          'Welcome to SIK',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A), // Dark slate
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Mohon untuk sign in untuk mengakses SIK.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF64748B), // Slate gray
-                          ),
-                        ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 56),
                         
                         // Email Field
-                        const Text(
-                          'NIK atau Email',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        _buildLabel('NIK / Email'),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            hintText: 'e.g. P013.231 or john@wowin.com',
-                            hintStyle: TextStyle(color: Colors.grey.shade400),
-                            prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade500),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.blueAccent),
-                            ),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          decoration: const InputDecoration(
+                            hintText: 'Contoh: P013.231 atau email@anda.com',
+                            prefixIcon: Icon(Icons.person_outline_rounded, size: 22),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Masukkan email';
-                            }
-                            return null;
-                          },
+                          validator: (value) => (value == null || value.isEmpty) ? 'Masukkan NIK atau Email' : null,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 28),
     
                         // Password Field
-                        const Text(
-                          'Password',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        _buildLabel('Kata Sandi'),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscureText,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                           decoration: InputDecoration(
-                            hintText: 'Masukkan password',
-                            hintStyle: TextStyle(color: Colors.grey.shade400),
-                            prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade500),
+                            hintText: '••••••••••••',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 22),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                color: Colors.grey.shade500,
+                                color: AppColors.textTertiary,
+                                size: 20,
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscureText = !_obscureText;
-                                });
-                              },
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.blueAccent),
+                              onPressed: () => setState(() => _obscureText = !_obscureText),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Masukkan password';
-                            }
-                            return null;
-                          },
+                          validator: (value) => (value == null || value.isEmpty) ? 'Masukkan kata sandi' : null,
                         ),
-                        const SizedBox(height: 8),
-    
+                        
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF1D4ED8), // Royal blue
+                              foregroundColor: AppColors.primaryRed,
                               padding: EdgeInsets.zero,
-                              minimumSize: const Size(50, 30),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
                             ),
                             child: const Text(
-                              'Lupa Password?',
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                              'Lupa kata sandi?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 48),
     
                         // Sign In Button
                         BlocBuilder<AuthBloc, AuthState>(
                           builder: (context, state) {
-                            if (state is AuthLoading) {
-                              return const Center(child: CircularProgressIndicator());
-                            }
-                            return ElevatedButton(
-                              onPressed: _onLoginPressed,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1D4ED8), // Royal blue
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: const LinearGradient(
+                                      colors: AppColors.primaryGradient,
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primaryRed.withOpacity(0.3),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: state is AuthLoading ? null : _onLoginPressed,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                    ),
+                                    child: state is AuthLoading 
+                                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                      : const Text('MASUK KE DASHBOARD'),
+                                  ),
                                 ),
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                'Sign In',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                              ),
+                                if (state is! AuthLoading && state is Unauthenticated && state.isBiometricSupported && state.isBiometricEnabled) ...[
+                                  const SizedBox(height: 20),
+                                  OutlinedButton.icon(
+                                    onPressed: () => context.read<AuthBloc>().add(BiometricLoginRequested()),
+                                    icon: const Icon(Icons.fingerprint_rounded, size: 28),
+                                    label: const Text('MASUK DENGAN SIDIK JARI', style: TextStyle(fontWeight: FontWeight.w800)),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      side: const BorderSide(color: AppColors.primaryRed),
+                                      foregroundColor: AppColors.primaryRed,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             );
                           },
                         ),
-                        const SizedBox(height: 32),
-    
-                        // Divider
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: Colors.grey.shade300)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'SIGN IN DENGAN',
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: Colors.grey.shade300)),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-    
-                        // Face ID Icon
-                        Center(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.face_retouching_natural, color: Color(0xFF1D4ED8)),
-                              iconSize: 32,
-                              onPressed: () {
-                                // Implement biometrics
-                              },
-                            ),
-                          ),
-                        ),
-    
                         const SizedBox(height: 48),
     
                         // Register Link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              "Belum punya akun? ",
-                              style: TextStyle(color: Colors.grey.shade600),
+                            const Text(
+                              "Belum memiliki akses? ",
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                             GestureDetector(
                               onTap: () {
@@ -299,15 +253,43 @@ class _LoginPageState extends State<LoginPage> {
                                 );
                               },
                               child: const Text(
-                                "Daftar",
+                                "Minta Akses",
                                 style: TextStyle(
-                                  color: Color(0xFF1D4ED8),
-                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryRed,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 60),
+                        
+                        // Footer
+                        Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 2,
+                                decoration: BoxDecoration(
+                                  color: AppColors.grayBorder,
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                "VERSION 1.0.2 • HRIS WOWIN",
+                                style: TextStyle(
+                                  color: AppColors.textTertiary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
@@ -316,6 +298,18 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+        color: AppColors.textPrimary,
+        letterSpacing: 0.5,
       ),
     );
   }

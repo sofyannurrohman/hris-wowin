@@ -40,6 +40,7 @@ type CreateEmployeeRequest struct {
 	JobPositionID     *uuid.UUID `json:"jobPositionId"`
 	EmploymentStatus  string     `json:"employmentStatus"`
 	JoinDate          string     `json:"joinDate"` // Format: YYYY-MM-DD
+	Salary            *float64   `json:"salary"`
 }
 
 type UpdateEmployeeRequest struct {
@@ -51,8 +52,10 @@ type UpdateEmployeeRequest struct {
 	AccountHolderName string     `json:"accountHolderName"`
 	DepartmentID      *uuid.UUID `json:"departmentId"`
 	JobPositionID     *uuid.UUID `json:"jobPositionId"`
+	BranchID          *uuid.UUID `json:"branchId"`
 	EmploymentStatus  string     `json:"employmentStatus"`
 	JoinDate          string     `json:"joinDate"`
+	Salary            *float64   `json:"salary"`
 }
 
 type UpdateProfileRequest struct {
@@ -136,6 +139,7 @@ func (u *employeeUsecase) CreateEmployee(req *CreateEmployeeRequest) error {
 		JobPositionID:     req.JobPositionID,
 		EmploymentStatus:  req.EmploymentStatus,
 		JoinDate:          joinDate,
+		Salary:            req.Salary,
 	}
 
 	return u.employeeRepo.Create(newEmployee)
@@ -170,12 +174,17 @@ func (u *employeeUsecase) UpdateEmployee(id uuid.UUID, req *UpdateEmployeeReques
 	employee.EmployeeIDNumber = req.EmployeeIDNumber
 	employee.DepartmentID = req.DepartmentID
 	employee.JobPositionID = req.JobPositionID
+	employee.BranchID = req.BranchID
 	employee.EmploymentStatus = req.EmploymentStatus
 
 	if req.JoinDate != "" {
 		if t, err := time.Parse("2006-01-02", req.JoinDate); err == nil {
 			employee.JoinDate = t
 		}
+	}
+	
+	if req.Salary != nil {
+		employee.Salary = req.Salary
 	}
 
 	if err := u.employeeRepo.Update(employee); err != nil {

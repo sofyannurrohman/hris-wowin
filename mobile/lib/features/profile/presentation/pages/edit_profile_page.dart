@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_event.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_state.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
+import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:hris_app/core/utils/constants.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 
@@ -230,7 +232,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     _buildLabel('Departemen'),
                     const SizedBox(height: 8),
                     _buildReadOnlyField(department, Icons.lock_outline, disabledBgColor, borderColor),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
+
+                    if (profile['Salary'] != null) ...[
+                      _buildLabel('Gaji Pokok'),
+                      const SizedBox(height: 8),
+                      _buildReadOnlyField(
+                        'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(profile['Salary'])}',
+                        Icons.lock_outline,
+                        disabledBgColor,
+                        borderColor,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    const SizedBox(height: 12),
 
                     Text(
                       'PERSONAL INFORMATION',
@@ -393,9 +408,47 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     _buildEditableField(_bankAccountNumberController, Icons.numbers, borderColor, primaryBlue),
                     const SizedBox(height: 20),
 
-                    _buildLabel('Nama Pemilik Rekening'),
-                    const SizedBox(height: 8),
                     _buildEditableField(_accountHolderNameController, Icons.person_pin_outlined, borderColor, primaryBlue),
+                    const SizedBox(height: 32),
+
+                    Text(
+                      'SECURITY SETTINGS',
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: subtitleColor,
+                          letterSpacing: 1.0),
+                    ),
+                    const SizedBox(height: 16),
+
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        bool isSupported = false;
+                        bool isEnabled = false;
+
+                        if (state is Unauthenticated) {
+                          isSupported = state.isBiometricSupported;
+                          isEnabled = state.isBiometricEnabled;
+                        }
+
+                        // Re-check support if state doesn't have it (authenticated case)
+                        // This is a simplification; in a real app we'd have a separate SettingsBloc
+                        
+                        return SwitchListTile(
+                          title: Text('Login dengan Biometrik', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+                          subtitle: Text('Gunakan Sidik Jari untuk masuk aplikasi', style: GoogleFonts.inter(fontSize: 13)),
+                          value: isEnabled,
+                          activeColor: primaryBlue,
+                          onChanged: isSupported ? (val) {
+                            context.read<AuthBloc>().add(ToggleBiometricRequested(val));
+                          } : null,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: borderColor),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               );

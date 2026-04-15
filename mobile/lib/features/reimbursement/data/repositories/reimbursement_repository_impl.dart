@@ -1,0 +1,114 @@
+import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
+import 'package:hris_app/core/error/failures.dart';
+import 'package:hris_app/core/network/api_client.dart';
+import 'package:hris_app/features/reimbursement/domain/entities/reimbursement.dart';
+import 'package:hris_app/features/reimbursement/domain/repositories/reimbursement_repository.dart';
+
+class ReimbursementRepositoryImpl implements ReimbursementRepository {
+  final ApiClient apiClient;
+
+  ReimbursementRepositoryImpl({required this.apiClient});
+
+  @override
+  Future<Either<Failure, void>> submitReimbursement({
+    required String title,
+    String? description,
+    required double amount,
+    String? attachmentPath,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'title': title,
+        'description': description ?? '',
+        'amount': amount,
+      };
+
+      dynamic body;
+      if (attachmentPath != null) {
+        body = FormData.fromMap({
+          ...data,
+          'attachment': await MultipartFile.fromFile(attachmentPath),
+        });
+      } else {
+        body = data;
+      }
+
+      final response = await apiClient.client.post('reimbursements', data: body);
+
+      if (response.statusCode == 201) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to submit reimbursement') : 'Failed to submit reimbursement'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to submit reimbursement'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Reimbursement>>> getMyHistory({int page = 1, int limit = 10}) async {
+    try {
+      final response = await apiClient.client.get('reimbursements/my', queryParameters: {
+        'page': page,
+        'limit': limit,
+      });
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'] ?? [];
+        return Right(data.map((e) => Reimbursement.fromJson(e)).toList());
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to load history') : 'Failed to load history'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to load history'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Reimbursement>>> getAllPending({int page = 1, int limit = 20}) async {
+    try {
+      final response = await apiClient.client.get('reimbursements/all', queryParameters: {
+        'status': 'pending',
+        'page': page,
+        'limit': limit,
+      });
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'] ?? [];
+        return Right(data.map((e) => Reimbursement.fromJson(e)).toList());
+      } else {
+        return Left(ServerFailure('Gagal mengambil data reimbursement.'));
+      }
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> approveReimbursement(String id, String status) async {
+    try {
+      final response = await apiClient.client.put('reimbursements/$id/approve', data: {
+        'status': status,
+      });
+
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure('Gagal memperbarui status reimbursement.'));
+      }
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+}

@@ -27,6 +27,10 @@ func (h *JobPositionHandler) SetupRoutes(r *gin.RouterGroup) {
 	}
 }
 
+func (h *JobPositionHandler) SetupPublicRoutes(r *gin.RouterGroup) {
+	r.GET("/job-positions", h.GetAll)
+}
+
 func (h *JobPositionHandler) Create(c *gin.Context) {
 	var req usecase.CreateJobPositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

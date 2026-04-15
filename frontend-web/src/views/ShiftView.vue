@@ -16,12 +16,14 @@ const newShift = ref({
   endTime: '',
   breakStart: '',
   breakEnd: '',
+  branchId: '',
   isFlexible: false
 })
 
 const isEditMode = ref(false)
 const isSubmitting = ref(false)
 const shifts = ref<any[]>([])
+const branches = ref<any[]>([])
 const isLoading = ref(true)
 
 const openAddModal = () => {
@@ -33,6 +35,7 @@ const openAddModal = () => {
     endTime: '',
     breakStart: '',
     breakEnd: '',
+    branchId: '',
     isFlexible: false
   }
   isModalOpen.value = true
@@ -56,6 +59,7 @@ const openEditModal = (shift: any) => {
     endTime: parseTime(shift.EndTime),
     breakStart: shift.BreakStart ? parseTime(shift.BreakStart) : '',
     breakEnd: shift.BreakEnd ? parseTime(shift.BreakEnd) : '',
+    branchId: shift.BranchID || '',
     isFlexible: shift.IsFlexible || false
   }
   isModalOpen.value = true
@@ -77,6 +81,15 @@ const fetchShifts = async () => {
   }
 }
 
+const fetchBranches = async () => {
+  try {
+    const res = await apiClient.get('/branches')
+    branches.value = res.data.data
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 const saveShift = async () => {
   isSubmitting.value = true
   try {
@@ -92,6 +105,7 @@ const saveShift = async () => {
       endTime: toISO(newShift.value.endTime),
       breakStart: toISO(newShift.value.breakStart),
       breakEnd: toISO(newShift.value.breakEnd),
+      branchId: newShift.value.branchId || null,
       isFlexible: newShift.value.isFlexible
     }
 
@@ -125,6 +139,7 @@ const deleteShift = async (id: string) => {
 
 onMounted(() => {
   fetchShifts()
+  fetchBranches()
 })
 
 const columns = [
@@ -132,6 +147,11 @@ const columns = [
     accessorKey: 'Name',
     header: 'NAMA SHIFT',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
+  },
+  {
+    id: 'branch',
+    header: 'CABANG',
+    cell: ({ row }: any) => h('span', { class: 'text-gray-500' }, row.original.Branch?.Name || 'Semua Cabang')
   },
   {
     id: 'waktu',
@@ -232,6 +252,14 @@ const columns = [
           <div class="grid gap-2">
             <label class="text-[13px] font-medium text-gray-700">Nama Shift</label>
             <Input v-model="newShift.name" placeholder="e.g. Shift Pagi" />
+          </div>
+
+          <div class="grid gap-2">
+            <label class="text-[13px] font-medium text-gray-700">Berlaku di Cabang (Kosongkan jika semua)</label>
+            <select v-model="newShift.branchId" class="flex h-10 w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950">
+               <option value="">Semua Cabang</option>
+               <option v-for="b in branches" :key="b.ID" :value="b.ID">{{ b.Name }}</option>
+            </select>
           </div>
           
           <div class="grid grid-cols-2 gap-4">

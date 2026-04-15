@@ -29,7 +29,7 @@ func (r *employeeRepository) Create(employee *domain.Employee) error {
 
 func (r *employeeRepository) FindAll() ([]domain.Employee, error) {
 	var employees []domain.Employee
-	if err := r.db.Preload("User").Preload("Department").Preload("JobPosition").Find(&employees).Error; err != nil {
+	if err := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition").Find(&employees).Error; err != nil {
 		return nil, err
 	}
 	return employees, nil

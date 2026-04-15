@@ -25,6 +25,7 @@ class RegisterRequested extends AuthEvent {
   final String employeeId;
   final String password;
   final String jobPositionId;
+  final String branchId;
   final List<double>? embedding;
   final String? selfiePath;
 
@@ -33,13 +34,14 @@ class RegisterRequested extends AuthEvent {
     this.email,
     this.employeeId,
     this.password,
-    this.jobPositionId, {
+    this.jobPositionId,
+    this.branchId, {
     this.embedding,
     this.selfiePath,
   });
 
   @override
-  List<Object> get props => [name, email, employeeId, password, jobPositionId, embedding ?? [], selfiePath ?? ''];
+  List<Object> get props => [name, email, employeeId, password, jobPositionId, branchId, embedding ?? [], selfiePath ?? ''];
 }
 
 class CheckAuthStatusRequested extends AuthEvent {}
@@ -55,3 +57,14 @@ class RegisterFaceRequested extends AuthEvent {
 }
 
 class SessionExpired extends AuthEvent {}
+
+class BiometricLoginRequested extends AuthEvent {}
+
+class CheckBiometricSupportRequested extends AuthEvent {}
+
+class ToggleBiometricRequested extends AuthEvent {
+  final bool enabled;
+  const ToggleBiometricRequested(this.enabled);
+  @override
+  List<Object> get props => [enabled];
+}

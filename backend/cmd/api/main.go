@@ -33,6 +33,7 @@ func main() {
 	companyRepo := repository.NewCompanyRepository(db)
 	branchRepo := repository.NewBranchRepository(db)
 	employeeShiftRepo := repository.NewEmployeeShiftRepository(db)
+	reimbursementRepo := repository.NewReimbursementRepository(db)
 
 	// Setup UseCases
 	authUseCase := usecase.NewAuthUseCase(userRepo)
@@ -49,6 +50,7 @@ func main() {
 	companyUseCase := usecase.NewCompanyUseCase(companyRepo)
 	branchUseCase := usecase.NewBranchUseCase(branchRepo)
 	employeeShiftUseCase := usecase.NewEmployeeShiftUseCase(employeeShiftRepo, employeeRepo, shiftRepo)
+	reimbursementUseCase := usecase.NewReimbursementUseCase(reimbursementRepo, employeeRepo)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -81,12 +83,15 @@ func main() {
 	companyHandler := http.NewCompanyHandler(companyUseCase)
 	branchHandler := http.NewBranchHandler(branchUseCase)
 	employeeShiftHandler := http.NewEmployeeShiftHandler(employeeShiftUseCase)
+	reimbursementHandler := http.NewReimbursementHandler(reimbursementUseCase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
 	{
 		// Public Routes
 		authHandler.SetupRoutes(v1)
+		branchHandler.SetupPublicRoutes(v1)
+		jobPositionHandler.SetupPublicRoutes(v1)
 
 		// Protected Routes
 		protected := v1.Group("")
@@ -106,6 +111,7 @@ func main() {
 			companyHandler.SetupRoutes(protected)
 			branchHandler.SetupRoutes(protected)
 			employeeShiftHandler.SetupRoutes(protected)
+			reimbursementHandler.SetupRoutes(protected)
 		}
 	}
 

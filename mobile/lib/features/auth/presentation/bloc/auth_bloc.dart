@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/auth/domain/usecases/auth_usecases.dart';
+import 'package:hris_app/features/auth/domain/usecases/biometric_usecases.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
@@ -9,6 +10,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LogoutUseCase logoutUseCase;
   final CheckAuthStatusUseCase checkAuthStatusUseCase;
   final RegisterFaceUseCase registerFaceUseCase;
+  final BiometricLoginUseCase biometricLoginUseCase;
+  final GetBiometricStatusUseCase getBiometricStatusUseCase;
+  final SetBiometricEnabledUseCase setBiometricEnabledUseCase;
 
   AuthBloc({
     required this.loginUseCase,
@@ -16,6 +20,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.logoutUseCase,
     required this.checkAuthStatusUseCase,
     required this.registerFaceUseCase,
+    required this.biometricLoginUseCase,
+    required this.getBiometricStatusUseCase,
+    required this.setBiometricEnabledUseCase,
   }) : super(AuthInitial()) {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
@@ -23,6 +30,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<CheckAuthStatusRequested>(_onCheckAuthStatusRequested);
     on<RegisterFaceRequested>(_onRegisterFaceRequested);
     on<SessionExpired>(_onSessionExpired);
+    on<BiometricLoginRequested>(_onBiometricLoginRequested);
+    on<CheckBiometricSupportRequested>(_onCheckBiometricSupportRequested);
+    on<ToggleBiometricRequested>(_onToggleBiometricRequested);
   }
 
   Future<void> _onLoginRequested(LoginRequested event, Emitter<AuthState> emit) async {
@@ -45,6 +55,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       event.employeeId,
       event.password,
       event.jobPositionId,
+      event.branchId,
       embedding: event.embedding,
       selfiePath: event.selfiePath,
     );
@@ -88,5 +99,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   void _onSessionExpired(SessionExpired event, Emitter<AuthState> emit) {
     emit(Unauthenticated());
+  }
+
+  Future<void> _onBiometricLoginRequested(BiometricLoginRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    final result = await biometricLoginUseCase();
+    result.fold(
+      (failure) => emit(AuthError(failure.message)),
+      (_) => emit(Authenticated()),
+    );
+  }
+
+  Future<void> _onCheckBiometricSupportRequested(CheckBiometricSupportRequested event, Emitter<AuthState> emit) async {
+    final status = await getBiometricStatusUseCase();
+    emit(Unauthenticated(
+      isBiometricSupported: status['supported'] ?? false,
+      isBiometricEnabled: status['enabled'] ?? false,
+    ));
+  }
+
+  Future<void> _onToggleBiometricRequested(ToggleBiometricRequested event, Emitter<AuthState> emit) async {
+    await setBiometricEnabledUseCase(event.enabled);
+    add(CheckBiometricSupportRequested());
   }
 }

@@ -52,12 +52,26 @@ func (h *LeaveHandler) SubmitLeave(c *gin.Context) {
 	userID := userIDStr.(uuid.UUID)
 
 	var req usecase.SubmitLeaveRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// Try to bind from form first (for multipart)
+	if err := c.ShouldBind(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	err := h.leaveUseCase.SubmitLeave(userID, req)
+	// Handle file upload
+	file, err := c.FormFile("attachment")
+	if err == nil {
+		// Save file
+		filename := uuid.New().String() + "-" + file.Filename
+		savePath := "uploads/attachments/" + filename
+		if err := c.SaveUploadedFile(file, savePath); err != nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+			return
+		}
+		req.AttachmentURL = "/uploads/attachments/" + filename
+	}
+
+	err = h.leaveUseCase.SubmitLeave(userID, req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return

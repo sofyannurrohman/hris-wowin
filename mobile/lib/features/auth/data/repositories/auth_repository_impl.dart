@@ -9,15 +9,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hris_app/core/error/failures.dart';
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/core/utils/constants.dart';
+import 'package:hris_app/core/services/biometric_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hris_app/features/auth/domain/repositories/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final ApiClient apiClient;
   final SharedPreferences prefs;
+  final BiometricService biometricService;
+  final FlutterSecureStorage secureStorage;
 
   AuthRepositoryImpl({
     required this.apiClient,
     required this.prefs,
+    required this.biometricService,
+    required this.secureStorage,
   });
 
   @override
@@ -35,6 +41,11 @@ class AuthRepositoryImpl implements AuthRepository {
         
         await prefs.setString(AppConstants.tokenKey, accessToken);
         await prefs.setString(AppConstants.refreshTokenKey, refreshToken);
+        
+        // Save credentials for biometric login
+        await secureStorage.write(key: 'email', value: email);
+        await secureStorage.write(key: 'password', value: password);
+        
         return const Right(null);
       } else {
         final msg = response.data is Map ? (response.data['message'] ?? 'Login failed') : 'Login failed';
@@ -63,7 +74,58 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, void>> register(String name, String email, String employeeId, String password, String jobPositionId, {List<double>? embedding, String? selfiePath}) async {
+  Future<Either<Failure, void>> loginWithBiometric() async {
+    try {
+      final isAvailable = await biometricService.isBiometricAvailable();
+      if (!isAvailable) return const Left(ServerFailure('Autentikasi biometrik tidak didukung atau belum diaktifkan.'));
+
+      final success = await biometricService.authenticate(reason: 'Silakan verifikasi identitas Anda untuk masuk.');
+      if (!success) return const Left(ServerFailure('Gagal melakukan verifikasi biometrik.'));
+
+      final email = await secureStorage.read(key: 'email');
+      final password = await secureStorage.read(key: 'password');
+
+      if (email == null || password == null) {
+        return const Left(ServerFailure('Sesi biometrik kadaluarsa. Silakan login manual terlebih dahulu.'));
+      }
+
+      return await login(email, password);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> isBiometricSupported() async {
+    try {
+      final isAvailable = await biometricService.isBiometricAvailable();
+      return Right(isAvailable);
+    } catch (e) {
+      return const Right(false);
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> setBiometricEnabled(bool enabled) async {
+    try {
+      await prefs.setBool('biometric_enabled', enabled);
+      return const Right(null);
+    } catch (e) {
+      return const Left(CacheFailure('Gagal menyimpan pengaturan biometrik.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> getBiometricEnabled() async {
+    try {
+      return Right(prefs.getBool('biometric_enabled') ?? false);
+    } catch (e) {
+      return const Right(false);
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> register(String name, String email, String employeeId, String password, String jobPositionId, String branchId, {List<double>? embedding, String? selfiePath}) async {
     try {
       String? base64Selfie;
       if (selfiePath != null) {
@@ -80,6 +142,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'employee_id': employeeId,
           'password': password,
           'job_position_id': jobPositionId,
+          'branch_id': branchId,
           'face_embedding': embedding,
           'selfie': base64Selfie,
         },
@@ -180,6 +243,36 @@ class AuthRepositoryImpl implements AuthRepository {
         return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to get profile'));
       }
       return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getBranches() async {
+    try {
+      final response = await apiClient.client.get('branches');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'];
+        return Right(data.cast<Map<String, dynamic>>());
+      } else {
+        return Left(ServerFailure('Failed to fetch branches'));
+      }
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getJobPositions() async {
+    try {
+      final response = await apiClient.client.get('job-positions');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'];
+        return Right(data.cast<Map<String, dynamic>>());
+      } else {
+        return Left(ServerFailure('Failed to fetch job positions'));
+      }
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

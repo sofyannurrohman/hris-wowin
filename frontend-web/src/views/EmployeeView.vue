@@ -17,6 +17,7 @@ const newEmployee = ref({
   employeeIDNumber: '',
   departmentId: '',
   jobPositionId: '',
+  branchId: '',
   employmentStatus: 'Active',
   joinDate: new Date().toISOString().split('T')[0],
   bankName: '',
@@ -30,6 +31,7 @@ const isSubmitting = ref(false)
 const employees = ref<any[]>([])
 const departments = ref<any[]>([])
 const jobPositions = ref<any[]>([])
+const branches = ref<any[]>([])
 const isLoading = ref(true)
 
 const openAddModal = () => {
@@ -41,6 +43,7 @@ const openAddModal = () => {
     employeeIDNumber: '',
     departmentId: '',
     jobPositionId: '',
+    branchId: '',
     employmentStatus: 'Active',
     joinDate: new Date().toISOString().split('T')[0],
     bankName: '',
@@ -59,6 +62,7 @@ const openEditModal = (user: any) => {
     employeeIDNumber: user.EmployeeIDNumber || '',
     departmentId: user.DepartmentID || '',
     jobPositionId: user.JobPositionID || '',
+    branchId: user.BranchID || '',
     employmentStatus: user.EmploymentStatus || 'Active',
     joinDate: user.JoinDate ? new Date(user.JoinDate).toISOString().split('T')[0] : '',
     bankName: user.BankName || '',
@@ -102,6 +106,15 @@ const fetchJobPositions = async () => {
   }
 }
 
+const fetchBranches = async () => {
+  try {
+    const res = await apiClient.get('/branches')
+    branches.value = res.data.data
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 const saveEmployee = async () => {
   isSubmitting.value = true
   try {
@@ -137,6 +150,7 @@ onMounted(() => {
   fetchEmployees()
   fetchDepartments()
   fetchJobPositions()
+  fetchBranches()
 })
 
 
@@ -178,6 +192,11 @@ const columns = [
     id: 'department',
     header: 'DEPARTEMEN',
     cell: ({ row }: any) => h('span', { class: 'text-gray-500' }, row.original.Department?.Name || '-')
+  },
+  {
+    id: 'branch',
+    header: 'CABANG',
+    cell: ({ row }: any) => h('span', { class: 'text-gray-500 font-medium' }, row.original.Branch?.Name || '-')
   },
   {
     accessorKey: 'EmploymentStatus',
@@ -291,6 +310,18 @@ const columns = [
           <div class="grid gap-2">
             <label class="text-[13px] font-medium text-gray-700">Email Karyawan</label>
             <Input v-model="newEmployee.email" type="email" placeholder="e.g. john@sentraweb.id" :disabled="isEditMode" />
+          </div>
+
+          <div class="grid gap-2">
+            <label class="text-[13px] font-medium text-gray-700">Penempatan Cabang</label>
+            <Select v-model="newEmployee.branchId">
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih Cabang" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="b in branches" :key="b.ID" :value="b.ID">{{ b.Name }}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
