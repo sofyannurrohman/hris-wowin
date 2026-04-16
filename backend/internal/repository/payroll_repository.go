@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -10,6 +12,7 @@ type PayrollRepository interface {
 	GetActiveEmployees() ([]uuid.UUID, error)
 	GetEmployeeSnapshotInfo(employeeID uuid.UUID) (string, string)
 	GetEmployeeSalarySettings(employeeID uuid.UUID) ([]domain.EmployeeSalarySetting, error)
+	GetEmployeeAbsentDays(employeeID uuid.UUID, startDate, endDate time.Time) (int, error)
 	GetMyPayslips(employeeID uuid.UUID) ([]domain.Payslip, error)
 	GetPayslipsByRunID(runID uuid.UUID) ([]domain.Payslip, error)
 	SavePayrollBatch(run *domain.PayrollRun, payslips []domain.Payslip) error
@@ -50,6 +53,14 @@ func (r *payrollRepository) GetEmployeeSalarySettings(employeeID uuid.UUID) ([]d
 	var settings []domain.EmployeeSalarySetting
 	err := r.db.Preload("Component").Where("employee_id = ?", employeeID).Find(&settings).Error
 	return settings, err
+}
+
+func (r *payrollRepository) GetEmployeeAbsentDays(employeeID uuid.UUID, startDate, endDate time.Time) (int, error) {
+	var count int64
+	err := r.db.Model(&domain.AttendanceLog{}).
+		Where("employee_id = ? AND clock_in_time >= ? AND clock_in_time <= ? AND status = ?", employeeID, startDate, endDate, "ABSENT").
+		Count(&count).Error
+	return int(count), err
 }
 
 func (r *payrollRepository) GetMyPayslips(employeeID uuid.UUID) ([]domain.Payslip, error) {

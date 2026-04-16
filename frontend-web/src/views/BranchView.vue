@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import MapPicker from '@/components/MapPicker.vue'
 import { toast } from 'vue-sonner'
 
 const isModalOpen = ref(false)
@@ -170,7 +171,7 @@ const columns = [
       return h('div', { class: 'flex items-center gap-2' }, [
         h(Button, {
           variant: 'ghost', size: 'sm',
-          class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+          class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
           onClick: () => openEditModal(branch)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, {
@@ -188,7 +189,7 @@ const columns = [
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Master Kantor Cabang</h1>
+        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Data Kantor Cabang</h1>
         <p class="text-[14px] text-gray-500 mt-1">Kelola data lokasi dan zona waktu kantor cabang.</p>
       </div>
       <div class="flex items-center gap-3">
@@ -258,6 +259,19 @@ const columns = [
               <label class="text-[13px] font-medium text-gray-700">Radius Absensi (Meter)</label>
               <Input v-model.number="newBranch.radiusMeter" type="number" min="10" placeholder="e.g. 100" />
             </div>
+          </div>
+
+          <div class="h-px bg-gray-100 my-1"></div>
+          
+          <div class="space-y-2">
+            <label class="text-[13px] font-medium text-gray-700">Pilih Lokasi di Peta</label>
+            <MapPicker 
+              :latitude="newBranch.latitude" 
+              :longitude="newBranch.longitude" 
+              :radius="newBranch.radiusMeter"
+              @update:location="(lat, lng) => { newBranch.latitude = lat; newBranch.longitude = lng }"
+              @update:address="(addr) => { newBranch.address = addr }"
+            />
           </div>
 
           <div class="h-px bg-gray-100 my-1"></div>

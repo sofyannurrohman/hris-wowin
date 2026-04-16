@@ -177,6 +177,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	if err := h.db.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
+		fmt.Printf("Error deleting user %s: %v\n", id, err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to delete user")
 		return
 	}

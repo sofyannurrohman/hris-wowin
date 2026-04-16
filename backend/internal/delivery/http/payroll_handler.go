@@ -44,15 +44,13 @@ func (h *PayrollHandler) RunPayrollBatch(c *gin.Context) {
 
 	// Because only admins can execute this, we use the company ID from context if multitenant,
 	// Assuming mono-tenant for now, we'll try to extract the user's company ID (if available in token claims).
-	companyIDStr, exists := c.Get("companyID")
+	companyIDVal, exists := c.Get("companyID")
 	var companyID uuid.UUID
-	if exists && companyIDStr != "" {
-		parsed, err := uuid.Parse(companyIDStr.(string))
-		if err == nil {
-			companyID = parsed
+	if exists {
+		if cid, ok := companyIDVal.(uuid.UUID); ok {
+			companyID = cid
 		}
 	} else {
-		// Fallback nil / empty UUID if not configured inside the token claim
 		companyID = uuid.Nil
 	}
 

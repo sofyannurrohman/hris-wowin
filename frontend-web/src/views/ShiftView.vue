@@ -158,13 +158,15 @@ const columns = [
     header: 'JAM KERJA',
     cell: ({ row }: any) => {
       const shift = row.original
-      const parseTime = (isoString: string) => {
+      const fmtTime = (isoString: string) => {
         if (!isoString) return '-'
         const d = new Date(isoString)
         if (isNaN(d.getTime())) return '-'
-        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        const h = String(d.getUTCHours()).padStart(2, '0')
+        const m = String(d.getUTCMinutes()).padStart(2, '0')
+        return `${h}.${m}`
       }
-      return h('span', { class: 'text-gray-600' }, `${parseTime(shift.StartTime)} - ${parseTime(shift.EndTime)}`)
+      return h('span', { class: 'text-gray-600' }, `${fmtTime(shift.StartTime)} - ${fmtTime(shift.EndTime)}`)
     }
   },
   {
@@ -173,12 +175,14 @@ const columns = [
     cell: ({ row }: any) => {
       const shift = row.original
       if (!shift.BreakStart || !shift.BreakEnd) return h('span', { class: 'text-gray-400' }, 'Tidak Ada')
-      const parseTime = (isoString: string) => {
+      const fmtTime = (isoString: string) => {
         const d = new Date(isoString)
         if (isNaN(d.getTime())) return ''
-        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        const h = String(d.getUTCHours()).padStart(2, '0')
+        const m = String(d.getUTCMinutes()).padStart(2, '0')
+        return `${h}.${m}`
       }
-      return h('span', { class: 'text-gray-600 text-[13px]' }, `${parseTime(shift.BreakStart)} - ${parseTime(shift.BreakEnd)}`)
+      return h('span', { class: 'text-gray-600 text-[13px]' }, `${fmtTime(shift.BreakStart)} - ${fmtTime(shift.BreakEnd)}`)
     }
   },
   {
@@ -201,7 +205,7 @@ const columns = [
         h(Button, { 
             variant: 'ghost', 
             size: 'sm', 
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
             onClick: () => openEditModal(shift)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
@@ -288,7 +292,7 @@ const columns = [
           </div>
 
           <div class="flex items-center space-x-2 mt-4">
-            <input type="checkbox" id="isFlexible" v-model="newShift.isFlexible" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+            <input type="checkbox" id="isFlexible" v-model="newShift.isFlexible" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
             <label for="isFlexible" class="text-sm font-medium leading-none">
               Shift Fleksibel (Boleh absen kapan saja selagi 8 jam)
             </label>

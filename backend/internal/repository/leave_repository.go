@@ -9,6 +9,7 @@ import (
 type LeaveRepository interface {
 	Create(leave *domain.LeaveRequest) error
 	Update(leave *domain.LeaveRequest) error
+	Delete(id uuid.UUID) error
 	FindByID(id uuid.UUID) (*domain.LeaveRequest, error)
 	FindByUserID(userID uuid.UUID, limit, offset int) ([]domain.LeaveRequest, error)
 	FindAll(status string, limit, offset int) ([]domain.LeaveRequest, error)
@@ -34,6 +35,10 @@ func (r *leaveRepository) Create(leave *domain.LeaveRequest) error {
 
 func (r *leaveRepository) Update(leave *domain.LeaveRequest) error {
 	return r.db.Save(leave).Error
+}
+
+func (r *leaveRepository) Delete(id uuid.UUID) error {
+	return r.db.Delete(&domain.LeaveRequest{}, "id = ?", id).Error
 }
 
 func (r *leaveRepository) FindByID(id uuid.UUID) (*domain.LeaveRequest, error) {

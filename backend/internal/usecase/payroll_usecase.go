@@ -23,10 +23,11 @@ type PayrollUseCase interface {
 type payrollUseCase struct {
 	repo         repository.PayrollRepository
 	employeeRepo repository.EmployeeRepository
+	configRepo   repository.PayrollConfigRepository
 }
 
-func NewPayrollUseCase(repo repository.PayrollRepository, employeeRepo repository.EmployeeRepository) PayrollUseCase {
-	return &payrollUseCase{repo, employeeRepo}
+func NewPayrollUseCase(repo repository.PayrollRepository, employeeRepo repository.EmployeeRepository, configRepo repository.PayrollConfigRepository) PayrollUseCase {
+	return &payrollUseCase{repo, employeeRepo, configRepo}
 }
 
 type GeneratePayrollRequest struct {
@@ -63,14 +64,44 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 		return nil, errors.New("failed to retrieve active employees")
 	}
 
+	// Fetch Payroll Config for the company
+	config, _ := u.configRepo.GetByCompanyID(companyID)
+	if config == nil {
+		// Default config if not found
+		config = &domain.PayrollConfig{
+			BPJSKesEmployeePercentage: 1.0,
+			BPJSKesMaxWageBase:        12000000,
+			JHTEmployeePercentage:     2.0,
+			JPEmployeePercentage:      1.0,
+			JPMaxWageBase:             10042300,
+		}
+	}
+
 	for _, empID := range employeeIDs {
+		employee, err := u.employeeRepo.FindByID(empID)
+		if err != nil || employee == nil {
+			continue
+		}
+
 		settings, err := u.repo.GetEmployeeSalarySettings(empID)
-		if err != nil || len(settings) == 0 {
-			continue // Skip employee with no salary settings
+		if err != nil {
+			continue // Skip if no settings (or evaluate if we should still run just base salary)
 		}
 
 		var totalAllowance, totalDeduction, basicSalary float64
 		var payslipItems []domain.PayslipItem
+
+		// Inject the new base salary
+		if employee.Salary != nil && *employee.Salary > 0 {
+			basicSalary = *employee.Salary
+			payslipItems = append(payslipItems, domain.PayslipItem{
+				ID:            uuid.New(),
+				PayslipID:     uuid.Nil,
+				ComponentName: "Gaji Pokok",
+				Amount:        basicSalary,
+				Type:          "EARNING",
+			})
+		}
 
 		for _, setting := range settings {
 			if setting.Component == nil {
@@ -87,7 +118,12 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 
 			if setting.Component.Type == "EARNING" {
 				if setting.Component.Name == "Gaji Pokok" || setting.Component.Name == "Basic Salary" {
-					basicSalary = setting.Amount
+					if basicSalary == 0 {
+						basicSalary = setting.Amount
+					} else {
+						// Skip if basicSalary is already populated from employee.Salary
+						continue
+					}
 				} else {
 					totalAllowance += setting.Amount
 				}
@@ -97,6 +133,70 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 
 			// Optional: Handle "BENEFIT" like insurance paid by company if needed, not affecting THP directly unless specified.
 			payslipItems = append(payslipItems, item)
+		}
+
+		// Dynamic Deductions (BPJS & Ketenagakerjaan) based on Global Config
+		if basicSalary > 0 {
+			// BPJS Kesehatan
+			kesBasis := basicSalary
+			if config.BPJSKesMaxWageBase > 0 && kesBasis > config.BPJSKesMaxWageBase {
+				kesBasis = config.BPJSKesMaxWageBase
+			}
+			kesDeduction := kesBasis * (config.BPJSKesEmployeePercentage / 100.0)
+			if kesDeduction > 0 {
+				totalDeduction += kesDeduction
+				payslipItems = append(payslipItems, domain.PayslipItem{
+					ID:            uuid.New(),
+					PayslipID:     uuid.Nil,
+					ComponentName: "BPJS Kesehatan (Karyawan)",
+					Amount:        kesDeduction,
+					Type:          "DEDUCTION",
+				})
+			}
+
+			// JHT
+			jhtDeduction := basicSalary * (config.JHTEmployeePercentage / 100.0)
+			if jhtDeduction > 0 {
+				totalDeduction += jhtDeduction
+				payslipItems = append(payslipItems, domain.PayslipItem{
+					ID:            uuid.New(),
+					PayslipID:     uuid.Nil,
+					ComponentName: "BPJS JHT (Karyawan)",
+					Amount:        jhtDeduction,
+					Type:          "DEDUCTION",
+				})
+			}
+
+			// JP
+			jpBasis := basicSalary
+			if config.JPMaxWageBase > 0 && jpBasis > config.JPMaxWageBase {
+				jpBasis = config.JPMaxWageBase
+			}
+			jpDeduction := jpBasis * (config.JPEmployeePercentage / 100.0)
+			if jpDeduction > 0 {
+				totalDeduction += jpDeduction
+				payslipItems = append(payslipItems, domain.PayslipItem{
+					ID:            uuid.New(),
+					PayslipID:     uuid.Nil,
+					ComponentName: "BPJS JP (Karyawan)",
+					Amount:        jpDeduction,
+					Type:          "DEDUCTION",
+				})
+			}
+		}
+
+		absentDays, err := u.repo.GetEmployeeAbsentDays(empID, start, end)
+		if err == nil && absentDays > 0 {
+			absentDeduction := float64(absentDays) * 100000.0
+			totalDeduction += absentDeduction
+
+			payslipItems = append(payslipItems, domain.PayslipItem{
+				ID:            uuid.New(),
+				PayslipID:     uuid.Nil,
+				ComponentName: "Potongan Mangkir",
+				Amount:        absentDeduction,
+				Type:          "DEDUCTION",
+			})
 		}
 
 		takeHomePay := (basicSalary + totalAllowance) - totalDeduction

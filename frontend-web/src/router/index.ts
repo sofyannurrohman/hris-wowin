@@ -110,6 +110,31 @@ const router = createRouter({
           path: 'payroll-runs',
           name: 'payrollRuns',
           component: () => import('@/views/PayrollRunView.vue'),
+        },
+        {
+          path: 'reimbursements',
+          name: 'reimbursements',
+          component: () => import('@/views/ReimbursementView.vue'),
+        },
+        {
+          path: 'performance-kpi',
+          name: 'performanceKpi',
+          component: () => import('@/views/PerformanceView.vue'),
+        },
+        {
+          path: 'roles',
+          name: 'roles',
+          component: () => import('@/views/RoleView.vue'),
+        },
+        {
+          path: 'audit-logs',
+          name: 'auditLogs',
+          component: () => import('@/views/AuditLogView.vue'),
+        },
+        {
+          path: 'payroll-settings',
+          name: 'payrollSettings',
+          component: () => import('@/views/PayrollSettingsView.vue'),
         }
       ]
     }

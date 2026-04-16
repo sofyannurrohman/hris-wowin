@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import Sidebar from '@/components/Sidebar.vue'
+import Header from '@/components/Header.vue'
 import { RouterView } from 'vue-router'
+import { useLayoutStore } from '@/stores/layout'
+
+const layoutStore = useLayoutStore()
 </script>
 
 <template>
   <div class="flex h-screen bg-[#fafbfc] font-sans text-gray-900 overflow-hidden text-[15px]">
     <Sidebar />
     
-    <main class="flex-1 overflow-x-hidden overflow-y-auto">
-      <div class="p-8 w-full">
-        <RouterView />
-      </div>
-    </main>
+    <div class="flex flex-col flex-1 overflow-hidden">
+      <Header />
+      
+      <main class="flex-1 overflow-x-hidden overflow-y-auto">
+        <div class="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
+          <RouterView />
+        </div>
+      </main>
+    </div>
   </div>
 </template>
 

@@ -1,13 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hris_app/injection.dart' as di;
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
+import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/features/leave/presentation/bloc/leave_bloc.dart';
 import 'package:hris_app/features/leave/presentation/bloc/leave_event.dart';
 import 'package:hris_app/features/leave/presentation/bloc/leave_state.dart';
 import 'package:hris_app/features/leave/domain/entities/leave_balance.dart';
-import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:hris_app/core/utils/snackbar_utils.dart';
+import 'package:hris_app/features/leave/domain/entities/leave.dart';
+import 'package:shimmer/shimmer.dart';
 
 class LeavePage extends StatefulWidget {
   const LeavePage({super.key});
@@ -28,35 +32,169 @@ class _LeavePageState extends State<LeavePage> {
     context.read<LeaveBloc>().add(const FetchMyLeavesRequested());
   }
 
-
   @override
   Widget build(BuildContext context) {
-    return const LeaveView();
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundAlt,
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              _buildSliverAppBar(),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverTabDelegate(
+                  TabBar(
+                    labelColor: AppColors.primaryRed,
+                    unselectedLabelColor: AppColors.textTertiary,
+                    indicatorColor: AppColors.primaryRed,
+                    indicatorWeight: 3,
+                    labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1),
+                    tabs: const [
+                      Tab(text: 'PENGAJUAN'),
+                      Tab(text: 'RIWAYAT'),
+                    ],
+                  ),
+                ),
+              ),
+            ];
+          },
+          body: const TabBarView(
+            children: [
+              LeaveFormTab(),
+              LeaveHistoryTab(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 180,
+      pinned: true,
+      backgroundColor: AppColors.primaryRed,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppColors.primaryGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: BlocBuilder<LeaveBloc, LeaveState>(
+            builder: (context, state) {
+              LeaveBalance? annualLeave;
+              if (state is LeaveBalancesLoaded && state.balances.isNotEmpty) {
+                annualLeave = state.balances.firstWhere(
+                  (b) => b.leaveTypeName.toLowerCase().contains('cuti tahunan'),
+                  orElse: () => state.balances.first,
+                );
+              }
+
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 40),
+                  Text(
+                    annualLeave != null ? annualLeave.remaining.toString() : '0',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontSize: 48,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    'SISA JATAH CUTI TAHUNAN',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      title: const Text('KELOLA CUTI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 1)),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+    );
   }
 }
 
-class LeaveView extends StatefulWidget {
-  const LeaveView({super.key});
+class _SliverTabDelegate extends SliverPersistentHeaderDelegate {
+  _SliverTabDelegate(this._tabBar);
+
+  final TabBar _tabBar;
 
   @override
-  State<LeaveView> createState() => _LeaveViewState();
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Colors.white,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabDelegate oldDelegate) {
+    return false;
+  }
 }
 
-class _LeaveViewState extends State<LeaveView> {
+class LeaveFormTab extends StatefulWidget {
+  const LeaveFormTab({super.key});
+
+  @override
+  State<LeaveFormTab> createState() => _LeaveFormTabState();
+}
+
+class _LeaveFormTabState extends State<LeaveFormTab> {
   final _reasonController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
   String? _selectedLeaveTypeId;
-  List<LeaveBalance> _balances = [];
-  XFile? _attachment;
   final ImagePicker _picker = ImagePicker();
+  XFile? _attachment;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
 
   void _presentDatePicker(bool isStart) async {
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      initialDate: isStart ? DateTime.now() : (_startDate ?? DateTime.now()),
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primaryRed,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (pickedDate != null) {
       setState(() {
@@ -78,270 +216,367 @@ class _LeaveViewState extends State<LeaveView> {
     }
   }
 
-  void _submitLeave() {
+  void _submit() {
     if (_startDate == null || _endDate == null || _reasonController.text.isEmpty || _selectedLeaveTypeId == null) {
-      SnackBarUtils.showError(context, 'Please fill all fields (Type, Date, Reason)');
+      SnackBarUtils.showError(context, 'Lengkapi semua data pengajuan.');
       return;
     }
-    
-    final startStr = DateFormat('yyyy-MM-dd').format(_startDate!);
-    final endStr = DateFormat('yyyy-MM-dd').format(_endDate!);
-
-    // VALIDATION: Sakit must have attachment
-    final selectedBalance = _balances.firstWhere((element) => element.leaveTypeId == _selectedLeaveTypeId);
-    if (selectedBalance.leaveTypeName.toLowerCase().contains('sakit') && _attachment == null) {
-      SnackBarUtils.showError(context, 'Surat izin dokter wajib dilampirkan untuk izin sakit');
-      return;
-    }
-
     context.read<LeaveBloc>().add(SubmitLeaveRequested(
-          leaveTypeId: _selectedLeaveTypeId!,
-          startDate: startStr,
-          endDate: endStr,
-          reason: _reasonController.text,
-          attachmentPath: _attachment?.path,
-        ));
+      leaveTypeId: _selectedLeaveTypeId!,
+      startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
+      endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
+      reason: _reasonController.text,
+      attachmentPath: _attachment?.path,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pengajuan Cuti / Izin'),
-        leading: Navigator.of(context).canPop()
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop(),
-            )
-          : null,
-      ),
-      body: BlocListener<LeaveBloc, LeaveState>(
-        listener: (context, state) {
-          if (state is LeaveActionSuccess) {
-            SnackBarUtils.showSuccess(context, state.message);
-            _reasonController.clear();
-            setState(() {
-              _startDate = null;
-              _endDate = null;
-              _selectedLeaveTypeId = null;
-              _attachment = null;
-            });
-            context.read<LeaveBloc>().add(const FetchMyLeavesRequested());
-            context.read<LeaveBloc>().add(const FetchLeaveBalancesRequested());
-          } else if (state is LeaveActionFailure) {
-            SnackBarUtils.showError(context, state.message);
-          }
- else if (state is LeaveBalancesLoaded) {
-            setState(() {
-              _balances = state.balances;
-            });
-          }
-        },
+    return BlocListener<LeaveBloc, LeaveState>(
+      listener: (context, state) {
+        if (state is LeaveActionSuccess) {
+          SnackBarUtils.showSuccess(context, state.message);
+          _reasonController.clear();
+          setState(() {
+            _startDate = null;
+            _endDate = null;
+            _selectedLeaveTypeId = null;
+            _attachment = null;
+          });
+          context.read<LeaveBloc>().add(const FetchMyLeavesRequested());
+          context.read<LeaveBloc>().add(const FetchLeaveBalancesRequested());
+        } else if (state is LeaveActionFailure) {
+          SnackBarUtils.showError(context, state.message);
+        }
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text('Pengajuan Cuti / Izin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedLeaveTypeId,
-                        hint: Text(_balances.isEmpty ? 'Memuat tipe...' : 'Pilih Tipe Cuti / Izin'),
-                        decoration: const InputDecoration(
-                          labelText: 'Tipe Layanan',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: _balances.map((balance) {
-                          return DropdownMenuItem(
-                            value: balance.leaveTypeId,
-                            child: Text('${balance.leaveTypeName} (Sisa: ${balance.remaining})'),
-                          );
-                        }).toList(),
-
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedLeaveTypeId = value;
-                          });
-                        },
-                      ),
-                      if (_selectedLeaveTypeId != null) ...[
-                        const SizedBox(height: 12),
-                        _buildLeavePayInfo(),
-                      ],
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _presentDatePicker(true),
-                              icon: const Icon(Icons.date_range),
-                              label: Text(_startDate == null ? 'Tanggal Mulai' : DateFormat('yyyy-MM-dd').format(_startDate!)),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _presentDatePicker(false),
-                              icon: const Icon(Icons.date_range),
-                              label: Text(_endDate == null ? 'Tanggal Selesai' : DateFormat('yyyy-MM-dd').format(_endDate!)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _reasonController,
-                        decoration: const InputDecoration(
-                          labelText: 'Alasan',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Lampiran (Wajib untuk Sakit)',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[700]),
-                      ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: _pickImage,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.grey[50],
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.attachment_rounded, color: Colors.blue[700]),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _attachment == null ? 'Pilih Foto Surat Dokter' : (_attachment!.name.length > 30 ? '...${_attachment!.name.substring(_attachment!.name.length - 20)}' : _attachment!.name),
-                                  style: TextStyle(color: _attachment == null ? Colors.grey : Colors.black87),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (_attachment != null)
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 18, color: Colors.red),
-                                  onPressed: () => setState(() => _attachment = null),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _submitLeave,
-                        child: const Text('Ajukan Sekarang'),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const Divider(),
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(
-                'Riwayat Pengajuan',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Expanded(
-              child: BlocBuilder<LeaveBloc, LeaveState>(
-                buildWhen: (previous, current) => current is LeavesLoaded || current is LeavesFailure || current is LeaveLoading,
-                builder: (context, state) {
-                  if (state is LeaveLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (state is LeavesFailure) {
-                    return Center(child: Text(state.message));
-                  } else if (state is LeavesLoaded) {
-                    if (state.leaves.isEmpty) {
-                      return const Center(child: Text("No leave requests found."));
-                    }
-                    return ListView.builder(
-                      itemCount: state.leaves.length,
-                      itemBuilder: (context, index) {
-                        final leave = state.leaves[index];
-                        final startStr = DateFormat('yyyy-MM-dd').format(leave.startDate);
-                        final endStr = DateFormat('yyyy-MM-dd').format(leave.endDate);
-
-                        Color statusColor = Colors.grey;
-                        if (leave.status == 'approved') statusColor = Colors.green;
-                        if (leave.status == 'rejected') statusColor = Colors.red;
-                        if (leave.status == 'pending') statusColor = Colors.orange;
-
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: ListTile(
-                            title: Text('${leave.leaveTypeName ?? "Cuti"} | $startStr to $endStr'),
-                            subtitle: Text('Reason: ${leave.reason}'),
-                            trailing: Chip(
-                              label: Text(
-                                leave.status.toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                              ),
-                              backgroundColor: statusColor,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                  return const SizedBox();
-                },
-              ),
-            ),
+            _buildSectionHeader('DETAIL LAYANAN'),
+            const SizedBox(height: 12),
+            _buildLeaveTypeSelection(),
+            const SizedBox(height: 24),
+            _buildSectionHeader('WAKTU PENGAJUAN'),
+            const SizedBox(height: 12),
+            _buildDateSelectors(),
+            const SizedBox(height: 24),
+            _buildSectionHeader('ALASAN & LAMPIRAN'),
+            const SizedBox(height: 12),
+            _buildReasonField(),
+            const SizedBox(height: 16),
+            _buildAttachmentPicker(),
+            const SizedBox(height: 48),
+            _buildSubmitButton(),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildLeavePayInfo() {
-    final balance = _balances.firstWhere((b) => b.leaveTypeId == _selectedLeaveTypeId);
-    final isPaid = balance.isPaid;
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1.5),
+    );
+  }
 
+  Widget _buildLeaveTypeSelection() {
+    return BlocBuilder<LeaveBloc, LeaveState>(
+      builder: (context, state) {
+        List<LeaveBalance> balances = [];
+        if (state is LeaveBalancesLoaded) {
+          balances = state.balances;
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.grayBorder),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: DropdownButtonFormField<String>(
+                  value: _selectedLeaveTypeId,
+                  decoration: const InputDecoration(border: InputBorder.none),
+                  hint: Text('Pilih Tipe Cuti / Izin', style: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontWeight: FontWeight.w700, fontSize: 14)),
+                  items: balances.map((b) => DropdownMenuItem(value: b.leaveTypeId, child: Text('${b.leaveTypeName} (Sisa: ${b.remaining})', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)))).toList(),
+                  onChanged: (v) => setState(() => _selectedLeaveTypeId = v),
+                ),
+              ),
+              if (_selectedLeaveTypeId != null) ...[
+                const Divider(height: 1),
+                _buildPayInfo(balances.firstWhere((b) => b.leaveTypeId == _selectedLeaveTypeId)),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPayInfo(LeaveBalance balance) {
+    final isPaid = balance.isPaid;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isPaid ? Colors.blue.withOpacity(0.05) : Colors.orange.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isPaid ? Colors.blue.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
-        ),
-      ),
+      padding: const EdgeInsets.all(20),
+      color: (isPaid ? Colors.blue : Colors.orange).withOpacity(0.03),
       child: Row(
         children: [
-          Icon(
-            isPaid ? Icons.info_outline : Icons.warning_amber_rounded,
-            size: 16,
-            color: isPaid ? Colors.blue : Colors.orange,
-          ),
-          const SizedBox(width: 8),
+          Icon(isPaid ? Icons.check_circle_rounded : Icons.info_rounded, color: isPaid ? Colors.blue : Colors.orange, size: 18),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              isPaid
-                  ? 'Pengajuan ini berbayar (Gaji tetap dibayarkan).'
-                  : 'Pengajuan ini tidak berbayar (Terdapat pemotongan gaji pokok).',
-              style: TextStyle(
-                fontSize: 12,
-                color: isPaid ? Colors.blue[700] : Colors.orange[700],
-                fontWeight: FontWeight.bold,
-              ),
+              isPaid ? 'Gaji tetap dibayarkan untuk tipe ini.' : 'Terdapat pemotongan gaji pokok.',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isPaid ? Colors.blue : Colors.orange),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDateSelectors() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.grayBorder),
+      ),
+      child: Column(
+        children: [
+          _buildDateField('MULAI', _startDate, () => _presentDatePicker(true)),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1),
+          ),
+          _buildDateField('SELESAI', _endDate, () => _presentDatePicker(false)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateField(String label, DateTime? date, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1)),
+              const SizedBox(height: 4),
+              Text(date != null ? DateFormat('dd MMMM yyyy').format(date) : 'Pilih Tanggal', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+            ],
+          ),
+          const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.textTertiary),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReasonField() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.grayBorder),
+      ),
+      child: TextField(
+        controller: _reasonController,
+        maxLines: 4,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          hintText: 'Tuliskan alasan pengajuan anda...',
+          hintStyle: TextStyle(color: AppColors.textTertiary.withOpacity(0.5), fontSize: 13),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentPicker() {
+    return InkWell(
+      onTap: _pickImage,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.grayLight.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.grayBorder, style: BorderStyle.solid),
+        ),
+        child: Row(
+          children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.attachment_rounded, size: 18, color: AppColors.primaryRed)),
+            const SizedBox(width: 16),
+            Expanded(child: Text(_attachment == null ? 'Lampiran / Surat Dokter (Opsional)' : _attachment!.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _attachment == null ? AppColors.textSecondary : AppColors.textPrimary), overflow: TextOverflow.ellipsis)),
+            if (_attachment != null) IconButton(icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => setState(() => _attachment = null)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return BlocBuilder<LeaveBloc, LeaveState>(
+      builder: (context, state) {
+        final isLoading = state is LeaveLoading;
+        return SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: ElevatedButton(
+            onPressed: isLoading ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryRed,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              elevation: 4,
+              shadowColor: AppColors.primaryRed.withOpacity(0.4),
+            ),
+            child: isLoading 
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                : const Text('AJUKAN SEKARANG', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5, fontSize: 13)),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class LeaveHistoryTab extends StatelessWidget {
+  const LeaveHistoryTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<LeaveBloc, LeaveState>(
+      builder: (context, state) {
+        List<Leave> leaves = [];
+        if (state is LeavesLoaded) {
+          leaves = state.leaves;
+        }
+
+        if (state is LeaveLoading && leaves.isEmpty) {
+          return _buildLoadingShimmer();
+        }
+
+        if (leaves.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.event_busy_rounded, size: 64, color: AppColors.textTertiary.withOpacity(0.3)),
+                const SizedBox(height: 16),
+                const Text('Belum ada riwayat pengajuan', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textTertiary)),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async => context.read<LeaveBloc>().add(const FetchMyLeavesRequested()),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(24),
+            itemCount: leaves.length,
+            itemBuilder: (context, index) {
+              final leave = leaves[index];
+              return _buildLeaveRequestCard(leave);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLeaveRequestCard(Leave leave) {
+    Color statusColor;
+    IconData statusIcon;
+    switch (leave.status.toLowerCase()) {
+      case 'approved':
+        statusColor = const Color(0xFF10B981);
+        statusIcon = Icons.check_circle_rounded;
+        break;
+      case 'rejected':
+        statusColor = AppColors.error;
+        statusIcon = Icons.cancel_rounded;
+        break;
+      default:
+        statusColor = Colors.orange;
+        statusIcon = Icons.pending_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.grayBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(statusIcon, color: statusColor, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(leave.leaveTypeName ?? 'Cuti', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.textPrimary)),
+                      const SizedBox(height: 4),
+                      Text('${DateFormat('dd MMM').format(leave.startDate)} - ${DateFormat('dd MMM yyyy').format(leave.endDate)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(leave.status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: statusColor, letterSpacing: 0.5)),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            color: AppColors.grayLight.withOpacity(0.2),
+            child: Text(
+              'Alasan: ${leave.reason}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingShimmer() {
+    return Shimmer.fromColors(
+      baseColor: AppColors.grayLight,
+      highlightColor: Colors.white,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(24),
+        itemCount: 3,
+        itemBuilder: (_, __) => Container(
+          height: 120,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        ),
       ),
     );
   }

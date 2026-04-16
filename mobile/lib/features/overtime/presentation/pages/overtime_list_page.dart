@@ -8,9 +8,7 @@ import 'package:hris_app/features/overtime/presentation/pages/overtime_request_p
 import 'package:intl/intl.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import '../bloc/overtime_bloc.dart';
-import '../bloc/overtime_event.dart';
-import '../bloc/overtime_state.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
 import '../../domain/entities/overtime.dart';
 
 class OvertimeListPage extends StatefulWidget {
@@ -29,23 +27,23 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF1B60F1);
-    const bgGray = Color(0xFFF9FAFB);
-    const textColor = Color(0xFF111827);
-    const subtitleColor = Color(0xFF6B7280);
+    final primaryRed = AppColors.primaryRed;
+    final bgGray = AppColors.backgroundAlt;
+    final textColor = AppColors.textPrimary;
+    final subtitleColor = AppColors.textSecondary;
 
     return Scaffold(
       backgroundColor: bgGray,
       appBar: AppBar(
         title: Text(
           'Pengajuan Lembur',
-          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+          style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w800, color: textColor),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -60,7 +58,7 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
         },
         builder: (context, state) {
           if (state is OvertimeLoading) {
-            return const Center(child: CircularProgressIndicator(color: primaryBlue));
+            return Center(child: CircularProgressIndicator(color: primaryRed));
           }
 
           if (state is MyOvertimesLoaded) {
@@ -75,7 +73,7 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
                     const SizedBox(height: 16),
                     Text(
                       'Belum ada pengajuan lembur',
-                      style: GoogleFonts.inter(fontSize: 16, color: subtitleColor, fontWeight: FontWeight.w500),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 16, color: subtitleColor, fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -86,10 +84,10 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
               onRefresh: () async {
                 context.read<OvertimeBloc>().add(FetchMyOvertimesRequested());
               },
-              color: primaryBlue,
+              color: primaryRed,
               child: AnimationLimiter(
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                   itemCount: overtimes.length,
                   itemBuilder: (context, index) {
                     return AnimationConfiguration.staggeredList(
@@ -98,7 +96,7 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
                       child: SlideAnimation(
                         verticalOffset: 50.0,
                         child: FadeInAnimation(
-                          child: _buildOvertimeCard(context, overtimes[index], primaryBlue, textColor, subtitleColor),
+                          child: _buildOvertimeCard(context, overtimes[index], primaryRed, textColor, subtitleColor),
                         ),
                       ),
                     );
@@ -113,9 +111,13 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          final overtimeBloc = context.read<OvertimeBloc>();
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => const OvertimeRequestPage(),
+              builder: (context) => BlocProvider.value(
+                value: overtimeBloc,
+                child: const OvertimeRequestPage(),
+              ),
             ),
           ).then((_) {
             if (mounted) {
@@ -123,8 +125,10 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
             }
           });
         },
-        backgroundColor: primaryBlue,
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: primaryRed,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
     );
   }
@@ -132,7 +136,7 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
   Widget _buildOvertimeCard(
     BuildContext context,
     Overtime overtime,
-    Color primaryBlue,
+    Color primaryRed,
     Color textColor,
     Color subtitleColor,
   ) {
@@ -140,16 +144,17 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
     final isPending = overtime.status.toLowerCase() == 'pending';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.grayBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -161,12 +166,12 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
                   children: [
                     Text(
                       DateFormat('EEEE, dd MMM yyyy').format(overtime.date),
-                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${DateFormat('HH:mm').format(overtime.startTime)} - ${DateFormat('HH:mm').format(overtime.endTime)} (${(overtime.durationMinutes / 60).toStringAsFixed(1)} Jam)',
-                      style: GoogleFonts.inter(fontSize: 13, color: subtitleColor),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: subtitleColor, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -174,59 +179,82 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     overtime.status.toUpperCase(),
-                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: statusColor, letterSpacing: 0.5),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
             Text(
               overtime.reason,
-              style: GoogleFonts.inter(fontSize: 14, color: textColor),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: textColor, fontWeight: FontWeight.w600),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             if (isPending) ...[
-              const Divider(height: 24),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton.icon(
+                  _buildMiniButton(
                     onPressed: () => _editOvertime(context, overtime),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Edit'),
-                    style: TextButton.styleFrom(foregroundColor: primaryBlue),
+                    icon: Icons.edit_rounded,
+                    label: 'Edit',
+                    color: AppColors.textSecondary,
                   ),
                   const SizedBox(width: 8),
-                  TextButton.icon(
+                  _buildMiniButton(
                     onPressed: () => _deleteOvertime(context, overtime),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Delete'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    icon: Icons.delete_rounded,
+                    label: 'Delete',
+                    color: AppColors.error,
                   ),
                 ],
               ),
             ],
             if (overtime.rejectReason != null && overtime.rejectReason!.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.05),
+                  color: AppColors.error.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.withOpacity(0.1)),
+                  border: Border.all(color: AppColors.error.withOpacity(0.1)),
                 ),
                 child: Text(
                   'Alasan Penolakan: ${overtime.rejectReason}',
-                  style: GoogleFonts.inter(fontSize: 12, color: Colors.red[700], fontStyle: FontStyle.italic),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w700, fontStyle: FontStyle.italic),
                 ),
               )
             ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniButton({required VoidCallback onPressed, required IconData icon, required String label, required Color color}) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
           ],
         ),
       ),
@@ -238,18 +266,22 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
       case 'pending':
         return Colors.orange;
       case 'approved':
-        return Colors.green;
+        return const Color(0xFF10B981);
       case 'rejected':
-        return Colors.red;
+        return AppColors.error;
       default:
-        return Colors.grey;
+        return AppColors.textTertiary;
     }
   }
 
   void _editOvertime(BuildContext context, Overtime overtime) {
+    final overtimeBloc = context.read<OvertimeBloc>();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => OvertimeRequestPage(overtimeToEdit: overtime),
+        builder: (context) => BlocProvider.value(
+          value: overtimeBloc,
+          child: OvertimeRequestPage(overtimeToEdit: overtime),
+        ),
       ),
     ).then((_) {
       if (mounted) {
@@ -262,19 +294,21 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Hapus Pengajuan?', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-        content: Text('Apakah Anda yakin ingin menghapus pengajuan lembur ini?', style: GoogleFonts.inter()),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Hapus Pengajuan?', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900)),
+        content: Text('Apakah Anda yakin ingin menghapus pengajuan lembur ini?', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Batal', style: GoogleFonts.inter(color: Colors.grey)),
+            child: const Text('BATAL', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textTertiary)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               context.read<OvertimeBloc>().add(DeleteOvertimeRequested(overtime.id));
             },
-            child: Text('Hapus', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('HAPUS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
           ),
         ],
       ),

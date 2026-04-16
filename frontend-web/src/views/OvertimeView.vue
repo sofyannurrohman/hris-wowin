@@ -80,7 +80,7 @@ const columns = [
           return h('div', { class: 'flex items-center justify-end gap-2' }, [
             h('button', {
               onClick: () => updateStatus(item.id, 'approved'),
-              class: 'px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded text-[12px] transition-colors font-bold border border-transparent hover:border-emerald-200'
+              class: 'px-3 py-1.5 text-emerald-600 hover:bg-emerald-500/10 rounded text-[12px] transition-colors font-bold border border-transparent hover:border-emerald-200'
             }, 'Setujui'),
             h('button', {
               onClick: () => openRejectModal(item.id),

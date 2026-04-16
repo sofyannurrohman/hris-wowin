@@ -111,7 +111,7 @@ const columns = [
         :class="[
           'px-4 py-1.5 rounded-full text-[13px] font-semibold border transition-colors',
           activeFilter === f
-            ? 'bg-blue-600 text-white border-blue-600'
+            ? 'bg-primary text-white border-primary'
             : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
         ]"
       >{{ f }}</button>

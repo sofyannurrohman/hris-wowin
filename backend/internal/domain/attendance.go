@@ -31,7 +31,7 @@ type AttendanceLog struct {
 	CreatedAt time.Time `gorm:"default:now()"`
 	UpdatedAt time.Time `gorm:"default:now()"`
 
-	Employee *Employee `gorm:"foreignKey:EmployeeID"`
+	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
 	Shift    *Shift    `gorm:"foreignKey:ShiftID"`
 }
 

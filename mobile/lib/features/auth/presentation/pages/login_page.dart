@@ -6,6 +6,7 @@ import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:hris_app/features/auth/presentation/pages/register_page.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
+import 'package:hris_app/core/utils/dialog_utils.dart';
 import 'package:hris_app/main.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
@@ -58,7 +59,11 @@ class _LoginPageState extends State<LoginPage> {
               MaterialPageRoute(builder: (_) => const AuthWrapper()),
             );
           } else if (state is AuthError) {
-            SnackBarUtils.showError(context, state.message);
+            DialogUtils.showError(
+              context: context, 
+              title: 'Gagal Masuk', 
+              message: state.message,
+            );
           }
         },
         child: SafeArea(

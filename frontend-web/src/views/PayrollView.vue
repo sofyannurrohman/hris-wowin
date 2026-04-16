@@ -142,7 +142,7 @@ const columns = [
     cell: ({ getValue }: any) => {
         const val = getValue() as string
         let classes = 'border border-gray-200 text-gray-600 bg-gray-50' 
-        if (val === 'PROCESSED') classes = 'border border-blue-200 text-blue-700 bg-blue-50'
+        if (val === 'PROCESSED') classes = 'border border-blue-200 text-primary bg-primary/5'
         return h('span', { class: `${classes} px-3 py-1.5 rounded-full text-[11px] font-bold inline-block` }, val)
     }
   },

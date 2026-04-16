@@ -19,7 +19,7 @@ type AttendanceUseCase interface {
 	CheckOut(userID uuid.UUID, req CheckOutRequest) (*domain.AttendanceLog, error)
 	GetHistory(userID uuid.UUID, startDate, endDate string) ([]AttendanceHistoryResponse, error)
 	GetStats(userID uuid.UUID) (*AttendanceStatsResponse, error)
-	GetAllHistory(page, limit int) ([]domain.AttendanceLog, error)
+	GetAllHistory(page, limit int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error)
 	CreateManual(req ManualAttendanceRequest) (*domain.AttendanceLog, error)
 	UpdateAttendance(id uuid.UUID, req UpdateAttendanceRequest) error
 	DeleteAttendance(id uuid.UUID) error
@@ -376,16 +376,15 @@ func (u *attendanceUseCase) GetStats(userID uuid.UUID) (*AttendanceStatsResponse
 	return stats, nil
 }
 
-func (u *attendanceUseCase) GetAllHistory(page, limit int) ([]domain.AttendanceLog, error) {
-	if page < 1 {
-		page = 1
+func (u *attendanceUseCase) GetAllHistory(page, limit int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error) {
+	var offset int
+	if limit > 0 {
+		if page < 1 {
+			page = 1
+		}
+		offset = (page - 1) * limit
 	}
-	if limit < 1 || limit > 100 {
-		limit = 10
-	}
-	offset := (page - 1) * limit
-
-	return u.repo.FindAllHistory(limit, offset)
+	return u.repo.FindAllHistory(limit, offset, branchID, month)
 }
 
 func (u *attendanceUseCase) CreateManual(req ManualAttendanceRequest) (*domain.AttendanceLog, error) {

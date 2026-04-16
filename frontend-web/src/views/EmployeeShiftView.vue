@@ -113,7 +113,16 @@ const columns = [
     header: 'SHIFT',
     cell: ({ row }: any) => {
       const shift = row.original.Shift
-      return h('span', { class: 'bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[12px] font-semibold' }, shift?.Name || '-')
+      const fmtTime = (iso: string) => {
+        if (!iso) return ''
+        const d = new Date(iso)
+        if (isNaN(d.getTime())) return ''
+        const h = String(d.getUTCHours()).padStart(2, '0')
+        const m = String(d.getUTCMinutes()).padStart(2, '0')
+        return `${h}.${m}`
+      }
+      const timeRange = shift ? ` (${fmtTime(shift.StartTime)} - ${fmtTime(shift.EndTime)})` : ''
+      return h('span', { class: 'bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-semibold' }, (shift?.Name || '-') + timeRange)
     }
   },
   {
@@ -139,7 +148,7 @@ const columns = [
     id: 'actions',
     header: 'AKSI',
     cell: ({ row }: any) => h('div', { class: 'flex gap-2' }, [
-      h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-blue-600 hover:bg-blue-50', onClick: () => openEditModal(row.original) }, () => h(Pencil, { class: 'w-4 h-4' })),
+      h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-primary hover:bg-primary/5', onClick: () => openEditModal(row.original) }, () => h(Pencil, { class: 'w-4 h-4' })),
       h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-red-600 hover:bg-red-50', onClick: () => remove(row.original.ID) }, () => h(Trash2, { class: 'w-4 h-4' }))
     ])
   }

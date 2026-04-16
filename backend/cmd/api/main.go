@@ -34,6 +34,8 @@ func main() {
 	branchRepo := repository.NewBranchRepository(db)
 	employeeShiftRepo := repository.NewEmployeeShiftRepository(db)
 	reimbursementRepo := repository.NewReimbursementRepository(db)
+	performanceRepo := repository.NewPerformanceRepository(db)
+	payrollConfigRepo := repository.NewPayrollConfigRepository(db)
 
 	// Setup UseCases
 	authUseCase := usecase.NewAuthUseCase(userRepo)
@@ -41,7 +43,7 @@ func main() {
 	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo)
 	leaveUseCase := usecase.NewLeaveUseCase(leaveRepo, employeeRepo)
 	overtimeUseCase := usecase.NewOvertimeUseCase(overtimeRepo, employeeRepo)
-	payrollUseCase := usecase.NewPayrollUseCase(payrollRepo, employeeRepo)
+	payrollUseCase := usecase.NewPayrollUseCase(payrollRepo, employeeRepo, payrollConfigRepo)
 	jobPositionUseCase := usecase.NewJobPositionUseCase(jobPositionRepo)
 	payrollComponentUseCase := usecase.NewPayrollComponentUseCase(payrollComponentRepo)
 	leaveTypeUseCase := usecase.NewLeaveTypeUseCase(leaveTypeRepo)
@@ -51,6 +53,8 @@ func main() {
 	branchUseCase := usecase.NewBranchUseCase(branchRepo)
 	employeeShiftUseCase := usecase.NewEmployeeShiftUseCase(employeeShiftRepo, employeeRepo, shiftRepo)
 	reimbursementUseCase := usecase.NewReimbursementUseCase(reimbursementRepo, employeeRepo)
+	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo)
+	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -84,6 +88,8 @@ func main() {
 	branchHandler := http.NewBranchHandler(branchUseCase)
 	employeeShiftHandler := http.NewEmployeeShiftHandler(employeeShiftUseCase)
 	reimbursementHandler := http.NewReimbursementHandler(reimbursementUseCase)
+	performanceHandler := http.NewPerformanceHandler(performanceUseCase, employeeUseCase)
+	payrollConfigHandler := http.NewPayrollConfigHandler(payrollConfigUseCase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -112,6 +118,8 @@ func main() {
 			branchHandler.SetupRoutes(protected)
 			employeeShiftHandler.SetupRoutes(protected)
 			reimbursementHandler.SetupRoutes(protected)
+			performanceHandler.SetupRoutes(protected)
+			payrollConfigHandler.SetupRoutes(protected)
 		}
 	}
 

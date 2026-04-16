@@ -14,7 +14,7 @@ type AttendanceRepository interface {
 	FindTodayByUserID(userID uuid.UUID) (*domain.AttendanceLog, error)
 	FindHistoryByUserID(userID uuid.UUID, limit, offset int) ([]domain.AttendanceLog, error)
 	FindHistoryByDateRange(employeeID uuid.UUID, startDate, endDate time.Time) ([]domain.AttendanceLog, error)
-	FindAllHistory(limit, offset int) ([]domain.AttendanceLog, error)
+	FindAllHistory(limit, offset int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error)
 	FindByID(id uuid.UUID) (*domain.AttendanceLog, error)
 	Delete(id uuid.UUID) error
 }
@@ -69,13 +69,31 @@ func (r *attendanceRepository) FindHistoryByDateRange(employeeID uuid.UUID, star
 	return logs, err
 }
 
-func (r *attendanceRepository) FindAllHistory(limit, offset int) ([]domain.AttendanceLog, error) {
+func (r *attendanceRepository) FindAllHistory(limit, offset int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error) {
 	var attendances []domain.AttendanceLog
-	err := r.db.Preload("Employee.User").
-		Order("clock_in_time DESC").
-		Limit(limit).
-		Offset(offset).
-		Find(&attendances).Error
+	query := r.db.Preload("Employee.User").Preload("Employee.Branch")
+	
+	if branchID != nil && *branchID != uuid.Nil {
+		query = query.Joins("JOIN employees ON employees.id = attendance_logs.employee_id").Where("employees.branch_id = ?", *branchID)
+	}
+
+	if month != "" {
+		if t, err := time.Parse("2006-01", month); err == nil {
+			start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+			end := start.AddDate(0, 1, 0).Add(-time.Second) // End of month
+			query = query.Where("attendance_logs.clock_in_time >= ? AND attendance_logs.clock_in_time <= ?", start, end)
+		} else if t, err := time.Parse("2006", month); err == nil {
+			start := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+			end := start.AddDate(1, 0, 0).Add(-time.Second) // End of year
+			query = query.Where("attendance_logs.clock_in_time >= ? AND attendance_logs.clock_in_time <= ?", start, end)
+		}
+	}
+
+	if limit > 0 {
+		query = query.Limit(limit).Offset(offset)
+	}
+
+	err := query.Order("attendance_logs.clock_in_time DESC").Find(&attendances).Error
 	return attendances, err
 }
 

@@ -64,6 +64,7 @@ dependencies:
   url_launcher: ^6.1.14
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.3
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -90,6 +91,7 @@ flutter:
   assets:
     - assets/logo_wowin.png
     - assets/splash_corporate.png
+    - assets/splash_premium.png
     - assets/mobilefacenet.tflite
   #   - images/a_dot_ham.jpeg
 

@@ -122,7 +122,7 @@ const columns = [
         h(Button, { 
             variant: 'ghost', 
             size: 'sm', 
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
             onClick: () => openEditModal(company)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 

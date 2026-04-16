@@ -36,3 +36,5 @@ class AuthError extends AuthState {
 }
 
 class FaceRegistrationSuccess extends AuthState {}
+
+class RegisterSuccess extends AuthState {}

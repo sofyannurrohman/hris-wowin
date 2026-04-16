@@ -8,7 +8,7 @@ import 'package:hris_app/features/attendance/presentation/bloc/attendance_bloc.d
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.dart';
 import 'package:hris_app/features/attendance/presentation/pages/face_verification_page.dart';
-import 'package:hris_app/features/attendance/presentation/pages/clock_in_failed_page.dart';
+import 'package:hris_app/features/attendance/presentation/pages/attendance_page.dart';
 import 'package:hris_app/features/attendance/presentation/pages/activity_history_page.dart';
 import 'package:hris_app/features/leave/presentation/pages/leave_page.dart';
 import 'package:hris_app/features/profile/presentation/pages/edit_profile_page.dart';
@@ -27,6 +27,7 @@ import 'package:hris_app/features/overtime/presentation/pages/overtime_list_page
 import 'package:hris_app/features/profile/presentation/pages/face_registration_page.dart';
 import 'package:hris_app/features/schedule/presentation/bloc/shift_bloc.dart';
 import 'package:hris_app/features/schedule/presentation/pages/shift_page.dart';
+import 'package:hris_app/features/profile/presentation/pages/profile_overview_page.dart';
 import 'package:hris_app/features/directory/presentation/pages/directory_page.dart';
 import 'package:hris_app/features/directory/presentation/bloc/directory_bloc.dart';
 import 'package:hris_app/features/approval/presentation/bloc/approval_bloc.dart';
@@ -83,11 +84,11 @@ class _HomeViewState extends State<HomeView> {
       case 0:
         return const DashboardTab();
       case 1:
-        return const Center(child: Text('Presensi Flow'));
+        return const AttendancePage();
       case 2:
         return const LeavePage();
       case 3:
-        return const EditProfilePage();
+        return const ProfileOverviewPage();
       default:
         return const DashboardTab();
     }

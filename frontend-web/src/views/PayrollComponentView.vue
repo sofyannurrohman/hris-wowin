@@ -134,7 +134,7 @@ const columns = [
         h(Button, { 
             variant: 'ghost', 
             size: 'sm', 
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
             onClick: () => openEditModal(component)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
@@ -202,7 +202,7 @@ const columns = [
             </Select>
           </div>
           <div class="flex items-center space-x-2 mt-2">
-            <input type="checkbox" id="taxable" v-model="newComponent.isTaxable" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+            <input type="checkbox" id="taxable" v-model="newComponent.isTaxable" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
             <label for="taxable" class="text-sm font-medium leading-none">
               Kena Pajak
             </label>

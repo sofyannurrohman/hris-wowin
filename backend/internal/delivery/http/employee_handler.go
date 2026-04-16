@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,7 +41,14 @@ func (h *EmployeeHandler) SetupRoutes(router *gin.RouterGroup) {
 }
 
 func (h *EmployeeHandler) GetEmployees(c *gin.Context) {
-	res, err := h.employeeUsecase.GetEmployees()
+	limitStr := c.Query("limit")
+	limit := 0
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil {
+			limit = l
+		}
+	}
+	res, err := h.employeeUsecase.GetEmployees(limit)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get employees: "+err.Error())
 		return

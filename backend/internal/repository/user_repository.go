@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
 )
@@ -11,6 +12,7 @@ type UserRepository interface {
 	Create(user *domain.User) error
 	CreateWithEmployee(user *domain.User, employee *domain.Employee) error
 	FindByEmail(email string) (*domain.User, error)
+	Delete(id uuid.UUID) error
 }
 
 type userRepository struct {
@@ -50,4 +52,8 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *userRepository) Delete(id uuid.UUID) error {
+	return r.db.Delete(&domain.User{}, "id = ?", id).Error
 }

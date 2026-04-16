@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { ref, onMounted, h, computed } from 'vue'
 import { toast } from 'vue-sonner'
 import { Pencil, Trash2 } from 'lucide-vue-next'
 import apiClient from '@/api/axios'
@@ -25,6 +25,32 @@ import {
 const isLoading = ref(true)
 const displayData = ref<any[]>([])
 const employeeOptions = ref<any[]>([])
+const branchOptions = ref<any[]>([])
+const selectedBranch = ref<string>('all')
+const filterType = ref<string>('month')
+const selectedMonth = ref<string>(new Date().toISOString().slice(0, 7)) // default current month: YYYY-MM
+const selectedYear = ref<string>(new Date().getFullYear().toString())
+
+const attendanceStats = computed(() => {
+  const data = displayData.value
+  let onTime = 0, late = 0, permitted = 0, absent = 0
+  
+  data.forEach(item => {
+    const s = (item.status || '').toUpperCase()
+    if (s === 'ON_TIME' || s === 'PRESENT') onTime++
+    else if (s === 'LATE') late++
+    else if (['SICK', 'LEAVE', 'PERMISSION'].includes(s)) permitted++
+    else if (s === 'ABSENT') absent++
+  })
+
+  return {
+    total: data.length,
+    onTime,
+    late,
+    permitted,
+    absent
+  }
+})
 
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
@@ -92,9 +118,21 @@ const columns = [
         const val = getValue() as string || ''
         let classes = 'bg-[#fef3c7] text-[#92400e]' // warning outline
         if (val.toUpperCase() === 'ON_TIME' || val.toUpperCase() === 'PRESENT') classes = 'bg-[#dcfce7] text-[#166534]'
-        else if (val.toUpperCase() === 'LATE') classes = 'bg-[#fee2e2] text-[#991b1b]'
+        else if (val.toUpperCase() === 'LATE') classes = 'bg-[#ffedd5] text-[#c2410c]'
+        else if (['SICK', 'LEAVE', 'PERMISSION'].includes(val.toUpperCase())) classes = 'bg-[#e0e7ff] text-[#3730a3]'
+        else if (val.toUpperCase() === 'ABSENT') classes = 'bg-[#fef2f2] text-[#b91c1c] ring-1 ring-[#b91c1c]/30'
         return h('span', { class: `${classes} px-2.5 py-1 rounded-full text-[12px] font-bold` }, val || 'UNKNOWN')
     }
+  },
+  {
+    accessorKey: 'branch',
+    header: 'CABANG',
+    cell: (info: any) => h('span', { class: 'text-gray-500 font-medium text-[13px]' }, info.getValue() || '-')
+  },
+  {
+    accessorKey: 'notes',
+    header: 'CATATAN',
+    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
   },
   {
     id: 'actions',
@@ -106,7 +144,7 @@ const columns = [
             variant: 'ghost',
             size: 'sm',
             onClick: () => openEditModal(item),
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5'
           }, () => h(Pencil, { class: 'w-4 h-4' })),
           h(Button, {
             variant: 'ghost',
@@ -138,9 +176,15 @@ const openEditModal = (item: any) => {
   isEditMode.value = true
   
   // parse dates specifically
+  const fmtTime = (iso: string) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return ''
+    return `${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')}`
+  }
   const dateStr = item._raw.ClockInTime ? new Date(item._raw.ClockInTime).toISOString().split('T')[0] : ''
-  const inTimeStr = item._raw.ClockInTime ? new Date(item._raw.ClockInTime).toLocaleTimeString('en-GB', { hour: "2-digit", minute: "2-digit" }) : ''
-  const outTimeStr = item._raw.ClockOutTime ? new Date(item._raw.ClockOutTime).toLocaleTimeString('en-GB', { hour: "2-digit", minute: "2-digit" }) : ''
+  const inTimeStr = item._raw.ClockInTime ? fmtTime(item._raw.ClockInTime) : ''
+  const outTimeStr = item._raw.ClockOutTime ? fmtTime(item._raw.ClockOutTime) : ''
 
   currentForm.value = {
     id: item.id,
@@ -205,7 +249,16 @@ const saveManualData = async () => {
 
 const fetchAttendance = async () => {
   try {
-    const res = await apiClient.get('/attendance/all?limit=50')
+    let url = '/attendance/all?limit=50'
+    if (selectedBranch.value && selectedBranch.value !== 'all') {
+      url += `&branch_id=${selectedBranch.value}`
+    }
+    if (filterType.value === 'month' && selectedMonth.value) {
+      url += `&month=${selectedMonth.value}`
+    } else if (filterType.value === 'year' && selectedYear.value) {
+      url += `&month=${selectedYear.value}`
+    }
+    const res = await apiClient.get(url)
     if (res.data?.data && res.data.data.length > 0) {
       displayData.value = res.data.data.map((item: any) => {
         const clockIn = item.ClockInTime ? new Date(item.ClockInTime) : null
@@ -222,20 +275,22 @@ const fetchAttendance = async () => {
           date: clockIn ? clockIn.toLocaleDateString('id-ID') : 'N/A',
           name: item.Employee?.FirstName || 'Karyawan',
           role: item.Employee?.JobPosition?.Name || '-',
-          checkIn: clockIn ? clockIn.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
-          checkOut: clockOut ? clockOut.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
+          checkIn: clockIn ? `${String(clockIn.getUTCHours()).padStart(2, '0')}.${String(clockIn.getUTCMinutes()).padStart(2, '0')}` : '-',
+          checkOut: clockOut ? `${String(clockOut.getUTCHours()).padStart(2, '0')}.${String(clockOut.getUTCMinutes()).padStart(2, '0')}` : '-',
           total: totalStr,
           status: item.Status || 'PRESENT',
+          branch: item.Employee?.Branch?.Name || '-',
+          notes: item.Notes || '-',
           avatar: `https://i.pravatar.cc/150?u=${item.EmployeeID}`,
           _raw: item
         }
       })
     } else {
-      displayData.value = dummyData
+      displayData.value = []
     }
-  } catch (e) {
-    console.error('Failed to fetch from API, falling back to dummy data')
-    displayData.value = dummyData
+  } catch (e: any) {
+    console.error('Failed to fetch from API', e)
+    displayData.value = []
   } finally {
     isLoading.value = false
   }
@@ -252,9 +307,34 @@ const fetchEmployeesForFilter = async () => {
   }
 }
 
+const fetchBranchesForFilter = async () => {
+  try {
+    const res = await apiClient.get('/branches')
+    if (res.data?.data) {
+      branchOptions.value = res.data.data
+    }
+  } catch (error) {
+    console.error('Failed fetching branches', error)
+  }
+}
+
+const exportCSV = () => {
+  let url = `${apiClient.defaults.baseURL}/attendance/export-csv?`
+  if (selectedBranch.value && selectedBranch.value !== 'all') {
+    url += `&branch_id=${selectedBranch.value}`
+  }
+  if (filterType.value === 'month' && selectedMonth.value) {
+    url += `&month=${selectedMonth.value}`
+  } else if (filterType.value === 'year' && selectedYear.value) {
+    url += `&month=${selectedYear.value}`
+  }
+  window.open(url, '_blank')
+}
+
 onMounted(() => {
   fetchAttendance()
   fetchEmployeesForFilter()
+  fetchBranchesForFilter()
 })
 </script>
 
@@ -267,21 +347,56 @@ onMounted(() => {
         <p class="text-[14px] text-gray-500 mt-1">Lacak jam kerja karyawan, check-in, dan status kehadiran.</p>
       </div>
       
-      <div class="flex items-center gap-3">
-        <div class="relative bg-white border border-gray-300 text-gray-700 rounded-lg text-[13px] px-3 py-2 flex items-center gap-2 cursor-pointer shadow-sm">
-          <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          01/10/2026 - 31/10/2026
-          <svg class="w-3 h-3 text-gray-400 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Branch Filter -->
+        <Select v-model="selectedBranch" @update:modelValue="fetchAttendance">
+          <SelectTrigger class="w-[160px] h-9 text-[13px] bg-white text-gray-700">
+            <SelectValue placeholder="Semua Cabang" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Cabang</SelectItem>
+            <SelectItem v-for="b in branchOptions" :key="b.ID" :value="b.ID">{{ b.Name }}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <!-- Type Filter -->
+        <Select v-model="filterType" @update:modelValue="fetchAttendance">
+          <SelectTrigger class="w-[100px] h-9 text-[13px] bg-white text-gray-700">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="month">Bulanan</SelectItem>
+            <SelectItem value="year">Tahunan</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <!-- Date Filter -->
+        <div class="relative">
+          <input
+            v-if="filterType === 'month'"
+            type="month"
+            v-model="selectedMonth"
+            @change="fetchAttendance"
+            class="h-9 border border-gray-300 bg-white text-gray-700 rounded-lg text-[13px] px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary shadow-sm"
+          />
+          <input
+            v-if="filterType === 'year'"
+            type="number"
+            min="2000"
+            max="2099"
+            step="1"
+            v-model="selectedYear"
+            @change="fetchAttendance"
+            class="h-9 w-24 border border-gray-300 bg-white text-gray-700 rounded-lg text-[13px] px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary shadow-sm"
+          />
         </div>
-        <Button variant="outline" class="flex items-center gap-2 h-9 px-3">
+
+        <!-- Export CSV -->
+        <Button variant="outline" class="flex items-center gap-2 h-9 px-3" @click="exportCSV">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          <span class="hidden sm:inline">Ekspor ke Excel</span>
+          <span class="hidden sm:inline">Ekspor CSV</span>
         </Button>
         <Button @click="openAddModal" class="h-9 px-4">
           Tambah Data Manual
@@ -294,21 +409,17 @@ onMounted(() => {
       <!-- Card 1 -->
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight w-20">Total Karyawan</p>
-          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+          <p class="text-[13px] font-medium text-gray-600 leading-tight w-20">Total Data</p>
+          <div class="w-8 h-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">142</h3>
+          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.total }}</h3>
           <div class="flex items-center gap-2 text-[12px]">
-            <span class="flex items-center text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
-               <svg class="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-               2%
-            </span>
-            <span class="text-gray-500">vs bulan lalu</span>
+            <span class="text-gray-500">Record kehadiran dari filter</span>
           </div>
         </div>
       </div>
@@ -316,20 +427,17 @@ onMounted(() => {
       <!-- Card 2 -->
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight w-24">Rata-rata Masuk</p>
-          <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
+          <p class="text-[13px] font-medium text-gray-600 leading-tight w-24">Tepat Waktu</p>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">09:02</h3>
+          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.onTime }}</h3>
           <div class="flex items-center gap-2 text-[12px]">
-            <span class="font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-               0%
-            </span>
-            <span class="text-gray-500">Tidak ada perubahan</span>
+            <span class="text-gray-500">Bekerja Sesuai Jadwal</span>
           </div>
         </div>
       </div>
@@ -337,21 +445,17 @@ onMounted(() => {
       <!-- Card 3 -->
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight w-20">Tingkat Ketepatan</p>
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <p class="text-[13px] font-medium text-gray-600 leading-tight w-20">Terlambat</p>
+          <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">94%</h3>
+          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.late }}</h3>
           <div class="flex items-center gap-2 text-[12px]">
-            <span class="flex items-center text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
-               <svg class="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-               5%
-            </span>
-            <span class="text-gray-500">vs bulan lalu</span>
+            <span class="text-gray-500">Datang melewati jadwal</span>
           </div>
         </div>
       </div>
@@ -359,7 +463,7 @@ onMounted(() => {
       <!-- Card 4 -->
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight">Terlambat</p>
+          <p class="text-[13px] font-medium text-gray-600 leading-tight">Mangkir & Cuti</p>
           <div class="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -367,13 +471,9 @@ onMounted(() => {
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">12</h3>
+          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.absent + attendanceStats.permitted }}</h3>
           <div class="flex items-center gap-2 text-[12px]">
-            <span class="flex items-center text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
-               <svg class="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
-               -12%
-            </span>
-            <span class="text-gray-500">Perbaikan</span>
+            <span class="text-gray-500">Mangkir: {{ attendanceStats.absent }}, Lainnya: {{ attendanceStats.permitted }}</span>
           </div>
         </div>
       </div>
@@ -457,6 +557,8 @@ onMounted(() => {
                 <SelectItem value="LATE">Terlambat (LATE)</SelectItem>
                 <SelectItem value="ABSENT">Mangkir (ABSENT)</SelectItem>
                 <SelectItem value="LEAVE">Cuti/Izin (LEAVE)</SelectItem>
+                <SelectItem value="SICK">Sakit (SICK)</SelectItem>
+                <SelectItem value="PERMISSION">Izin Tanpa Dibayar (PERMISSION)</SelectItem>
               </SelectContent>
             </Select>
           </div>

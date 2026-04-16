@@ -12,6 +12,9 @@ import (
 
 type LeaveUseCase interface {
 	SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) error
+	AdminCreateLeave(req AdminLeaveRequest) error
+	AdminUpdateLeave(leaveID uuid.UUID, req AdminLeaveRequest) error
+	AdminDeleteLeave(leaveID uuid.UUID) error
 	GetMyLeaves(userID uuid.UUID, page, limit int) ([]domain.LeaveRequest, error)
 	GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, error)
 	GetAllLeaves(status string, page, limit int) ([]domain.LeaveRequest, error)
@@ -48,6 +51,16 @@ type LeaveBalanceResponse struct {
 type ApproveLeaveRequest struct {
 	Status       string `json:"status" binding:"required,oneof=APPROVED REJECTED"`
 	RejectReason string `json:"reject_reason"`
+}
+
+type AdminLeaveRequest struct {
+	EmployeeID    string `json:"employee_id" binding:"required"`
+	LeaveTypeID   string `json:"leave_type_id" binding:"required"`
+	StartDate     string `json:"start_date" binding:"required"`
+	EndDate       string `json:"end_date" binding:"required"`
+	Reason        string `json:"reason"`
+	AttachmentURL string `json:"attachment_url"`
+	Status        string `json:"status"` // PENDING, APPROVED, REJECTED
 }
 
 func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) error {
@@ -121,6 +134,75 @@ func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) err
 	}
 
 	return u.repo.CreateLeaveRequestWithBalance(leave, balanceToUpdate)
+}
+
+func (u *leaveUseCase) AdminCreateLeave(req AdminLeaveRequest) error {
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, req.StartDate)
+	if err != nil {
+		return errors.New("invalid start_date format")
+	}
+	end, err := time.Parse(layout, req.EndDate)
+	if err != nil {
+		return errors.New("invalid end_date format")
+	}
+	if end.Before(start) {
+		return errors.New("end date cannot be before start date")
+	}
+
+	employeeID, err := uuid.Parse(req.EmployeeID)
+	if err != nil {
+		return errors.New("invalid employee_id")
+	}
+	leaveTypeID, err := uuid.Parse(req.LeaveTypeID)
+	if err != nil {
+		return errors.New("invalid leave_type_id")
+	}
+
+	leave := &domain.LeaveRequest{
+		EmployeeID:    employeeID,
+		LeaveTypeID:   leaveTypeID,
+		StartDate:     start,
+		EndDate:       end,
+		Reason:        req.Reason,
+		AttachmentURL: req.AttachmentURL,
+		Status:        "PENDING",
+	}
+	return u.repo.Create(leave)
+}
+
+func (u *leaveUseCase) AdminUpdateLeave(leaveID uuid.UUID, req AdminLeaveRequest) error {
+	leave, err := u.repo.FindByID(leaveID)
+	if err != nil || leave == nil {
+		return errors.New("leave request not found")
+	}
+
+	layout := "2006-01-02"
+	if req.StartDate != "" {
+		if t, e := time.Parse(layout, req.StartDate); e == nil {
+			leave.StartDate = t
+		}
+	}
+	if req.EndDate != "" {
+		if t, e := time.Parse(layout, req.EndDate); e == nil {
+			leave.EndDate = t
+		}
+	}
+	if req.LeaveTypeID != "" {
+		if id, e := uuid.Parse(req.LeaveTypeID); e == nil {
+			leave.LeaveTypeID = id
+		}
+	}
+	leave.Reason = req.Reason
+	leave.AttachmentURL = req.AttachmentURL
+	if req.Status != "" {
+		leave.Status = req.Status
+	}
+	return u.repo.Update(leave)
+}
+
+func (u *leaveUseCase) AdminDeleteLeave(leaveID uuid.UUID) error {
+	return u.repo.Delete(leaveID)
 }
 
 func (u *leaveUseCase) GetMyLeaves(userID uuid.UUID, page, limit int) ([]domain.LeaveRequest, error) {

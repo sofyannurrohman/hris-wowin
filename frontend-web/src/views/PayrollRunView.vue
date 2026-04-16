@@ -96,7 +96,7 @@ const columns = [
     cell: (info: any) => {
       const s = info.getValue()
       const cls = s === 'COMPLETED' ? 'border-green-200 text-green-700'
-                : s === 'PROCESSING' ? 'border-blue-200 text-blue-700'
+                : s === 'PROCESSING' ? 'border-blue-200 text-primary'
                 : 'border-gray-200 text-gray-600'
       return h('span', { class: `border ${cls} px-3 py-1 rounded-full text-[11px] font-bold` }, s)
     }
@@ -117,7 +117,7 @@ const columns = [
     cell: ({ row }: any) => {
       const r = row.original
       return h('div', { class: 'flex gap-2 flex-wrap' }, [
-        h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-blue-600 hover:bg-blue-50', onClick: () => exportCSV(r.ID) }, () => 'Export CSV'),
+        h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-primary hover:bg-primary/5', onClick: () => exportCSV(r.ID) }, () => 'Export CSV'),
         h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-red-600 hover:bg-red-50', onClick: () => deleteRun(r.ID) }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }

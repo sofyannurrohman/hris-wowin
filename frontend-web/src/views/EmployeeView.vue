@@ -22,7 +22,9 @@ const newEmployee = ref({
   joinDate: new Date().toISOString().split('T')[0],
   bankName: '',
   bankAccountNumber: '',
-  accountHolderName: ''
+  accountHolderName: '',
+  salary: 0,
+  phoneNumber: ''
 })
 
 const isEditMode = ref(false)
@@ -48,7 +50,9 @@ const openAddModal = () => {
     joinDate: new Date().toISOString().split('T')[0],
     bankName: '',
     bankAccountNumber: '',
-    accountHolderName: ''
+    accountHolderName: '',
+    salary: 0,
+    phoneNumber: ''
   }
   isModalOpen.value = true
 }
@@ -67,7 +71,9 @@ const openEditModal = (user: any) => {
     joinDate: user.JoinDate ? new Date(user.JoinDate).toISOString().split('T')[0] : '',
     bankName: user.BankName || '',
     bankAccountNumber: user.BankAccountNumber || '',
-    accountHolderName: user.AccountHolderName || ''
+    accountHolderName: user.AccountHolderName || '',
+    salary: user.Salary || 0,
+    phoneNumber: user.PhoneNumber || ''
   }
   isModalOpen.value = true
 }
@@ -79,7 +85,7 @@ const closeAddModal = () => {
 const fetchEmployees = async () => {
   isLoading.value = true
   try {
-    const response = await apiClient.get('/employees')
+    const response = await apiClient.get('/employees?limit=50')
     employees.value = response.data.data
   } catch (error) {
     console.error('Failed to fetch employees:', error)
@@ -117,12 +123,22 @@ const fetchBranches = async () => {
 
 const saveEmployee = async () => {
   isSubmitting.value = true
+  
+  // Sanitize data: convert empty strings to null for UUID fields
+  const payload = { 
+    ...newEmployee.value, 
+    salary: Number(newEmployee.value.salary),
+    branchId: newEmployee.value.branchId || null,
+    departmentId: newEmployee.value.departmentId || null,
+    jobPositionId: newEmployee.value.jobPositionId || null
+  }
+
   try {
     if (isEditMode.value) {
-      await apiClient.put(`/employees/${newEmployee.value.id}`, newEmployee.value)
+      await apiClient.put(`/employees/${newEmployee.value.id}`, payload)
       toast.success('Data Karyawan berhasil diperbarui!')
     } else {
-      await apiClient.post('/employees', newEmployee.value)
+      await apiClient.post('/employees', payload)
       toast.success('Karyawan berhasil ditambahkan!')
     }
     closeAddModal()
@@ -184,6 +200,21 @@ const columns = [
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px] font-medium' }, info.getValue() || '-')
   },
   {
+    accessorKey: 'PhoneNumber',
+    header: 'NOMOR WA',
+    cell: (info: any) => {
+      const val = info.getValue() || '-'
+      if (val === '-') return h('span', { class: 'text-gray-400' }, '-')
+      return h('a', { 
+        href: `https://wa.me/${val.replace(/[^0-9]/g, '')}`, 
+        target: '_blank',
+        class: 'text-emerald-600 font-medium hover:underline flex items-center gap-1'
+      }, [
+        h('span', {}, val)
+      ])
+    }
+  },
+  {
     id: 'jobPosition',
     header: 'JABATAN',
     cell: ({ row }: any) => h('span', { class: 'font-bold text-gray-700' }, row.original.JobPosition?.Name || '-')
@@ -216,6 +247,29 @@ const columns = [
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
   },
   {
+    accessorKey: 'Salary',
+    header: 'GAJI POKOK',
+    cell: (info: any) => {
+      const val = info.getValue() || 0
+      return h('span', { class: 'font-semibold text-gray-700 text-[13px]' }, 'Rp ' + val.toLocaleString('id-ID'))
+    }
+  },
+  {
+    accessorKey: 'BankName',
+    header: 'NAMA BANK',
+    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
+  },
+  {
+    accessorKey: 'BankAccountNumber',
+    header: 'NOMOR REKENING',
+    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
+  },
+  {
+    accessorKey: 'AccountHolderName',
+    header: 'PEMILIK REKENING',
+    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
+  },
+  {
     id: 'actions',
     header: 'AKSI',
     cell: ({ row }: any) => {
@@ -224,7 +278,7 @@ const columns = [
         h(Button, { 
             variant: 'ghost', 
             size: 'sm', 
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
             onClick: () => openEditModal(user)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
@@ -306,10 +360,15 @@ const columns = [
               <Input v-model="newEmployee.employeeIDNumber" placeholder="e.g. EMP-001" />
             </div>
           </div>
+
+          <div class="grid gap-2">
+            <label class="text-[13px] font-medium text-gray-700">Nomor WhatsApp (Aktif)</label>
+            <Input v-model="newEmployee.phoneNumber" placeholder="e.g. 08123456789" />
+          </div>
           
           <div class="grid gap-2">
             <label class="text-[13px] font-medium text-gray-700">Email Karyawan</label>
-            <Input v-model="newEmployee.email" type="email" placeholder="e.g. john@sentraweb.id" :disabled="isEditMode" />
+            <Input v-model="newEmployee.email" type="email" placeholder="contoh. john@wowin.com" :disabled="isEditMode" />
           </div>
 
           <div class="grid gap-2">
@@ -396,6 +455,13 @@ const columns = [
           <div class="grid gap-2">
              <label class="text-[13px] font-medium text-gray-700">Nama Pemilik Rekening</label>
              <Input v-model="newEmployee.accountHolderName" placeholder="e.g. JOHN DOE" />
+          </div>
+
+          <div class="h-px bg-gray-100 my-2"></div>
+          <h3 class="text-[13px] font-bold text-gray-900 uppercase tracking-wider">Kompensasi</h3>
+          <div class="grid gap-2">
+             <label class="text-[13px] font-medium text-gray-700">Gaji Pokok (Salary)</label>
+             <Input v-model="newEmployee.salary" type="number" placeholder="Rp 0" />
           </div>
         </div>
 

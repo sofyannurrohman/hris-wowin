@@ -72,7 +72,7 @@ const table = useVueTable({
             v-model="globalFilter"
             type="text" 
             placeholder="Cari data..." 
-            class="pl-9 bg-gray-50 focus-visible:ring-blue-500"
+            class="pl-9 bg-gray-50 focus-visible:ring-primary"
           />
         </div>
         <slot name="headerActions" />

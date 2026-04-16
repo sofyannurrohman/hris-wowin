@@ -50,7 +50,7 @@ type EmployeeSalarySetting struct {
 	Amount      float64   `gorm:"type:decimal(15,2);not null"`
 	CreatedAt   time.Time `gorm:"default:now()"`
 
-	Employee  *Employee         `gorm:"foreignKey:EmployeeID"`
+	Employee  *Employee         `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
 	Component *PayrollComponent `gorm:"foreignKey:ComponentID"`
 }
 
@@ -95,7 +95,7 @@ type Payslip struct {
 	CreatedAt          time.Time `gorm:"default:now()"`
 
 	PayrollRun *PayrollRun   `gorm:"foreignKey:PayrollRunID"`
-	Employee   *Employee     `gorm:"foreignKey:EmployeeID"`
+	Employee   *Employee     `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
 	Items      []PayslipItem `gorm:"foreignKey:PayslipID"`
 }
 

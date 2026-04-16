@@ -24,7 +24,10 @@ const fmt = (iso: string) => {
   if (!iso) return '-'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+  const date = d.toLocaleDateString('id-ID', { dateStyle: 'medium' })
+  const h = String(d.getUTCHours()).padStart(2, '0')
+  const m = String(d.getUTCMinutes()).padStart(2, '0')
+  return `${date} ${h}.${m}`
 }
 
 const columns = [
@@ -80,11 +83,11 @@ const columns = [
       <p class="text-[14px] text-gray-500 mt-1">Rekap data absensi seluruh karyawan. Data bersumber dari mobile app dan face recognition.</p>
     </div>
 
-    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3 items-start">
-      <svg class="w-5 h-5 text-blue-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="p-4 bg-primary/5 border border-blue-200 rounded-lg flex gap-3 items-start">
+      <svg class="w-5 h-5 text-primary mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
-      <p class="text-[13px] text-blue-700">Data absensi diinput otomatis dari check-in mobile karyawan. Koreksi manual tersedia di menu individual karyawan jika diperlukan.</p>
+      <p class="text-[13px] text-primary">Data absensi diinput otomatis dari check-in mobile karyawan. Koreksi manual tersedia di menu individual karyawan jika diperlukan.</p>
     </div>
 
     <DataTable :data="logs" :columns="columns" :isLoading="isLoading" />

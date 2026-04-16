@@ -28,8 +28,8 @@ type Reimbursement struct {
 	CreatedAt      time.Time           `gorm:"default:now()"`
 	UpdatedAt      time.Time           `gorm:"default:now()"`
 
-	Employee *Employee `gorm:"foreignKey:EmployeeID"`
-	Approver *Employee `gorm:"foreignKey:ApprovedBy"`
+	Employee *Employee   `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
+	Approver *Employee   `gorm:"foreignKey:ApprovedBy;constraint:OnDelete:CASCADE;"`
 }
 
 func (r *Reimbursement) BeforeCreate(tx *gorm.DB) (err error) {

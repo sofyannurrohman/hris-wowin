@@ -115,7 +115,7 @@ const columns = [
     cell: ({ row }: any) => {
       const parent = row.original.ParentDepartment
       if (parent && parent.Name) {
-         return h('span', { class: 'inline-block bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[12px] font-medium' }, parent.Name)
+         return h('span', { class: 'inline-block bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-medium' }, parent.Name)
       }
       return h('span', { class: 'text-gray-400 italic' }, 'Utama (Tidak Ada)')
     }
@@ -135,7 +135,7 @@ const columns = [
         h(Button, { 
             variant: 'ghost', 
             size: 'sm', 
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
             onClick: () => openEditModal(department)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 

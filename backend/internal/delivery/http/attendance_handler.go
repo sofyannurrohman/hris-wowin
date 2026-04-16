@@ -1,8 +1,12 @@
 package http
 
 import (
+	"bytes"
+	"encoding/csv"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,6 +35,7 @@ func (h *AttendanceHandler) SetupRoutes(router *gin.RouterGroup) {
 		admin.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
 		{
 			admin.GET("/all", h.GetAllHistory)
+			admin.GET("/export-csv", h.ExportCSV)
 			admin.POST("/manual", h.CreateManual)
 			admin.PUT("/:id", h.UpdateAttendance)
 			admin.DELETE("/:id", h.DeleteAttendance)
@@ -129,13 +134,112 @@ func (h *AttendanceHandler) GetAllHistory(c *gin.Context) {
 	page, _ := strconv.Atoi(pageStr)
 	limit, _ := strconv.Atoi(limitStr)
 
-	history, err := h.attendanceUseCase.GetAllHistory(page, limit)
+	branchIDStr := c.Query("branch_id")
+	var branchID *uuid.UUID
+	if branchIDStr != "" {
+		id, err := uuid.Parse(branchIDStr)
+		if err == nil {
+			branchID = &id
+		}
+	}
+
+	month := c.Query("month") // format: YYYY-MM
+
+	history, err := h.attendanceUseCase.GetAllHistory(page, limit, branchID, month)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get all attendance history")
 		return
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "All attendance history fetched", history)
+}
+
+func (h *AttendanceHandler) ExportCSV(c *gin.Context) {
+	branchIDStr := c.Query("branch_id")
+	var branchID *uuid.UUID
+	if branchIDStr != "" {
+		id, err := uuid.Parse(branchIDStr)
+		if err == nil {
+			branchID = &id
+		}
+	}
+
+	month := c.Query("month")
+	if month == "" {
+		// Default to current month
+		month = time.Now().Format("2006-01")
+	}
+
+	// Fetch all records (limit=0 = no limit)
+	history, err := h.attendanceUseCase.GetAllHistory(1, 0, branchID, month)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to export attendance")
+		return
+	}
+
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+
+	// Header
+	_ = writer.Write([]string{"No", "Tanggal", "Nama Karyawan", "Email", "Jabatan", "Cabang", "Jam Masuk", "Jam Keluar", "Total Jam Kerja", "Status", "Catatan"})
+
+	for i, item := range history {
+		empName := ""
+		empEmail := ""
+		branchName := "-"
+		jobTitle := "-"
+		if item.Employee != nil {
+			empName = item.Employee.FirstName
+			if item.Employee.User != nil {
+				empEmail = item.Employee.User.Email
+			}
+			if item.Employee.Branch != nil {
+				branchName = item.Employee.Branch.Name
+			}
+			if item.Employee.JobPosition != nil {
+				jobTitle = item.Employee.JobPosition.Title
+			}
+		}
+
+		dateStr := "-"
+		clockInStr := "-"
+		clockOutStr := "-"
+		totalStr := "-"
+		if item.ClockInTime != nil {
+			dateStr = item.ClockInTime.Format("02/01/2006")
+			clockInStr = item.ClockInTime.Format("15:04:05")
+		}
+		if item.ClockOutTime != nil {
+			clockOutStr = item.ClockOutTime.Format("15:04:05")
+			if item.ClockInTime != nil {
+				dur := item.ClockOutTime.Sub(*item.ClockInTime)
+				h := int(dur.Hours())
+				m := int(dur.Minutes()) % 60
+				totalStr = fmt.Sprintf("%dj %dm", h, m)
+			}
+		}
+
+		_ = writer.Write([]string{
+			fmt.Sprintf("%d", i+1),
+			dateStr,
+			empName,
+			empEmail,
+			jobTitle,
+			branchName,
+			clockInStr,
+			clockOutStr,
+			totalStr,
+			item.Status,
+			item.Notes,
+		})
+	}
+
+	writer.Flush()
+
+	filename := fmt.Sprintf("kehadiran_%s.csv", month)
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Data(http.StatusOK, "text/csv; charset=utf-8", buf.Bytes())
 }
 
 func (h *AttendanceHandler) CreateManual(c *gin.Context) {

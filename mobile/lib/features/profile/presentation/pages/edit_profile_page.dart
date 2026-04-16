@@ -10,6 +10,7 @@ import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:hris_app/core/utils/constants.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -35,31 +36,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   String? _gender;
   String? _maritalStatus;
-
-  void _showLogoutConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Logout', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-          content: Text('Apakah Anda yakin ingin keluar dari akun ini?', style: GoogleFonts.inter()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Batal', style: GoogleFonts.inter(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.read<AuthBloc>().add(LogoutRequested());
-              },
-              child: Text('Logout', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   void initState() {
@@ -87,11 +63,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    const textColor = Color(0xFF111827);
-    const subtitleColor = Color(0xFF6B7280);
-    const primaryBlue = Color(0xFF1B60F1);
-    const borderColor = Color(0xFFE5E7EB);
-    const disabledBgColor = Color(0xFFF3F4F6);
+    final textColor = AppColors.textPrimary;
+    final subtitleColor = AppColors.textSecondary;
+    final primaryRed = AppColors.primaryRed;
+    final borderColor = AppColors.grayBorder;
+    final disabledBgColor = AppColors.grayLight;
 
     return BlocListener<ProfileBloc, ProfileState>(
       listener: (context, state) {
@@ -100,7 +76,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _firstNameController.text = profile['FirstName'] ?? '';
           _lastNameController.text = profile['LastName'] ?? '';
           
-          // Handle BirthDate (string format likely)
           if (profile['BirthDate'] != null) {
             final bd = profile['BirthDate'].toString();
             _birthDateController.text = bd.length >= 10 ? bd.substring(0, 10) : bd;
@@ -121,7 +96,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         }
         if (state is ProfileUpdateSuccess) {
           SnackBarUtils.showSuccess(context, 'Profile Updated Successfully');
-          // Optionally reload profile
           context.read<ProfileBloc>().add(LoadProfileRequested());
         }
         if (state is ProfileFailure) {
@@ -132,23 +106,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: Text('Edit Profile',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.plusJakartaSans(
                   fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
           actions: [
             IconButton(
-              icon: const Icon(Icons.logout, color: Colors.redAccent),
-              onPressed: () => _showLogoutConfirmation(context),
+              icon: const Icon(Icons.help_outline_rounded, color: AppColors.textSecondary),
+              onPressed: () {},
             ),
           ],
-          leading: Navigator.of(context).canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
-                )
-              : null,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 20),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
         body: SafeArea(
           child: BlocBuilder<ProfileBloc, ProfileState>(
@@ -162,12 +134,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               final department = profile['Department']?['Name'] ?? '-';
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24)
-                    .copyWith(bottom: 120), // Padding for the bottom docked button
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24)
+                    .copyWith(bottom: 110),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar Section
                     Center(
                       child: Column(
                         children: [
@@ -175,279 +146,215 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             children: [
                               CircleAvatar(
                                 radius: 50,
-                                backgroundColor: const Color(0xFFFFDCA8),
+                                backgroundColor: AppColors.grayLight,
                                 backgroundImage: (profile['FaceReferenceURL'] != null && profile['FaceReferenceURL'].toString().isNotEmpty)
                                     ? NetworkImage(profile['FaceReferenceURL'].toString().startsWith('http') 
                                         ? profile['FaceReferenceURL'] 
                                         : '${Uri.parse(AppConstants.baseUrl).origin}${profile['FaceReferenceURL'].toString().startsWith('/') ? profile['FaceReferenceURL'] : '/${profile['FaceReferenceURL']}'}')
-                                    : NetworkImage('https://ui-avatars.com/api/?name=${profile['FirstName'] ?? 'User'}&background=FFDCA8&color=D97706&size=200'),
+                                    : null,
+                                child: (profile['FaceReferenceURL'] == null || profile['FaceReferenceURL'].toString().isEmpty)
+                                    ? Text((profile['FirstName'] ?? 'U')[0].toUpperCase(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.primaryRed))
+                                    : null,
                               ),
                               Positioned(
                                 bottom: 0,
                                 right: 0,
                                 child: Container(
-                                  padding: const EdgeInsets.all(6),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: primaryBlue,
+                                    color: primaryRed,
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
                                   ),
                                   child: const Icon(
-                                    Icons.camera_alt,
+                                    Icons.edit_rounded,
                                     color: Colors.white,
-                                    size: 16,
+                                    size: 14,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           Text(
-                            'Ubah Foto Profil',
-                            style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: primaryBlue),
+                            'Informasi Data Diri',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: textColor),
+                          ),
+                          Text(
+                            'Lengkapi data untuk keperluan administrasi',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: subtitleColor),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 40),
 
-                    Text(
-                      'EMPLOYMENT DETAILS',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: subtitleColor,
-                          letterSpacing: 1.0),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildLabel('NIKaryawan'),
-                    const SizedBox(height: 8),
-                    _buildReadOnlyField(nik, Icons.lock_outline, disabledBgColor, borderColor),
-                    const SizedBox(height: 20),
-
-                    _buildLabel('Departemen'),
-                    const SizedBox(height: 8),
-                    _buildReadOnlyField(department, Icons.lock_outline, disabledBgColor, borderColor),
-                    const SizedBox(height: 20),
-
-                    if (profile['Salary'] != null) ...[
-                      _buildLabel('Gaji Pokok'),
-                      const SizedBox(height: 8),
-                      _buildReadOnlyField(
-                        'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(profile['Salary'])}',
-                        Icons.lock_outline,
-                        disabledBgColor,
-                        borderColor,
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    const SizedBox(height: 12),
-
-                    Text(
-                      'PERSONAL INFORMATION',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: subtitleColor,
-                          letterSpacing: 1.0),
-                    ),
-                    const SizedBox(height: 16),
-
-                    Row(
+                    _buildSectionCard(
+                      title: 'EMPLOYMENT DETAILS',
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Nama Depan'),
-                              const SizedBox(height: 8),
-                              _buildEditableField(_firstNameController, Icons.person_outline, borderColor, primaryBlue),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Nama Belakang'),
-                              const SizedBox(height: 8),
-                              _buildEditableField(_lastNameController, Icons.person_outline, borderColor, primaryBlue),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+                        _buildLabel('NIK Karyawan'),
+                        const SizedBox(height: 10),
+                        _buildReadOnlyField(nik, Icons.badge_outlined, disabledBgColor, borderColor),
+                        const SizedBox(height: 20),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Tempat Lahir'),
-                              const SizedBox(height: 8),
-                              _buildEditableField(_birthPlaceController, Icons.location_city_outlined, borderColor, primaryBlue),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Tanggal Lahir (YYYY-MM-DD)'),
-                              const SizedBox(height: 8),
-                              _buildEditableField(_birthDateController, Icons.calendar_month_outlined, borderColor, primaryBlue),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Jenis Kelamin'),
-                              const SizedBox(height: 8),
-                              _buildDropdownField(_gender, ['Laki-laki', 'Perempuan'], Icons.wc, borderColor, primaryBlue, (v) => setState(() => _gender = v)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Status Pernikahan'),
-                              const SizedBox(height: 8),
-                              _buildDropdownField(_maritalStatus, ['Lajang', 'Menikah', 'Cerai'], Icons.favorite_outline, borderColor, primaryBlue, (v) => setState(() => _maritalStatus = v)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    _buildLabel('Nomor Telepon'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_phoneController, Icons.phone_outlined, borderColor, primaryBlue),
-                    const SizedBox(height: 32),
-
-                    Text(
-                      'IDENTIFICATION & TAX',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: subtitleColor,
-                          letterSpacing: 1.0),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildLabel('Nomor KTP (NIK)'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_identityNumberController, Icons.badge_outlined, borderColor, primaryBlue),
-                    const SizedBox(height: 20),
-
-                    _buildLabel('Nomor NPWP'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_npwpNumberController, Icons.receipt_long_outlined, borderColor, primaryBlue),
-                    const SizedBox(height: 32),
-
-                    Text(
-                      'ADDRESS INFORMATION',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: subtitleColor,
-                          letterSpacing: 1.0),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildLabel('Alamat Sesuai KTP'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_addressKtpController, Icons.home_outlined, borderColor, primaryBlue, maxLines: 2),
-                    const SizedBox(height: 20),
-
-                    _buildLabel('Alamat Domisili'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_addressResidentialController, Icons.location_on_outlined, borderColor, primaryBlue, maxLines: 2),
-                    const SizedBox(height: 20),
-
-                    _buildLabel('Kontak Darurat'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_emergencyContactController, Icons.medical_services_outlined, borderColor, primaryBlue),
-                    const SizedBox(height: 32),
-
-                    Text(
-                      'BANK INFORMATION',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: subtitleColor,
-                          letterSpacing: 1.0),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildLabel('Nama Bank'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_bankNameController, Icons.account_balance_outlined, borderColor, primaryBlue),
-                    const SizedBox(height: 20),
-
-                    _buildLabel('Nomor Rekening'),
-                    const SizedBox(height: 8),
-                    _buildEditableField(_bankAccountNumberController, Icons.numbers, borderColor, primaryBlue),
-                    const SizedBox(height: 20),
-
-                    _buildEditableField(_accountHolderNameController, Icons.person_pin_outlined, borderColor, primaryBlue),
-                    const SizedBox(height: 32),
-
-                    Text(
-                      'SECURITY SETTINGS',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: subtitleColor,
-                          letterSpacing: 1.0),
-                    ),
-                    const SizedBox(height: 16),
-
-                    BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) {
-                        bool isSupported = false;
-                        bool isEnabled = false;
-
-                        if (state is Unauthenticated) {
-                          isSupported = state.isBiometricSupported;
-                          isEnabled = state.isBiometricEnabled;
-                        }
-
-                        // Re-check support if state doesn't have it (authenticated case)
-                        // This is a simplification; in a real app we'd have a separate SettingsBloc
+                        _buildLabel('Departemen'),
+                        const SizedBox(height: 10),
+                        _buildReadOnlyField(department, Icons.account_tree_outlined, disabledBgColor, borderColor),
                         
-                        return SwitchListTile(
-                          title: Text('Login dengan Biometrik', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
-                          subtitle: Text('Gunakan Sidik Jari untuk masuk aplikasi', style: GoogleFonts.inter(fontSize: 13)),
-                          value: isEnabled,
-                          activeColor: primaryBlue,
-                          onChanged: isSupported ? (val) {
-                            context.read<AuthBloc>().add(ToggleBiometricRequested(val));
-                          } : null,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: borderColor),
+                        if (profile['Salary'] != null) ...[
+                          const SizedBox(height: 20),
+                          _buildLabel('Gaji Pokok'),
+                          const SizedBox(height: 10),
+                          _buildReadOnlyField(
+                            'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(profile['Salary'])}',
+                            Icons.payments_outlined,
+                            disabledBgColor,
+                            borderColor,
                           ),
-                        );
-                      },
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    _buildSectionCard(
+                      title: 'PERSONAL INFORMATION',
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Nama Depan'),
+                                  const SizedBox(height: 12),
+                                  _buildEditableField(_firstNameController, Icons.person_outline_rounded, borderColor, primaryRed),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Nama Belakang'),
+                                  const SizedBox(height: 12),
+                                  _buildEditableField(_lastNameController, Icons.person_outline_rounded, borderColor, primaryRed),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Tempat Lahir'),
+                                  const SizedBox(height: 12),
+                                  _buildEditableField(_birthPlaceController, Icons.location_city_rounded, borderColor, primaryRed),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Tanggal Lahir'),
+                                  const SizedBox(height: 12),
+                                  _buildEditableField(_birthDateController, Icons.calendar_today_rounded, borderColor, primaryRed),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Jenis Kelamin'),
+                                  const SizedBox(height: 12),
+                                  _buildDropdownField(_gender, ['Laki-laki', 'Perempuan'], Icons.wc_rounded, borderColor, primaryRed, (v) => setState(() => _gender = v)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Status Nikah'),
+                                  const SizedBox(height: 12),
+                                  _buildDropdownField(_maritalStatus, ['Lajang', 'Menikah', 'Cerai'], Icons.favorite_rounded, borderColor, primaryRed, (v) => setState(() => _maritalStatus = v)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Nomor Telepon'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_phoneController, Icons.phone_android_rounded, borderColor, primaryRed),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    _buildSectionCard(
+                      title: 'IDENTIFICATION & ADDRESS',
+                      children: [
+                        _buildLabel('Nomor KTP (NIK)'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_identityNumberController, Icons.badge_rounded, borderColor, primaryRed),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Nomor NPWP'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_npwpNumberController, Icons.receipt_long_outlined, borderColor, primaryRed),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Alamat Sesuai KTP'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_addressKtpController, Icons.map_rounded, borderColor, primaryRed, maxLines: 2),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Alamat Domisili'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_addressResidentialController, Icons.home_work_rounded, borderColor, primaryRed, maxLines: 2),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    _buildSectionCard(
+                      title: 'BANK INFORMATION',
+                      children: [
+                        _buildLabel('Nama Bank'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_bankNameController, Icons.account_balance_rounded, borderColor, primaryRed),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Nomor Rekening'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_bankAccountNumberController, Icons.credit_card_rounded, borderColor, primaryRed),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Nama Pemilik Rekening'),
+                        const SizedBox(height: 12),
+                        _buildEditableField(_accountHolderNameController, Icons.face_rounded, borderColor, primaryRed),
+                      ],
                     ),
                   ],
                 ),
@@ -456,82 +363,82 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         ),
         bottomSheet: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: BlocBuilder<ProfileBloc, ProfileState>(
-              builder: (context, state) {
-                return ElevatedButton.icon(
-                  onPressed: state is ProfileUpdating
-                      ? null
-                      : () {
-                          context.read<ProfileBloc>().add(
-                                UpdateProfileRequested(
-                                  firstName: _firstNameController.text,
-                                  lastName: _lastNameController.text,
-                                  birthDate: _birthDateController.text,
-                                  birthPlace: _birthPlaceController.text,
-                                  gender: _gender ?? '',
-                                  maritalStatus: _maritalStatus ?? '',
-                                  phoneNumber: _phoneController.text,
-                                  addressKtp: _addressKtpController.text,
-                                  addressResidential: _addressResidentialController.text,
-                                  emergencyContact: _emergencyContactController.text,
-                                  identityNumber: _identityNumberController.text,
-                                  npwpNumber: _npwpNumberController.text,
-                                  bankName: _bankNameController.text,
-                                  bankAccountNumber: _bankAccountNumberController.text,
-                                  accountHolderName: _accountHolderNameController.text,
-                                ),
-                              );
-                        },
-                  icon: state is ProfileUpdating
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save_outlined, color: Colors.white, size: 20),
-                  label: Text(
-                    state is ProfileUpdating ? 'Saving...' : 'Save Changes',
-                    style: GoogleFonts.inter(
-                        fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              },
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: BlocBuilder<ProfileBloc, ProfileState>(
+                builder: (context, state) {
+                  return ElevatedButton(
+                    onPressed: state is ProfileUpdating
+                        ? null
+                        : () {
+                            context.read<ProfileBloc>().add(
+                                  UpdateProfileRequested(
+                                    firstName: _firstNameController.text,
+                                    lastName: _lastNameController.text,
+                                    birthDate: _birthDateController.text,
+                                    birthPlace: _birthPlaceController.text,
+                                    gender: _gender ?? '',
+                                    maritalStatus: _maritalStatus ?? '',
+                                    phoneNumber: _phoneController.text,
+                                    addressKtp: _addressKtpController.text,
+                                    addressResidential: _addressResidentialController.text,
+                                    emergencyContact: _emergencyContactController.text,
+                                    identityNumber: _identityNumberController.text,
+                                    npwpNumber: _npwpNumberController.text,
+                                    bankName: _bankNameController.text,
+                                    bankAccountNumber: _bankAccountNumberController.text,
+                                    accountHolderName: _accountHolderNameController.text,
+                                  ),
+                                );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryRed,
+                      elevation: 8,
+                      shadowColor: AppColors.primaryRed.withOpacity(0.3),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: state is ProfileUpdating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text(
+                            'SIMPAN PERUBAHAN',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+                          ),
+                  );
+                },
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.inter(
+      style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF111827)),
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary),
     );
   }
 
@@ -539,19 +446,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return TextFormField(
       initialValue: initialValue,
       readOnly: true,
-      style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF6B7280)),
+      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         filled: true,
         fillColor: bg,
-        suffixIcon: Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+        suffixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: border)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none), // Match mockup which has subtle border or none
-        focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none),
       ),
@@ -562,18 +463,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
-      style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF111827)),
+      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white,
-        suffixIcon: Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+        fillColor: AppColors.grayLight,
+        suffixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: border)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: border)),
+            borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: focusBorder, width: 1.5)),
@@ -584,24 +482,45 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildDropdownField(String? value, List<String> items, IconData icon, Color border, Color focusBorder, void Function(String?) onChanged) {
     return DropdownButtonFormField<String>(
       value: (value != null && items.contains(value)) ? value : null,
-      items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+      items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(fontSize: 14)))).toList(),
       onChanged: onChanged,
-      style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF111827)),
+      style: const TextStyle(fontSize: 15, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+      dropdownColor: Colors.white,
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white,
-        suffixIcon: Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+        fillColor: AppColors.grayLight,
+        suffixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: border)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: border)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: focusBorder, width: 1.5)),
+            borderSide: BorderSide.none),
       ),
+    );
+  }
+
+  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1.5)),
+        ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.grayBorder),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -33,7 +33,7 @@ type LeaveBalance struct {
 	BalanceTotal int       `gorm:"default:0"`
 	BalanceUsed  int       `gorm:"default:0"`
 
-	Employee  *Employee  `gorm:"foreignKey:EmployeeID"`
+	Employee  *Employee  `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
 	LeaveType *LeaveType `gorm:"foreignKey:LeaveTypeID"`
 }
 
@@ -57,7 +57,7 @@ type LeaveRequest struct {
 	RejectReason  *string    `gorm:"type:text"`
 	CreatedAt     time.Time  `gorm:"default:now()"`
 
-	Employee  *Employee  `gorm:"foreignKey:EmployeeID"`
+	Employee  *Employee  `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
 	LeaveType *LeaveType `gorm:"foreignKey:LeaveTypeID"`
 	Approver  *Employee  `gorm:"foreignKey:ApprovedBy"`
 }

@@ -20,7 +20,6 @@ func (h *BranchHandler) SetupRoutes(r *gin.RouterGroup) {
 	branches := r.Group("/branches")
 	{
 		branches.POST("", h.Create)
-		branches.GET("", h.GetAll)
 		branches.GET("/:id", h.GetByID)
 		branches.PUT("/:id", h.Update)
 		branches.DELETE("/:id", h.Delete)

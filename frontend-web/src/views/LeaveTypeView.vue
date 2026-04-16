@@ -132,7 +132,7 @@ const columns = [
         h(Button, { 
             variant: 'ghost', 
             size: 'sm', 
-            class: 'h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
             onClick: () => openEditModal(leaveType)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
@@ -189,7 +189,7 @@ const columns = [
             <Input v-model.number="newLeaveType.defaultQuota" type="number" min="0" placeholder="e.g. 12" />
           </div>
           <div class="flex items-center space-x-2 mt-2">
-            <input type="checkbox" id="isPaid" v-model="newLeaveType.isPaid" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+            <input type="checkbox" id="isPaid" v-model="newLeaveType.isPaid" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
             <label for="isPaid" class="text-sm font-medium leading-none">
               Dibayar / Paid Leave
             </label>

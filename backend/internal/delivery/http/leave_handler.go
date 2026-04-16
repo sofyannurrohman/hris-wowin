@@ -31,6 +31,9 @@ func (h *LeaveHandler) SetupRoutes(router *gin.RouterGroup) {
 		admin.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
 		{
 			admin.GET("", h.GetAllLeaves)
+			admin.POST("", h.AdminCreateLeave)
+			admin.PUT("/:id", h.AdminUpdateLeave)
+			admin.DELETE("/:id", h.AdminDeleteLeave)
 			admin.PUT("/:id/approve", h.ApproveLeave)
 		}
 	}
@@ -179,4 +182,52 @@ func (h *LeaveHandler) GetAllLeaveBalances(c *gin.Context) {
 		return
 	}
 	utils.SuccessResponse(c, http.StatusOK, "Leave balances fetched", balances)
+}
+
+func (h *LeaveHandler) AdminCreateLeave(c *gin.Context) {
+	var req usecase.AdminLeaveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.leaveUseCase.AdminCreateLeave(req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.SuccessResponse(c, http.StatusCreated, "Leave request created successfully", nil)
+}
+
+func (h *LeaveHandler) AdminUpdateLeave(c *gin.Context) {
+	idStr := c.Param("id")
+	leaveID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave ID")
+		return
+	}
+
+	var req usecase.AdminLeaveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.leaveUseCase.AdminUpdateLeave(leaveID, req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, "Leave request updated successfully", nil)
+}
+
+func (h *LeaveHandler) AdminDeleteLeave(c *gin.Context) {
+	idStr := c.Param("id")
+	leaveID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave ID")
+		return
+	}
+	if err := h.leaveUseCase.AdminDeleteLeave(leaveID); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to delete: "+err.Error())
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, "Leave request deleted", nil)
 }

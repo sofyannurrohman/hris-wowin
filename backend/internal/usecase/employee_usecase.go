@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +13,7 @@ import (
 
 type EmployeeUsecase interface {
 	CreateEmployee(req *CreateEmployeeRequest) error
-	GetEmployees() ([]domain.Employee, error)
+	GetEmployees(limit int) ([]domain.Employee, error)
 	GetEmployeeByID(id uuid.UUID) (*domain.Employee, error)
 	GetEmployeeByUserID(userID uuid.UUID) (*domain.Employee, error)
 	UpdateEmployee(id uuid.UUID, req *UpdateEmployeeRequest) error
@@ -41,6 +42,7 @@ type CreateEmployeeRequest struct {
 	EmploymentStatus  string     `json:"employmentStatus"`
 	JoinDate          string     `json:"joinDate"` // Format: YYYY-MM-DD
 	Salary            *float64   `json:"salary"`
+	PhoneNumber       string     `json:"phoneNumber"`
 }
 
 type UpdateEmployeeRequest struct {
@@ -56,6 +58,7 @@ type UpdateEmployeeRequest struct {
 	EmploymentStatus  string     `json:"employmentStatus"`
 	JoinDate          string     `json:"joinDate"`
 	Salary            *float64   `json:"salary"`
+	PhoneNumber       string     `json:"phoneNumber"`
 }
 
 type UpdateProfileRequest struct {
@@ -140,13 +143,14 @@ func (u *employeeUsecase) CreateEmployee(req *CreateEmployeeRequest) error {
 		EmploymentStatus:  req.EmploymentStatus,
 		JoinDate:          joinDate,
 		Salary:            req.Salary,
+		PhoneNumber:       req.PhoneNumber,
 	}
 
 	return u.employeeRepo.Create(newEmployee)
 }
 
-func (u *employeeUsecase) GetEmployees() ([]domain.Employee, error) {
-	return u.employeeRepo.FindAll()
+func (u *employeeUsecase) GetEmployees(limit int) ([]domain.Employee, error) {
+	return u.employeeRepo.FindAll(limit)
 }
 
 func (u *employeeUsecase) GetEmployeeByID(id uuid.UUID) (*domain.Employee, error) {
@@ -186,6 +190,8 @@ func (u *employeeUsecase) UpdateEmployee(id uuid.UUID, req *UpdateEmployeeReques
 	if req.Salary != nil {
 		employee.Salary = req.Salary
 	}
+	
+	employee.PhoneNumber = req.PhoneNumber
 
 	if err := u.employeeRepo.Update(employee); err != nil {
 		return err
@@ -228,6 +234,29 @@ func (u *employeeUsecase) UpdateProfile(userID uuid.UUID, req *UpdateProfileRequ
 }
 
 func (u *employeeUsecase) DeleteEmployee(id uuid.UUID) error {
-	// Let Database cascade delete via constraints, or delete employee directly
-	return u.employeeRepo.Delete(id)
+	employee, err := u.employeeRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.New("employee not found")
+	}
+
+	userID := employee.UserID
+
+	// 1. Delete Employee (Cascading deletes related HR data like attendance, payroll, etc. due to DB constraints)
+	if err := u.employeeRepo.Delete(id); err != nil {
+		return err
+	}
+
+	// 2. Delete User account (security clean up)
+	if userID != uuid.Nil {
+		if err := u.userRepo.Delete(userID); err != nil {
+			// We only log if user deletion fails as the main employee data is already gone
+			// and this might be an orphaned employee without a user record.
+			fmt.Printf("Warning: Failed to delete user record %s for employee %s: %v\n", userID, id, err)
+		}
+	}
+
+	return nil
 }

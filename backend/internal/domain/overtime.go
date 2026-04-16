@@ -28,8 +28,8 @@ type Overtime struct {
 	RejectReason    *string        `gorm:"type:text"`
 	CreatedAt       time.Time      `gorm:"default:now()"`
 
-	Employee *Employee `gorm:"foreignKey:EmployeeID"`
-	Approver *Employee `gorm:"foreignKey:ApprovedBy"`
+	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
+	Approver *Employee `gorm:"foreignKey:ApprovedBy;constraint:OnDelete:CASCADE;"`
 }
 
 func (o *Overtime) BeforeCreate(tx *gorm.DB) (err error) {

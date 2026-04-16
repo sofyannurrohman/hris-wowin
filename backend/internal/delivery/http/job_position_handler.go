@@ -20,7 +20,6 @@ func (h *JobPositionHandler) SetupRoutes(r *gin.RouterGroup) {
 	positions := r.Group("/job-positions")
 	{
 		positions.POST("", h.Create)
-		positions.GET("", h.GetAll)
 		positions.GET("/:id", h.GetByID)
 		positions.PUT("/:id", h.Update)
 		positions.DELETE("/:id", h.Delete)

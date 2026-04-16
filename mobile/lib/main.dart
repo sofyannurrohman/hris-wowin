@@ -65,7 +65,7 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, state) {
         if (state is Authenticated) {
           return const HomePage();
-        } else if (state is Unauthenticated || state is AuthError) {
+        } else if (state is Unauthenticated || state is AuthError || state is RegisterSuccess) {
           return const LoginPage();
         }
         return const Scaffold(

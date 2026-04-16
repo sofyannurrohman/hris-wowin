@@ -61,7 +61,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     result.fold(
       (failure) => emit(AuthError(failure.message)),
-      (_) => emit(Unauthenticated()), // Stay on unauthenticated but can navigate back to login
+      (_) => emit(RegisterSuccess()),
     );
   }
 
