@@ -28,6 +28,7 @@ func (h *EmployeeHandler) SetupRoutes(router *gin.RouterGroup) {
 	// Authenticated but common endpoints
 	employees.GET("/profile", h.GetProfile)
 	employees.PUT("/profile", h.UpdateProfile)
+	employees.GET("/directory", h.GetDirectory)
 
 	// Open Admin Endpoints
 	admin := employees.Group("")
@@ -159,4 +160,15 @@ func (h *EmployeeHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Profile updated successfully", nil)
+}
+
+func (h *EmployeeHandler) GetDirectory(c *gin.Context) {
+	query := c.Query("q")
+	res, err := h.employeeUsecase.GetDirectory(query)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get directory: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Directory fetched successfully", res)
 }

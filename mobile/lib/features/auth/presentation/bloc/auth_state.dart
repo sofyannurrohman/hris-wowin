@@ -1,38 +1,55 @@
 import 'package:equatable/equatable.dart';
 
 abstract class AuthState extends Equatable {
-  const AuthState();
+  final bool isBiometricSupported;
+  final bool isBiometricEnabled;
+
+  const AuthState({
+    this.isBiometricSupported = false,
+    this.isBiometricEnabled = false,
+  });
   
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [isBiometricSupported, isBiometricEnabled];
 }
 
 class AuthInitial extends AuthState {}
 
 class AuthLoading extends AuthState {}
 
-class Authenticated extends AuthState {}
+class Authenticated extends AuthState {
+  final Map<String, dynamic>? userProfile;
 
-class Unauthenticated extends AuthState {
-  final bool isBiometricSupported;
-  final bool isBiometricEnabled;
-
-  const Unauthenticated({
-    this.isBiometricSupported = false,
-    this.isBiometricEnabled = false,
+  const Authenticated({
+    this.userProfile,
+    super.isBiometricSupported = false,
+    super.isBiometricEnabled = false,
   });
 
   @override
-  List<Object> get props => [isBiometricSupported, isBiometricEnabled];
+  List<Object?> get props => [...super.props, userProfile ?? {}];
+}
+
+class Unauthenticated extends AuthState {
+  const Unauthenticated({
+    super.isBiometricSupported = false,
+    super.isBiometricEnabled = false,
+  });
+
+  @override
+  List<Object?> get props => super.props;
 }
 
 class AuthError extends AuthState {
   final String message;
 
-  const AuthError(this.message);
+  const AuthError(this.message, {
+    super.isBiometricSupported = false,
+    super.isBiometricEnabled = false,
+  });
 
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [...super.props, message];
 }
 
 class FaceRegistrationSuccess extends AuthState {}

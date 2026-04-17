@@ -52,13 +52,13 @@ type CheckOutRequest struct {
 }
 
 type AttendanceHistoryResponse struct {
-	ID           string     `json:"ID"`
-	UserID       string     `json:"UserID"`
-	CheckIn      time.Time  `json:"CheckIn"`
-	CheckOut     *time.Time `json:"CheckOut"`
-	Status       string     `json:"Status"`
-	SelfieURL    string     `json:"SelfieURL"`
-	WorkDuration int        `json:"WorkDuration"`
+	ID           string     `json:"id"`
+	UserID       string     `json:"user_id"`
+	CheckIn      time.Time  `json:"check_in"`
+	CheckOut     *time.Time `json:"check_out"`
+	Status       string     `json:"status"`
+	SelfieURL    string     `json:"selfie_url"`
+	WorkDuration int        `json:"work_duration"`
 }
 
 type AttendanceStatsResponse struct {

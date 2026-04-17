@@ -13,6 +13,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final BiometricLoginUseCase biometricLoginUseCase;
   final GetBiometricStatusUseCase getBiometricStatusUseCase;
   final SetBiometricEnabledUseCase setBiometricEnabledUseCase;
+  final GetProfileUseCase getProfileUseCase;
 
   AuthBloc({
     required this.loginUseCase,
@@ -23,6 +24,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.biometricLoginUseCase,
     required this.getBiometricStatusUseCase,
     required this.setBiometricEnabledUseCase,
+    required this.getProfileUseCase,
   }) : super(AuthInitial()) {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
@@ -35,15 +37,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ToggleBiometricRequested>(_onToggleBiometricRequested);
   }
 
+  Future<Map<String, bool>> _getBioStatus() async {
+    final status = await getBiometricStatusUseCase();
+    return {
+      'supported': status['supported'] ?? false,
+      'enabled': status['enabled'] ?? false,
+    };
+  }
+
   Future<void> _onLoginRequested(LoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
+    final bio = await _getBioStatus();
     final result = await loginUseCase(event.email, event.password);
-    result.fold(
-      (failure) {
-        print('Login Error: ${failure.message}');
-        emit(AuthError(failure.message));
+    
+    await result.fold(
+      (failure) async {
+        emit(AuthError(failure.message, isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!));
       },
-      (_) => emit(Authenticated()),
+      (_) async {
+        final profileResult = await getProfileUseCase();
+        Map<String, dynamic>? profile;
+        profileResult.fold((_) => null, (p) => profile = p);
+        emit(Authenticated(
+          userProfile: profile,
+          isBiometricSupported: bio['supported']!,
+          isBiometricEnabled: bio['enabled']!,
+        ));
+      },
     );
   }
 
@@ -67,22 +87,31 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLogoutRequested(LogoutRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
+    final bio = await _getBioStatus();
     final result = await logoutUseCase();
     result.fold(
-      (failure) => emit(AuthError(failure.message)),
-      (_) => emit(Unauthenticated()),
+      (failure) => emit(AuthError(failure.message, isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!)),
+      (_) => emit(Unauthenticated(isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!)),
     );
   }
 
   Future<void> _onCheckAuthStatusRequested(CheckAuthStatusRequested event, Emitter<AuthState> emit) async {
+    final bio = await _getBioStatus();
     final result = await checkAuthStatusUseCase();
-    result.fold(
-      (failure) => emit(Unauthenticated()),
-      (isAuthenticated) {
+    await result.fold(
+      (failure) async => emit(Unauthenticated(isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!)),
+      (isAuthenticated) async {
         if (isAuthenticated) {
-          emit(Authenticated());
+          final profileResult = await getProfileUseCase();
+          Map<String, dynamic>? profile;
+          profileResult.fold((_) => null, (p) => profile = p);
+          emit(Authenticated(
+            userProfile: profile,
+            isBiometricSupported: bio['supported']!,
+            isBiometricEnabled: bio['enabled']!,
+          ));
         } else {
-          emit(Unauthenticated());
+          emit(Unauthenticated(isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!));
         }
       },
     );
@@ -97,25 +126,45 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
-  void _onSessionExpired(SessionExpired event, Emitter<AuthState> emit) {
-    emit(Unauthenticated());
+  Future<void> _onSessionExpired(SessionExpired event, Emitter<AuthState> emit) async {
+    final bio = await _getBioStatus();
+    emit(Unauthenticated(isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!));
   }
 
   Future<void> _onBiometricLoginRequested(BiometricLoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
+    final bio = await _getBioStatus();
     final result = await biometricLoginUseCase();
-    result.fold(
-      (failure) => emit(AuthError(failure.message)),
-      (_) => emit(Authenticated()),
+    
+    await result.fold(
+      (failure) async => emit(AuthError(failure.message, isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!)),
+      (_) async {
+        final profileResult = await getProfileUseCase();
+        Map<String, dynamic>? profile;
+        profileResult.fold((_) => null, (p) => profile = p);
+        emit(Authenticated(
+          userProfile: profile,
+          isBiometricSupported: bio['supported']!,
+          isBiometricEnabled: bio['enabled']!,
+        ));
+      },
     );
   }
 
   Future<void> _onCheckBiometricSupportRequested(CheckBiometricSupportRequested event, Emitter<AuthState> emit) async {
-    final status = await getBiometricStatusUseCase();
-    emit(Unauthenticated(
-      isBiometricSupported: status['supported'] ?? false,
-      isBiometricEnabled: status['enabled'] ?? false,
-    ));
+    final bio = await _getBioStatus();
+    if (state is Authenticated) {
+      emit(Authenticated(
+        userProfile: (state as Authenticated).userProfile,
+        isBiometricSupported: bio['supported']!,
+        isBiometricEnabled: bio['enabled']!,
+      ));
+    } else {
+      emit(Unauthenticated(
+        isBiometricSupported: bio['supported']!,
+        isBiometricEnabled: bio['enabled']!,
+      ));
+    }
   }
 
   Future<void> _onToggleBiometricRequested(ToggleBiometricRequested event, Emitter<AuthState> emit) async {

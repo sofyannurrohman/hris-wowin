@@ -25,16 +25,18 @@ func (h *LeaveHandler) SetupRoutes(router *gin.RouterGroup) {
 		leaves.POST("/request", h.SubmitLeave)
 		leaves.GET("/balances", h.GetMyBalances)
 		leaves.GET("/history", h.GetMyLeaves)
+		leaves.PUT("/:id", h.UpdateMyLeave)
+		leaves.DELETE("/:id", h.DeleteMyLeave)
 
 		// Admin/Manager only
-		admin := leaves.Group("")
-		admin.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
+		managed := leaves.Group("/manage")
+		managed.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
 		{
-			admin.GET("", h.GetAllLeaves)
-			admin.POST("", h.AdminCreateLeave)
-			admin.PUT("/:id", h.AdminUpdateLeave)
-			admin.DELETE("/:id", h.AdminDeleteLeave)
-			admin.PUT("/:id/approve", h.ApproveLeave)
+			managed.GET("", h.GetAllLeaves)
+			managed.POST("", h.AdminCreateLeave)
+			managed.PUT("/:id", h.AdminUpdateLeave)
+			managed.DELETE("/:id", h.AdminDeleteLeave)
+			managed.PUT("/:id/approve", h.ApproveLeave)
 		}
 	}
 
@@ -230,4 +232,67 @@ func (h *LeaveHandler) AdminDeleteLeave(c *gin.Context) {
 		return
 	}
 	utils.SuccessResponse(c, http.StatusOK, "Leave request deleted", nil)
+}
+func (h *LeaveHandler) UpdateMyLeave(c *gin.Context) {
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDStr.(uuid.UUID)
+
+	idStr := c.Param("id")
+	leaveID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave ID")
+		return
+	}
+
+	var req usecase.SubmitLeaveRequest
+	if err := c.ShouldBind(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Handle file upload if any
+	file, err := c.FormFile("attachment")
+	if err == nil {
+		filename := uuid.New().String() + "-" + file.Filename
+		savePath := "uploads/attachments/" + filename
+		if err := c.SaveUploadedFile(file, savePath); err == nil {
+			req.AttachmentURL = "/uploads/attachments/" + filename
+		}
+	}
+
+	err = h.leaveUseCase.UpdateMyLeave(leaveID, userID, req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Leave request updated successfully", nil)
+}
+
+func (h *LeaveHandler) DeleteMyLeave(c *gin.Context) {
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDStr.(uuid.UUID)
+
+	idStr := c.Param("id")
+	leaveID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid leave ID")
+		return
+	}
+
+	err = h.leaveUseCase.DeleteMyLeave(leaveID, userID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Leave request cancelled/deleted successfully", nil)
 }

@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 class Leave extends Equatable {
   final String id;
   final String userId;
+  final String? leaveTypeId;
   final DateTime startDate;
   final DateTime endDate;
   final String reason;
@@ -14,6 +15,7 @@ class Leave extends Equatable {
   const Leave({
     required this.id,
     required this.userId,
+    this.leaveTypeId,
     required this.startDate,
     required this.endDate,
     required this.reason,
@@ -27,6 +29,7 @@ class Leave extends Equatable {
     return Leave(
       id: json['ID'] ?? '',
       userId: json['EmployeeID'] ?? json['UserID'] ?? '',
+      leaveTypeId: json['LeaveTypeID'] ?? (json['LeaveType'] != null ? json['LeaveType']['ID'] : null),
       startDate: json['StartDate'] != null ? DateTime.parse(json['StartDate']).toLocal() : DateTime.now(),
       endDate: json['EndDate'] != null ? DateTime.parse(json['EndDate']).toLocal() : DateTime.now(),
       reason: json['Reason'] ?? '',
@@ -38,5 +41,5 @@ class Leave extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, userId, startDate, endDate, reason, status, employeeName, createdAt];
+  List<Object?> get props => [id, userId, leaveTypeId, startDate, endDate, reason, status, employeeName, createdAt];
 }

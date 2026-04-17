@@ -143,4 +143,60 @@ class LeaveRepositoryImpl implements LeaveRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+  @override
+  Future<Either<Failure, void>> updateLeave(String leaveId, String leaveTypeId, String startDate, String endDate, String reason, {String? attachmentPath}) async {
+    try {
+      final Map<String, dynamic> data = {
+        'leave_type_id': leaveTypeId,
+        'start_date': startDate,
+        'end_date': endDate,
+        'reason': reason,
+      };
+
+      dynamic body;
+      if (attachmentPath != null && !attachmentPath.startsWith('http')) {
+        body = FormData.fromMap({
+          ...data,
+          'attachment': await MultipartFile.fromFile(attachmentPath),
+        });
+      } else {
+        body = data;
+      }
+
+      final response = await apiClient.client.put('time-off/$leaveId', data: body);
+
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to update leave') : 'Failed to update leave'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to update leave'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteLeave(String leaveId) async {
+    try {
+      final response = await apiClient.client.delete('time-off/$leaveId');
+
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to cancel/delete leave') : 'Failed to cancel/delete leave'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to cancel/delete leave'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }

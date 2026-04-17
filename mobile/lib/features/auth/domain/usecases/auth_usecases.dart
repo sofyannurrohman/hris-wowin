@@ -51,3 +51,13 @@ class RegisterFaceUseCase {
     return repository.registerFace(embedding, selfiePath);
   }
 }
+
+class GetProfileUseCase {
+  final AuthRepository repository;
+
+  GetProfileUseCase(this.repository);
+
+  Future<Either<Failure, Map<String, dynamic>>> call() {
+    return repository.getProfile();
+  }
+}

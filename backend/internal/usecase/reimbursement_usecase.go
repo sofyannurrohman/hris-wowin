@@ -13,6 +13,8 @@ type ReimbursementUseCase interface {
 	GetHistory(userID uuid.UUID, page, limit int) ([]domain.Reimbursement, error)
 	GetAll(status string, page, limit int) ([]domain.Reimbursement, error)
 	Approve(approverID, id uuid.UUID, req ApproveReimbursementRequest) error
+	UpdateMyReimbursement(userID, id uuid.UUID, req SubmitReimbursementRequest) error
+	DeleteMyReimbursement(userID, id uuid.UUID) error
 }
 
 type reimbursementUseCase struct {
@@ -122,4 +124,69 @@ func (u *reimbursementUseCase) Approve(approverID, id uuid.UUID, req ApproveReim
 	}
 
 	return u.repo.Update(reimbursement)
+}
+
+func (u *reimbursementUseCase) UpdateMyReimbursement(userID, id uuid.UUID, req SubmitReimbursementRequest) error {
+	reimbursement, err := u.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if reimbursement == nil {
+		return errors.New("reimbursement request not found")
+	}
+
+	// Resolve employee from userID
+	employee, err := u.employeeRepo.FindByUserID(userID)
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.New("employee record not found")
+	}
+
+	if reimbursement.EmployeeID != employee.ID {
+		return errors.New("you can only update your own reimbursements")
+	}
+
+	if reimbursement.Status != domain.ReimbursementPending {
+		return errors.New("cannot update reimbursement that is already processed")
+	}
+
+	reimbursement.Title = req.Title
+	reimbursement.Description = req.Description
+	reimbursement.Amount = req.Amount
+	if req.AttachmentURL != "" {
+		reimbursement.AttachmentURL = req.AttachmentURL
+	}
+
+	return u.repo.Update(reimbursement)
+}
+
+func (u *reimbursementUseCase) DeleteMyReimbursement(userID, id uuid.UUID) error {
+	reimbursement, err := u.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if reimbursement == nil {
+		return errors.New("reimbursement request not found")
+	}
+
+	// Resolve employee from userID
+	employee, err := u.employeeRepo.FindByUserID(userID)
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.New("employee record not found")
+	}
+
+	if reimbursement.EmployeeID != employee.ID {
+		return errors.New("you can only delete your own reimbursements")
+	}
+
+	if reimbursement.Status != domain.ReimbursementPending {
+		return errors.New("cannot delete reimbursement that is already processed")
+	}
+
+	return u.repo.Delete(id)
 }

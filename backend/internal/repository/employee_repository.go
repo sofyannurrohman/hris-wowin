@@ -13,6 +13,7 @@ type EmployeeRepository interface {
 	FindByUserID(userID uuid.UUID) (*domain.Employee, error)
 	Update(employee *domain.Employee) error
 	Delete(id uuid.UUID) error
+	FindBirthdaysToday() ([]domain.Employee, error)
 }
 
 type employeeRepository struct {
@@ -67,4 +68,13 @@ func (r *employeeRepository) Update(employee *domain.Employee) error {
 
 func (r *employeeRepository) Delete(id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&domain.Employee{}).Error
+}
+
+func (r *employeeRepository) FindBirthdaysToday() ([]domain.Employee, error) {
+	var employees []domain.Employee
+	// Postgres syntax for extracting month and day
+	if err := r.db.Where("EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(DAY FROM birth_date) = EXTRACT(DAY FROM CURRENT_DATE)").Find(&employees).Error; err != nil {
+		return nil, err
+	}
+	return employees, nil
 }

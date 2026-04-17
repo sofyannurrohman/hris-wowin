@@ -1,15 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hris_app/features/reimbursement/domain/entities/reimbursement.dart';
 import 'package:hris_app/features/reimbursement/presentation/bloc/reimbursement_bloc.dart';
 import 'package:hris_app/features/reimbursement/presentation/bloc/reimbursement_event.dart';
 import 'package:hris_app/features/reimbursement/presentation/bloc/reimbursement_state.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:image_picker/image_picker.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
+import 'package:hris_app/core/network/api_client.dart';
 
 class AddReimbursementPage extends StatefulWidget {
-  const AddReimbursementPage({super.key});
+  final Reimbursement? reimbursementToEdit;
+  const AddReimbursementPage({super.key, this.reimbursementToEdit});
 
   @override
   State<AddReimbursementPage> createState() => _AddReimbursementPageState();
@@ -20,7 +23,22 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   XFile? _attachment;
+  String? _existingAttachmentUrl;
   final ImagePicker _picker = ImagePicker();
+
+  bool get _isEditing => widget.reimbursementToEdit != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      final r = widget.reimbursementToEdit!;
+      _titleController.text = r.title;
+      _amountController.text = r.amount.toString();
+      _descriptionController.text = r.description ?? '';
+      _existingAttachmentUrl = r.attachmentUrl;
+    }
+  }
 
   void _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -37,7 +55,7 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
       create: (context) => di.sl<ReimbursementBloc>(),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Ajukan Reimbursement'),
+          title: Text(_isEditing ? 'Ubah Reimbursement' : 'Ajukan Reimbursement'),
         ),
         body: BlocConsumer<ReimbursementBloc, ReimbursementState>(
           listener: (context, state) {
@@ -95,7 +113,7 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                         borderRadius: BorderRadius.circular(8),
                         color: Colors.grey[50],
                       ),
-                      child: _attachment == null
+                      child: (_attachment == null && _existingAttachmentUrl == null)
                           ? const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -109,7 +127,14 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(File(_attachment!.path), fit: BoxFit.cover),
+                                  child: _attachment != null
+                                      ? Image.file(File(_attachment!.path), fit: BoxFit.cover)
+                                      : Image.network(
+                                          _existingAttachmentUrl!.startsWith('http')
+                                              ? _existingAttachmentUrl!
+                                              : '${di.sl<ApiClient>().baseUrl.replaceAll('/api/v1/', '')}$_existingAttachmentUrl',
+                                          fit: BoxFit.cover,
+                                        ),
                                 ),
                                 Positioned(
                                   top: 8,
@@ -119,7 +144,10 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                                     radius: 12,
                                     child: IconButton(
                                       icon: const Icon(Icons.close, size: 12, color: Colors.white),
-                                      onPressed: () => setState(() => _attachment = null),
+                                      onPressed: () => setState(() {
+                                        _attachment = null;
+                                        _existingAttachmentUrl = null;
+                                      }),
                                       padding: EdgeInsets.zero,
                                     ),
                                   ),
@@ -133,21 +161,37 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                     onPressed: state is ReimbursementLoading
                         ? null
                         : () {
-                            if (_titleController.text.isEmpty || _amountController.text.isEmpty || _attachment == null) {
-                              SnackBarUtils.showError(context, 'Mohon lengkapi judul, nominal, dan nota.');
+                            if (_titleController.text.isEmpty || _amountController.text.isEmpty) {
+                              SnackBarUtils.showError(context, 'Mohon lengkapi judul dan nominal.');
                               return;
                             }
+                            if (_attachment == null && _existingAttachmentUrl == null) {
+                              SnackBarUtils.showError(context, 'Mohon lampirkan nota.');
+                              return;
+                            }
+                            
                             final amount = double.tryParse(_amountController.text) ?? 0;
-                            context.read<ReimbursementBloc>().add(SubmitReimbursementRequested(
-                                  title: _titleController.text,
-                                  description: _descriptionController.text,
-                                  amount: amount,
-                                  attachmentPath: _attachment?.path,
-                                ));
+                            
+                            if (_isEditing) {
+                              context.read<ReimbursementBloc>().add(UpdateReimbursementRequested(
+                                    id: widget.reimbursementToEdit!.id,
+                                    title: _titleController.text,
+                                    description: _descriptionController.text,
+                                    amount: amount,
+                                    attachmentPath: _attachment?.path,
+                                  ));
+                            } else {
+                              context.read<ReimbursementBloc>().add(SubmitReimbursementRequested(
+                                    title: _titleController.text,
+                                    description: _descriptionController.text,
+                                    amount: amount,
+                                    attachmentPath: _attachment?.path,
+                                  ));
+                            }
                           },
                     child: state is ReimbursementLoading
-                        ? const CircularProgressIndicator()
-                        : const Text('Kirim Pengajuan'),
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(_isEditing ? 'Simpan Perubahan' : 'Kirim Pengajuan'),
                   ),
                 ],
               ),

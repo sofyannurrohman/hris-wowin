@@ -60,3 +60,33 @@ class ApproveLeaveRequested extends LeaveEvent {
   @override
   List<Object?> get props => [leaveId, status];
 }
+
+class UpdateLeaveRequested extends LeaveEvent {
+  final String leaveId;
+  final String leaveTypeId;
+  final String startDate;
+  final String endDate;
+  final String reason;
+  final String? attachmentPath;
+
+  const UpdateLeaveRequested({
+    required this.leaveId,
+    required this.leaveTypeId,
+    required this.startDate,
+    required this.endDate,
+    required this.reason,
+    this.attachmentPath,
+  });
+
+  @override
+  List<Object?> get props => [leaveId, leaveTypeId, startDate, endDate, reason, attachmentPath];
+}
+
+class DeleteLeaveRequested extends LeaveEvent {
+  final String leaveId;
+
+  const DeleteLeaveRequested(this.leaveId);
+
+  @override
+  List<Object?> get props => [leaveId];
+}

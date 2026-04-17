@@ -15,6 +15,7 @@ class OvertimeBloc extends Bloc<OvertimeEvent, OvertimeState> {
           startTime: event.startTime,
           endTime: event.endTime,
           durationMinutes: event.durationMinutes,
+          type: event.type,
           reason: event.reason,
         );
         emit(const OvertimeSuccess('Overtime submitted successfully!'));
@@ -32,6 +33,7 @@ class OvertimeBloc extends Bloc<OvertimeEvent, OvertimeState> {
           startTime: event.startTime,
           endTime: event.endTime,
           durationMinutes: event.durationMinutes,
+          type: event.type,
           reason: event.reason,
         );
         emit(const OvertimeSuccess('Overtime updated successfully!'));

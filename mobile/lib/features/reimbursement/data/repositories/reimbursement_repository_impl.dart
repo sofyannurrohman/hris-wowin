@@ -111,4 +111,66 @@ class ReimbursementRepositoryImpl implements ReimbursementRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> updateReimbursement({
+    required String id,
+    required String title,
+    String? description,
+    required double amount,
+    String? attachmentPath,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'title': title,
+        'description': description ?? '',
+        'amount': amount,
+      };
+
+      dynamic body;
+      if (attachmentPath != null) {
+        body = FormData.fromMap({
+          ...data,
+          'attachment': await MultipartFile.fromFile(attachmentPath),
+        });
+      } else {
+        body = data;
+      }
+
+      final response = await apiClient.client.put('reimbursements/$id', data: body);
+
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to update reimbursement') : 'Failed to update reimbursement'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to update reimbursement'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteReimbursement(String id) async {
+    try {
+      final response = await apiClient.client.delete('reimbursements/$id');
+
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to delete reimbursement') : 'Failed to delete reimbursement'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to delete reimbursement'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }

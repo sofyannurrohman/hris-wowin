@@ -12,6 +12,8 @@ import (
 
 type LeaveUseCase interface {
 	SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) error
+	UpdateMyLeave(leaveID, userID uuid.UUID, req SubmitLeaveRequest) error
+	DeleteMyLeave(leaveID, userID uuid.UUID) error
 	AdminCreateLeave(req AdminLeaveRequest) error
 	AdminUpdateLeave(leaveID uuid.UUID, req AdminLeaveRequest) error
 	AdminDeleteLeave(leaveID uuid.UUID) error
@@ -134,6 +136,134 @@ func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) err
 	}
 
 	return u.repo.CreateLeaveRequestWithBalance(leave, balanceToUpdate)
+}
+
+func (u *leaveUseCase) UpdateMyLeave(leaveID, userID uuid.UUID, req SubmitLeaveRequest) error {
+	employee, err := u.employeeRepo.FindByUserID(userID)
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.New("employee record not found")
+	}
+
+	leave, err := u.repo.FindByID(leaveID)
+	if err != nil || leave == nil {
+		return errors.New("leave request not found")
+	}
+
+	if leave.EmployeeID != employee.ID {
+		return errors.New("you can only update your own leave requests")
+	}
+
+	if leave.Status != "PENDING" {
+		return errors.New("only pending leave requests can be updated")
+	}
+
+	layout := "2006-01-02"
+	newStart, err := time.Parse(layout, req.StartDate)
+	if err != nil {
+		return errors.New("invalid start date format")
+	}
+	newEnd, err := time.Parse(layout, req.EndDate)
+	if err != nil {
+		return errors.New("invalid end date format")
+	}
+	if newEnd.Before(newStart) {
+		return errors.New("end date cannot be before start date")
+	}
+
+	newDuration := newEnd.Sub(newStart)
+	newTotalDays := int(newDuration.Hours()/24) + 1
+
+	newLeaveTypeID, _ := uuid.Parse(req.LeaveTypeID)
+	newLeaveType, _ := u.repo.GetLeaveTypeByID(newLeaveTypeID)
+	if newLeaveType == nil {
+		return errors.New("leave type not found")
+	}
+
+	var balanceToUpdate *domain.LeaveBalance
+	currentYear := time.Now().Year()
+
+	if leave.LeaveTypeID != newLeaveTypeID || !leave.StartDate.Equal(newStart) || !leave.EndDate.Equal(newEnd) {
+		oldLeaveType, _ := u.repo.GetLeaveTypeByID(leave.LeaveTypeID)
+		if oldLeaveType != nil && oldLeaveType.IsPaid {
+			oldDuration := leave.EndDate.Sub(leave.StartDate)
+			oldTotalDays := int(oldDuration.Hours()/24) + 1
+			balance, err := u.repo.GetLeaveBalance(employee.ID, leave.LeaveTypeID, leave.StartDate.Year())
+			if err == nil {
+				balance.BalanceUsed -= oldTotalDays
+				balanceToUpdate = balance
+			}
+		}
+
+		if newLeaveType.IsPaid {
+			balance := balanceToUpdate
+			if balance == nil || balance.LeaveTypeID != newLeaveTypeID {
+				balance, err = u.repo.GetLeaveBalance(employee.ID, newLeaveTypeID, currentYear)
+				if err != nil {
+					return errors.New("insufficient leave balance record for this year")
+				}
+			}
+
+			remaining := (balance.BalanceTotal - balance.BalanceUsed)
+			if remaining < newTotalDays {
+				return errors.New("insufficient leave balance")
+			}
+			balance.BalanceUsed += newTotalDays
+			balanceToUpdate = balance
+		}
+	}
+
+	leave.LeaveTypeID = newLeaveTypeID
+	leave.StartDate = newStart
+	leave.EndDate = newEnd
+	leave.Reason = req.Reason
+	if req.AttachmentURL != "" {
+		leave.AttachmentURL = req.AttachmentURL
+	}
+
+	return u.repo.UpdateLeaveRequestStatus(leave, balanceToUpdate)
+}
+
+func (u *leaveUseCase) DeleteMyLeave(leaveID, userID uuid.UUID) error {
+	employee, err := u.employeeRepo.FindByUserID(userID)
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.New("employee record not found")
+	}
+
+	leave, err := u.repo.FindByID(leaveID)
+	if err != nil || leave == nil {
+		return errors.New("leave request not found")
+	}
+
+	if leave.EmployeeID != employee.ID {
+		return errors.New("you can only delete your own leave requests")
+	}
+
+	if leave.Status != "PENDING" {
+		return errors.New("only pending leave requests can be deleted")
+	}
+
+	var balanceToRefund *domain.LeaveBalance
+	leaveType, _ := u.repo.GetLeaveTypeByID(leave.LeaveTypeID)
+	if leaveType != nil && leaveType.IsPaid {
+		duration := leave.EndDate.Sub(leave.StartDate)
+		totalDays := int(duration.Hours()/24) + 1
+
+		currentYear := leave.StartDate.Year()
+		balance, err := u.repo.GetLeaveBalance(leave.EmployeeID, leave.LeaveTypeID, currentYear)
+		if err == nil {
+			balance.BalanceUsed -= totalDays
+			balanceToRefund = balance
+		}
+	}
+
+	leave.Status = "CANCELLED"
+	return u.repo.UpdateLeaveRequestStatus(leave, balanceToRefund)
 }
 
 func (u *leaveUseCase) AdminCreateLeave(req AdminLeaveRequest) error {
@@ -312,7 +442,6 @@ func (u *leaveUseCase) ApproveReturnLeave(leaveID, approverID uuid.UUID, req App
 		leave.RejectReason = &req.RejectReason
 	}
 
-	// Resolve approver's User ID to Employee ID
 	approverEmp, err := u.employeeRepo.FindByUserID(approverID)
 	if err != nil {
 		return errors.New("failed to resolve approver identity")

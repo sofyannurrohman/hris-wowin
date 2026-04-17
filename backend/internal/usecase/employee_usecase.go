@@ -9,6 +9,7 @@ import (
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
 	"golang.org/x/crypto/bcrypt"
+	"strings"
 )
 
 type EmployeeUsecase interface {
@@ -19,6 +20,7 @@ type EmployeeUsecase interface {
 	UpdateEmployee(id uuid.UUID, req *UpdateEmployeeRequest) error
 	UpdateProfile(userID uuid.UUID, req *UpdateProfileRequest) error
 	DeleteEmployee(id uuid.UUID) error
+	GetDirectory(query string) ([]DirectoryResponse, error)
 }
 
 type employeeUsecase struct {
@@ -77,6 +79,15 @@ type UpdateProfileRequest struct {
 	BankName           string `json:"bankName"`
 	BankAccountNumber  string `json:"bankAccountNumber"`
 	AccountHolderName  string `json:"accountHolderName"`
+}
+
+type DirectoryResponse struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Position    string  `json:"position"`
+	Department  string  `json:"department"`
+	PhoneNumber string  `json:"phone_number"`
+	ProfileURL  *string `json:"profile_url"`
 }
 
 func NewEmployeeUsecase(employeeRepo repository.EmployeeRepository, userRepo repository.UserRepository) EmployeeUsecase {
@@ -259,4 +270,43 @@ func (u *employeeUsecase) DeleteEmployee(id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (u *employeeUsecase) GetDirectory(query string) ([]DirectoryResponse, error) {
+	employees, err := u.employeeRepo.FindAll(0)
+	if err != nil {
+		return nil, err
+	}
+
+	query = strings.ToLower(query)
+	var resp []DirectoryResponse
+	for _, e := range employees {
+		fullName := strings.TrimSpace(e.FirstName + " " + e.LastName)
+		deptName := ""
+		if e.Department != nil {
+			deptName = e.Department.Name
+		}
+		posName := ""
+		if e.JobPosition != nil {
+			posName = e.JobPosition.Title
+		}
+
+		var profileURL *string
+		if e.FaceReferenceURL != "" {
+			url := e.FaceReferenceURL
+			profileURL = &url
+		}
+
+		if query == "" || strings.Contains(strings.ToLower(fullName), query) || strings.Contains(strings.ToLower(deptName), query) {
+			resp = append(resp, DirectoryResponse{
+				ID:          e.ID.String(),
+				Name:        fullName,
+				Position:    posName,
+				Department:  deptName,
+				PhoneNumber: e.PhoneNumber,
+				ProfileURL:  profileURL,
+			})
+		}
+	}
+	return resp, nil
 }

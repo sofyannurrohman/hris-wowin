@@ -18,17 +18,17 @@ const (
 )
 
 type User struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Email        string     `gorm:"type:varchar(255);unique;not null"`
-	PasswordHash string     `gorm:"type:varchar(255);not null"`
-	Role         Role       `gorm:"type:varchar(50);default:'employee'"`
-	IsActive     bool       `gorm:"default:true"`
-	CreatedAt    time.Time  `gorm:"default:now()"`
-	UpdatedAt    time.Time  `gorm:"default:now()"`
-	CompanyID    *uuid.UUID `gorm:"type:uuid"`
-	LastLoginAt  *time.Time
+	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Email        string     `gorm:"type:varchar(255);unique;not null" json:"email"`
+	PasswordHash string     `gorm:"type:varchar(255);not null" json:"-"`
+	Role         Role       `gorm:"type:varchar(50);default:'employee'" json:"role"`
+	IsActive     bool       `gorm:"default:true" json:"is_active"`
+	CreatedAt    time.Time  `gorm:"default:now()" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"default:now()" json:"updated_at"`
+	CompanyID    *uuid.UUID `gorm:"type:uuid" json:"company_id"`
+	LastLoginAt  *time.Time `json:"last_login_at"`
 
-	Company *Company `gorm:"foreignKey:CompanyID"`
+	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {

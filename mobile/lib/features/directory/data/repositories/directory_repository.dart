@@ -22,30 +22,7 @@ class DirectoryRepositoryImpl implements DirectoryRepository {
       }
       return const Left(ServerFailure('Gagal memuat direktori.'));
     } catch (e) {
-      // Mock data for initial rollout
-      return Right([
-        const EmployeeDirectory(
-          id: '1',
-          name: 'Sofyan Nurrohman',
-          position: 'Fullstack Dev',
-          department: 'IT',
-          phoneNumber: '08123456789',
-        ),
-        const EmployeeDirectory(
-          id: '2',
-          name: 'Andi Kusuma',
-          position: 'Manager',
-          department: 'Sales',
-          phoneNumber: '08198765432',
-        ),
-        const EmployeeDirectory(
-          id: '3',
-          name: 'Siti Aminah',
-          position: 'Staff Finance',
-          department: 'Finance',
-          phoneNumber: '08112233445',
-        ),
-      ]);
+      return Left(ServerFailure(e.toString()));
     }
   }
 }

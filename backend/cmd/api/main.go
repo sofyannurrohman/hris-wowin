@@ -36,6 +36,7 @@ func main() {
 	reimbursementRepo := repository.NewReimbursementRepository(db)
 	performanceRepo := repository.NewPerformanceRepository(db)
 	payrollConfigRepo := repository.NewPayrollConfigRepository(db)
+	announcementRepo := repository.NewAnnouncementRepository(db)
 
 	// Setup UseCases
 	authUseCase := usecase.NewAuthUseCase(userRepo)
@@ -55,6 +56,7 @@ func main() {
 	reimbursementUseCase := usecase.NewReimbursementUseCase(reimbursementRepo, employeeRepo)
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
+	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -90,6 +92,7 @@ func main() {
 	reimbursementHandler := http.NewReimbursementHandler(reimbursementUseCase)
 	performanceHandler := http.NewPerformanceHandler(performanceUseCase, employeeUseCase)
 	payrollConfigHandler := http.NewPayrollConfigHandler(payrollConfigUseCase)
+	announcementHandler := http.NewAnnouncementHandler(announcementUseCase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -120,6 +123,7 @@ func main() {
 			reimbursementHandler.SetupRoutes(protected)
 			performanceHandler.SetupRoutes(protected)
 			payrollConfigHandler.SetupRoutes(protected)
+			announcementHandler.SetupRoutes(protected)
 		}
 	}
 

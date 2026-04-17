@@ -22,25 +22,7 @@ class AnnouncementRepositoryImpl implements AnnouncementRepository {
       }
       return const Left(ServerFailure('Gagal mengambil pengumuman.'));
     } catch (e) {
-      // Mock data for initial implementation
-      return Right([
-        Announcement(
-          id: '1',
-          title: 'Kebijakan Libur Lebaran 2026',
-          content: 'Manajemen mengumumkan libur bersama akan dimulai pada tanggal 20 April 2026.',
-          category: AnnouncementCategory.policy,
-          createdAt: DateTime.now().subtract(const Duration(days: 2)),
-          author: 'HRD',
-        ),
-        Announcement(
-          id: '2',
-          title: 'Selamat Ulang Tahun Budi!',
-          content: 'Mari sampaikan harapan terbaik untuk Budi dari tim IT.',
-          category: AnnouncementCategory.birthday,
-          createdAt: DateTime.now(),
-          author: 'Management',
-        ),
-      ]);
+      return Left(ServerFailure(e.toString()));
     }
   }
 }

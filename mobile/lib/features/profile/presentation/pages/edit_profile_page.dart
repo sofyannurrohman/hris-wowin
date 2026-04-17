@@ -73,26 +73,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
       listener: (context, state) {
         if (state is ProfileLoaded) {
           final profile = state.profile;
-          _firstNameController.text = profile['FirstName'] ?? '';
-          _lastNameController.text = profile['LastName'] ?? '';
+          _firstNameController.text = profile['first_name'] ?? '';
+          _lastNameController.text = profile['last_name'] ?? '';
           
-          if (profile['BirthDate'] != null) {
-            final bd = profile['BirthDate'].toString();
+          if (profile['birth_date'] != null) {
+            final bd = profile['birth_date'].toString();
             _birthDateController.text = bd.length >= 10 ? bd.substring(0, 10) : bd;
           }
           
-          _birthPlaceController.text = profile['BirthPlace'] ?? '';
-          _gender = profile['Gender'];
-          _maritalStatus = profile['MaritalStatus'];
-          _phoneController.text = profile['PhoneNumber'] ?? '';
-          _addressKtpController.text = profile['AddressKTP'] ?? '';
-          _addressResidentialController.text = profile['AddressResidential'] ?? '';
-          _emergencyContactController.text = profile['EmergencyContact'] ?? '';
-          _identityNumberController.text = profile['IdentityNumber'] ?? '';
-          _npwpNumberController.text = profile['NpwpNumber'] ?? '';
-          _bankNameController.text = profile['BankName'] ?? '';
-          _bankAccountNumberController.text = profile['BankAccountNumber'] ?? '';
-          _accountHolderNameController.text = profile['AccountHolderName'] ?? '';
+          _birthPlaceController.text = profile['birth_place'] ?? '';
+          _gender = profile['gender'];
+          _maritalStatus = profile['marital_status'];
+          _phoneController.text = profile['phone_number'] ?? '';
+          _addressKtpController.text = profile['address_ktp'] ?? '';
+          _addressResidentialController.text = profile['address_residential'] ?? '';
+          _emergencyContactController.text = profile['emergency_contact'] ?? '';
+          _identityNumberController.text = profile['identity_number'] ?? '';
+          _npwpNumberController.text = profile['npwp_number'] ?? '';
+          _bankNameController.text = profile['bank_name'] ?? '';
+          _bankAccountNumberController.text = profile['bank_account_number'] ?? '';
+          _accountHolderNameController.text = profile['account_holder_name'] ?? '';
         }
         if (state is ProfileUpdateSuccess) {
           SnackBarUtils.showSuccess(context, 'Profile Updated Successfully');
@@ -130,8 +130,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               }
 
               final profile = (state is ProfileLoaded) ? state.profile : {};
-              final nik = profile['EmployeeIDNumber'] ?? '-';
-              final department = profile['Department']?['Name'] ?? '-';
+              final nik = profile['employee_id_number'] ?? '-';
+              final department = profile['department']?['name'] ?? '-';
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24)
@@ -147,13 +147,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               CircleAvatar(
                                 radius: 50,
                                 backgroundColor: AppColors.grayLight,
-                                backgroundImage: (profile['FaceReferenceURL'] != null && profile['FaceReferenceURL'].toString().isNotEmpty)
-                                    ? NetworkImage(profile['FaceReferenceURL'].toString().startsWith('http') 
-                                        ? profile['FaceReferenceURL'] 
-                                        : '${Uri.parse(AppConstants.baseUrl).origin}${profile['FaceReferenceURL'].toString().startsWith('/') ? profile['FaceReferenceURL'] : '/${profile['FaceReferenceURL']}'}')
+                                backgroundImage: (profile['face_reference_url'] != null && profile['face_reference_url'].toString().isNotEmpty)
+                                    ? NetworkImage(profile['face_reference_url'].toString().startsWith('http') 
+                                        ? profile['face_reference_url'] 
+                                        : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}')
                                     : null,
-                                child: (profile['FaceReferenceURL'] == null || profile['FaceReferenceURL'].toString().isEmpty)
-                                    ? Text((profile['FirstName'] ?? 'U')[0].toUpperCase(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.primaryRed))
+                                child: (profile['face_reference_url'] == null || profile['face_reference_url'].toString().isEmpty)
+                                    ? Text((profile['first_name'] ?? 'U')[0].toUpperCase(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.primaryRed))
                                     : null,
                               ),
                               Positioned(
@@ -207,12 +207,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         const SizedBox(height: 10),
                         _buildReadOnlyField(department, Icons.account_tree_outlined, disabledBgColor, borderColor),
                         
-                        if (profile['Salary'] != null) ...[
+                        if (profile['salary'] != null) ...[
                           const SizedBox(height: 20),
                           _buildLabel('Gaji Pokok'),
                           const SizedBox(height: 10),
                           _buildReadOnlyField(
-                            'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(profile['Salary'])}',
+                            'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(profile['salary'])}',
                             Icons.payments_outlined,
                             disabledBgColor,
                             borderColor,

@@ -1,61 +1,40 @@
 import 'package:equatable/equatable.dart';
 import 'package:hris_app/features/leave/domain/entities/leave.dart';
-
 import 'package:hris_app/features/leave/domain/entities/leave_balance.dart';
 
-abstract class LeaveState extends Equatable {
-  const LeaveState();
-  
-  @override
-  List<Object?> get props => [];
-}
+enum LeaveStatus { initial, loading, success, failure }
 
-class LeaveBalancesLoaded extends LeaveState {
+class LeaveState extends Equatable {
+  final LeaveStatus status;
   final List<LeaveBalance> balances;
-
-  const LeaveBalancesLoaded(this.balances);
-
-  @override
-  List<Object?> get props => [balances];
-}
-
-
-class LeaveInitial extends LeaveState {}
-
-class LeaveLoading extends LeaveState {}
-
-class LeaveActionSuccess extends LeaveState {
-  final String message;
-
-  const LeaveActionSuccess(this.message);
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class LeaveActionFailure extends LeaveState {
-  final String message;
-
-  const LeaveActionFailure(this.message);
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class LeavesLoaded extends LeaveState {
   final List<Leave> leaves;
+  final String? message;
+  final String? actionMessage; // For separate success/failure of submissions
 
-  const LeavesLoaded(this.leaves);
+  const LeaveState({
+    this.status = LeaveStatus.initial,
+    this.balances = const [],
+    this.leaves = const [],
+    this.message,
+    this.actionMessage,
+  });
+
+  LeaveState copyWith({
+    LeaveStatus? status,
+    List<LeaveBalance>? balances,
+    List<Leave>? leaves,
+    String? message,
+    String? actionMessage,
+  }) {
+    return LeaveState(
+      status: status ?? this.status,
+      balances: balances ?? this.balances,
+      leaves: leaves ?? this.leaves,
+      message: message ?? this.message,
+      actionMessage: actionMessage ?? this.actionMessage,
+    );
+  }
 
   @override
-  List<Object?> get props => [leaves];
-}
-
-class LeavesFailure extends LeaveState {
-  final String message;
-
-  const LeavesFailure(this.message);
-
-  @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [status, balances, leaves, message, actionMessage];
 }

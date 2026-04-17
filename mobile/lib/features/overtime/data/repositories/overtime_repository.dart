@@ -12,6 +12,7 @@ class OvertimeRepository {
     required DateTime startTime,
     required DateTime endTime,
     required int durationMinutes,
+    required String type,
     required String reason,
   }) async {
     try {
@@ -20,6 +21,7 @@ class OvertimeRepository {
         "start_time": startTime.toIso8601String(),
         "end_time": endTime.toIso8601String(),
         "duration_minutes": durationMinutes,
+        "type": type,
         "reason": reason,
       };
 
@@ -43,6 +45,7 @@ class OvertimeRepository {
     required DateTime startTime,
     required DateTime endTime,
     required int durationMinutes,
+    required String type,
     required String reason,
   }) async {
     try {
@@ -51,6 +54,7 @@ class OvertimeRepository {
         "start_time": startTime.toIso8601String(),
         "end_time": endTime.toIso8601String(),
         "duration_minutes": durationMinutes,
+        "type": type,
         "reason": reason,
       };
 

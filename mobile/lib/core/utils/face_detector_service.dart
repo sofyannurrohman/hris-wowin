@@ -10,9 +10,9 @@ class FaceDetectorService {
   void initialize() {
     _faceDetector = FaceDetector(
       options: FaceDetectorOptions(
-        enableContours: true,
-        enableLandmarks: true,
-        enableClassification: true, // for smile/eyes open probabilities
+        enableContours: false,
+        enableLandmarks: false,
+        enableClassification: false,
         performanceMode: FaceDetectorMode.fast,
       ),
     );

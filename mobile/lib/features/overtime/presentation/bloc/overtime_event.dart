@@ -12,6 +12,7 @@ class SubmitOvertimeRequested extends OvertimeEvent {
   final DateTime startTime;
   final DateTime endTime;
   final int durationMinutes;
+  final String type;
   final String reason;
 
   const SubmitOvertimeRequested({
@@ -19,11 +20,12 @@ class SubmitOvertimeRequested extends OvertimeEvent {
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
+    required this.type,
     required this.reason,
   });
 
   @override
-  List<Object?> get props => [date, startTime, endTime, durationMinutes, reason];
+  List<Object?> get props => [date, startTime, endTime, durationMinutes, type, reason];
 }
 
 class UpdateOvertimeRequested extends OvertimeEvent {
@@ -32,6 +34,7 @@ class UpdateOvertimeRequested extends OvertimeEvent {
   final DateTime startTime;
   final DateTime endTime;
   final int durationMinutes;
+  final String type;
   final String reason;
 
   const UpdateOvertimeRequested({
@@ -40,11 +43,12 @@ class UpdateOvertimeRequested extends OvertimeEvent {
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
+    required this.type,
     required this.reason,
   });
 
   @override
-  List<Object?> get props => [id, date, startTime, endTime, durationMinutes, reason];
+  List<Object?> get props => [id, date, startTime, endTime, durationMinutes, type, reason];
 }
 
 class DeleteOvertimeRequested extends OvertimeEvent {

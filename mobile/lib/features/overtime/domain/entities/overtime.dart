@@ -7,6 +7,7 @@ class Overtime extends Equatable {
   final DateTime startTime;
   final DateTime endTime;
   final int durationMinutes;
+  final String type;
   final String reason;
   final String status;
   final String? rejectReason;
@@ -18,6 +19,7 @@ class Overtime extends Equatable {
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
+    required this.type,
     required this.reason,
     required this.status,
     this.rejectReason,
@@ -25,18 +27,19 @@ class Overtime extends Equatable {
 
   factory Overtime.fromJson(Map<String, dynamic> json) {
     return Overtime(
-      id: json['ID'] ?? '',
-      employeeId: json['EmployeeID'] ?? '',
-      date: DateTime.parse(json['Date']),
-      startTime: DateTime.parse(json['StartTime']),
-      endTime: DateTime.parse(json['EndTime']),
-      durationMinutes: json['DurationMinutes'] ?? 0,
-      reason: json['Reason'] ?? '',
-      status: json['Status'] ?? 'pending',
-      rejectReason: json['RejectReason'],
+      id: json['id'] ?? '',
+      employeeId: json['employee_id'] ?? '',
+      date: DateTime.parse(json['date']),
+      startTime: DateTime.parse(json['start_time']),
+      endTime: DateTime.parse(json['end_time']),
+      durationMinutes: json['duration_minutes'] ?? 0,
+      type: json['type'] ?? 'working_day',
+      reason: json['reason'] ?? '',
+      status: json['status'] ?? 'pending',
+      rejectReason: json['reject_reason'],
     );
   }
 
   @override
-  List<Object?> get props => [id, employeeId, date, startTime, endTime, durationMinutes, reason, status, rejectReason];
+  List<Object?> get props => [id, employeeId, date, startTime, endTime, durationMinutes, type, reason, status, rejectReason];
 }

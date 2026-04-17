@@ -12,6 +12,7 @@ type ReimbursementRepository interface {
 	GetByEmployeeID(employeeID uuid.UUID, limit, offset int) ([]domain.Reimbursement, error)
 	GetAll(status string, limit, offset int) ([]domain.Reimbursement, error)
 	Update(reimbursement *domain.Reimbursement) error
+	Delete(id uuid.UUID) error
 }
 
 type reimbursementRepository struct {
@@ -57,4 +58,8 @@ func (r *reimbursementRepository) GetAll(status string, limit, offset int) ([]do
 
 func (r *reimbursementRepository) Update(reimbursement *domain.Reimbursement) error {
 	return r.db.Save(reimbursement).Error
+}
+
+func (r *reimbursementRepository) Delete(id uuid.UUID) error {
+	return r.db.Delete(&domain.Reimbursement{}, "id = ?", id).Error
 }

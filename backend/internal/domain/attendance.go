@@ -8,31 +8,31 @@ import (
 )
 
 type AttendanceLog struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	EmployeeID uuid.UUID  `gorm:"type:uuid;not null"`
-	ShiftID    *uuid.UUID `gorm:"type:uuid"`
+	ID         uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	EmployeeID uuid.UUID  `gorm:"type:uuid;not null" json:"employee_id"`
+	ShiftID    *uuid.UUID `gorm:"type:uuid" json:"shift_id"`
 
-	ClockInTime  *time.Time
-	ClockOutTime *time.Time
+	ClockInTime  *time.Time `json:"clock_in_time"`
+	ClockOutTime *time.Time `json:"clock_out_time"`
 
-	ClockInLat            float64 `gorm:"type:decimal(10,8)"`
-	ClockInLong           float64 `gorm:"type:decimal(11,8)"`
-	ClockInPhotoURL       string  `gorm:"type:text"`
-	ClockInDeviceID       string  `gorm:"type:varchar(100)"`
-	ClockInLocationStatus string  `gorm:"type:varchar(20)"`
+	ClockInLat            float64 `gorm:"type:decimal(10,8)" json:"clock_in_lat"`
+	ClockInLong           float64 `gorm:"type:decimal(11,8)" json:"clock_in_long"`
+	ClockInPhotoURL       string  `gorm:"type:text" json:"clock_in_photo_url"`
+	ClockInDeviceID       string  `gorm:"type:varchar(100)" json:"clock_in_device_id"`
+	ClockInLocationStatus string  `gorm:"type:varchar(20)" json:"clock_in_location_status"`
 
-	ClockOutLat      float64 `gorm:"type:decimal(10,8)"`
-	ClockOutLong     float64 `gorm:"type:decimal(11,8)"`
-	ClockOutPhotoURL string  `gorm:"type:text"`
+	ClockOutLat      float64 `gorm:"type:decimal(10,8)" json:"clock_out_lat"`
+	ClockOutLong     float64 `gorm:"type:decimal(11,8)" json:"clock_out_long"`
+	ClockOutPhotoURL string  `gorm:"type:text" json:"clock_out_photo_url"`
 
-	Status string `gorm:"type:varchar(20)"`
-	Notes  string `gorm:"type:text"`
+	Status string `gorm:"type:varchar(20)" json:"status"`
+	Notes  string `gorm:"type:text" json:"notes"`
 
-	CreatedAt time.Time `gorm:"default:now()"`
-	UpdatedAt time.Time `gorm:"default:now()"`
+	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`
 
-	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
-	Shift    *Shift    `gorm:"foreignKey:ShiftID"`
+	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;" json:"employee,omitempty"`
+	Shift    *Shift    `gorm:"foreignKey:ShiftID" json:"shift,omitempty"`
 }
 
 func (a *AttendanceLog) BeforeCreate(tx *gorm.DB) (err error) {

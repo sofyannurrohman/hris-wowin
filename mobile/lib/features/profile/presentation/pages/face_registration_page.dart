@@ -14,6 +14,31 @@ import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:image/image.dart' as imglib;
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 
+class _FaceProcessingParams {
+  final String path;
+  final Rect boundingBox;
+  _FaceProcessingParams(this.path, this.boundingBox);
+}
+
+Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params) async {
+  try {
+    final bytes = await File(params.path).readAsBytes();
+    final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+    if (capturedImage == null) return null;
+
+    return imglib.copyCrop(
+      capturedImage,
+      x: params.boundingBox.left.toInt(),
+      y: params.boundingBox.top.toInt(),
+      width: params.boundingBox.width.toInt(),
+      height: params.boundingBox.height.toInt(),
+    );
+  } catch (e) {
+    debugPrint("Background processing error: $e");
+    return null;
+  }
+}
+
 class FaceRegistrationPage extends StatefulWidget {
   const FaceRegistrationPage({super.key});
 
@@ -181,22 +206,15 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
 
       final face = faces.first;
       
-      // Extract embedding from the file
-      final bytes = await File(xFile.path).readAsBytes();
-      final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+      // OFF-LOAD HEAVY DECODING AND CROPPING TO ISOLATE
+      final imglib.Image? faceCrop = await compute(
+        _decodeAndCropFaceBackground, 
+        _FaceProcessingParams(xFile.path, face.boundingBox)
+      );
       
-      if (capturedImage == null) {
+      if (faceCrop == null) {
         throw Exception("Gagal memproses file foto.");
       }
-
-      // Pre-process for ML
-      final imglib.Image faceCrop = imglib.copyCrop(
-        capturedImage,
-        x: face.boundingBox.left.toInt(),
-        y: face.boundingBox.top.toInt(),
-        width: face.boundingBox.width.toInt(),
-        height: face.boundingBox.height.toInt(),
-      );
 
       if (!_mlService.isInitialized) {
         throw Exception("Sistem AI belum siap: ${_mlService.lastError ?? 'Tunggu sebentar'}");
@@ -280,6 +298,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       listener: (context, state) {
         if (state is FaceRegistrationSuccess) {
           SnackBarUtils.showSuccess(context, 'Registrasi Wajah Berhasil!');
+          context.read<AuthBloc>().add(CheckAuthStatusRequested());
           Navigator.of(context).pop();
         } else if (state is AuthError) {
           SnackBarUtils.showError(context, 'Gagal: ${state.message}');

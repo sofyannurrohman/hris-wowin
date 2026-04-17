@@ -9,6 +9,8 @@ class ReimbursementBloc extends Bloc<ReimbursementEvent, ReimbursementState> {
   ReimbursementBloc({required this.repository}) : super(ReimbursementInitial()) {
     on<SubmitReimbursementRequested>(_onSubmitReimbursement);
     on<FetchReimbursementHistoryRequested>(_onFetchHistory);
+    on<UpdateReimbursementRequested>(_onUpdateReimbursement);
+    on<DeleteReimbursementRequested>(_onDeleteReimbursement);
   }
 
   Future<void> _onSubmitReimbursement(SubmitReimbursementRequested event, Emitter<ReimbursementState> emit) async {
@@ -31,6 +33,30 @@ class ReimbursementBloc extends Bloc<ReimbursementEvent, ReimbursementState> {
     result.fold(
       (failure) => emit(ReimbursementFailure(failure.message)),
       (history) => emit(ReimbursementHistoryLoaded(history)),
+    );
+  }
+
+  Future<void> _onUpdateReimbursement(UpdateReimbursementRequested event, Emitter<ReimbursementState> emit) async {
+    emit(ReimbursementLoading());
+    final result = await repository.updateReimbursement(
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      amount: event.amount,
+      attachmentPath: event.attachmentPath,
+    );
+    result.fold(
+      (failure) => emit(ReimbursementFailure(failure.message)),
+      (_) => emit(const ReimbursementActionSuccess('Reimbursement updated successfully!')),
+    );
+  }
+
+  Future<void> _onDeleteReimbursement(DeleteReimbursementRequested event, Emitter<ReimbursementState> emit) async {
+    emit(ReimbursementLoading());
+    final result = await repository.deleteReimbursement(event.id);
+    result.fold(
+      (failure) => emit(ReimbursementFailure(failure.message)),
+      (_) => emit(const ReimbursementActionSuccess('Reimbursement deleted successfully!')),
     );
   }
 }

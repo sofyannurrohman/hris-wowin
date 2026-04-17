@@ -16,17 +16,18 @@ const (
 )
 
 type Overtime struct {
-	ID              uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	EmployeeID      uuid.UUID      `gorm:"type:uuid;not null;index"`
-	Date            time.Time      `gorm:"type:date;not null"`
-	StartTime       time.Time      `gorm:"not null"`
-	EndTime         time.Time      `gorm:"not null"`
-	DurationMinutes int            `gorm:"not null"`
-	Reason          string         `gorm:"type:text;not null"`
-	Status          OvertimeStatus `gorm:"type:varchar(20);default:'pending'"`
-	ApprovedBy      *uuid.UUID     `gorm:"type:uuid"`
-	RejectReason    *string        `gorm:"type:text"`
-	CreatedAt       time.Time      `gorm:"default:now()"`
+	ID              uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	EmployeeID      uuid.UUID      `gorm:"type:uuid;not null;index" json:"employee_id"`
+	Date            time.Time      `gorm:"type:date;not null" json:"date"`
+	StartTime       time.Time      `gorm:"not null" json:"start_time"`
+	EndTime         time.Time      `gorm:"not null" json:"end_time"`
+	DurationMinutes int            `gorm:"not null" json:"duration_minutes"`
+	Type            string         `gorm:"type:varchar(50);default:'working_day'" json:"type"`
+	Reason          string         `gorm:"type:text;not null" json:"reason"`
+	Status          OvertimeStatus `gorm:"type:varchar(20);default:'pending'" json:"status"`
+	ApprovedBy      *uuid.UUID     `gorm:"type:uuid" json:"approved_by,omitempty"`
+	RejectReason    *string        `gorm:"type:text" json:"reject_reason,omitempty"`
+	CreatedAt       time.Time      `gorm:"default:now()" json:"created_at"`
 
 	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
 	Approver *Employee `gorm:"foreignKey:ApprovedBy;constraint:OnDelete:CASCADE;"`

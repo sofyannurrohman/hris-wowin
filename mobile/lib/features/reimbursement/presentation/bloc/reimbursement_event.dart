@@ -33,3 +33,41 @@ class FetchReimbursementHistoryRequested extends ReimbursementEvent {
   @override
   List<Object?> get props => [page, limit];
 }
+
+class ApproveReimbursementRequested extends ReimbursementEvent {
+  final String id;
+  final String status;
+
+  const ApproveReimbursementRequested(this.id, this.status);
+
+  @override
+  List<Object> get props => [id, status];
+}
+
+class UpdateReimbursementRequested extends ReimbursementEvent {
+  final String id;
+  final String title;
+  final String? description;
+  final double amount;
+  final String? attachmentPath;
+
+  const UpdateReimbursementRequested({
+    required this.id,
+    required this.title,
+    this.description,
+    required this.amount,
+    this.attachmentPath,
+  });
+
+  @override
+  List<Object> get props => [id, title, description ?? '', amount, attachmentPath ?? ''];
+}
+
+class DeleteReimbursementRequested extends ReimbursementEvent {
+  final String id;
+
+  const DeleteReimbursementRequested(this.id);
+
+  @override
+  List<Object> get props => [id];
+}

@@ -175,16 +175,26 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    overtime.status.toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: statusColor, letterSpacing: 0.5),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        overtime.status.toUpperCase(),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: statusColor, letterSpacing: 0.5),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      overtime.type.replaceAll('_', ' ').toUpperCase(),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 0.5),
+                    ),
+                  ],
                 ),
               ],
             ),

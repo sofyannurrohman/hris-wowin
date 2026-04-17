@@ -18,7 +18,13 @@ class OvertimeRequestPage extends StatefulWidget {
 }
 
 class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
-  String _selectedChip = 'Project Alpha';
+  final List<Map<String, String>> _overtimeTypes = [
+    {'label': 'Hari Kerja', 'value': 'working_day'},
+    {'label': 'Hari Libur / Weekend', 'value': 'holiday'},
+    {'label': 'Emergency / Call-out', 'value': 'emergency'},
+  ];
+  
+  String _selectedTypeCode = 'working_day';
   final _reasonController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _startTime = const TimeOfDay(hour: 17, minute: 0);
@@ -34,14 +40,8 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
       _selectedDate = ot.date;
       _startTime = TimeOfDay.fromDateTime(ot.startTime);
       _endTime = TimeOfDay.fromDateTime(ot.endTime);
-      
-      if (ot.reason.startsWith('[') && ot.reason.contains('] ')) {
-        final split = ot.reason.split('] ');
-        _selectedChip = split[0].substring(1);
-        _reasonController.text = split.sublist(1).join('] ');
-      } else {
-        _reasonController.text = ot.reason;
-      }
+      _selectedTypeCode = ot.type;
+      _reasonController.text = ot.reason;
     }
   }
 
@@ -112,7 +112,6 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
       return;
     }
 
-    final fullReason = '[$_selectedChip] ${_reasonController.text.trim()}';
     final startDateTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, _startTime.hour, _startTime.minute);
     var endDateTime = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, _endTime.hour, _endTime.minute);
 
@@ -127,7 +126,8 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
         startTime: startDateTime,
         endTime: endDateTime,
         durationMinutes: _durationMinutes,
-        reason: fullReason,
+        type: _selectedTypeCode,
+        reason: _reasonController.text.trim(),
       ));
     } else {
       context.read<OvertimeBloc>().add(SubmitOvertimeRequested(
@@ -135,7 +135,8 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
         startTime: startDateTime,
         endTime: endDateTime,
         durationMinutes: _durationMinutes,
-        reason: fullReason,
+        type: _selectedTypeCode,
+        reason: _reasonController.text.trim(),
       ));
     }
   }
@@ -179,7 +180,11 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
               const SizedBox(height: 12),
               _buildTimeDateCard(),
               const SizedBox(height: 24),
-              _buildSectionHeader('PROYEK & DETAIL PEKERJAAN'),
+              _buildSectionHeader('TIPE LEMBUR'),
+              const SizedBox(height: 12),
+              _buildTypeSelector(),
+              const SizedBox(height: 24),
+              _buildSectionHeader('DETAIL PEKERJAAN'),
               const SizedBox(height: 12),
               _buildReasonCard(),
               const SizedBox(height: 32),
@@ -242,53 +247,64 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
     );
   }
 
-  Widget _buildReasonCard() {
+  Widget _buildTypeSelector() {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Wrap(
-              spacing: 8, runSpacing: 8,
-              children: ['Project Alpha', 'Maintenance', 'Urgent Fix', 'Lainnya'].map((chip) => _buildChip(chip)).toList(),
-            ),
-          ),
-          const Divider(height: 1),
-          TextField(
-            controller: _reasonController,
-            maxLines: 4,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              hintText: 'Tuliskan detail pekerjaan lembur...',
-              hintStyle: TextStyle(color: AppColors.textTertiary.withOpacity(0.5), fontSize: 13),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-        ],
+      child: Wrap(
+        spacing: 8, runSpacing: 8,
+        children: _overtimeTypes.map((type) => _buildTypeChip(type['label']!, type['value']!)).toList(),
       ),
     );
   }
 
-  Widget _buildChip(String label) {
-    final isSelected = _selectedChip == label;
+  Widget _buildTypeChip(String label, String value) {
+    final isSelected = _selectedTypeCode == value;
     return GestureDetector(
-      onTap: () => setState(() => _selectedChip = label),
+      onTap: () => setState(() => _selectedTypeCode = value),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryRed.withOpacity(0.1) : Colors.white,
-          border: Border.all(color: isSelected ? AppColors.primaryRed : AppColors.grayBorder),
-          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? AppColors.primaryRed : AppColors.grayBorder, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: isSelected ? AppColors.primaryRed : AppColors.textTertiary)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              const Icon(Icons.check_circle, size: 16, color: AppColors.primaryRed),
+              const SizedBox(width: 8),
+            ],
+            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isSelected ? AppColors.primaryRed : AppColors.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReasonCard() {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
+      child: TextField(
+        controller: _reasonController,
+        maxLines: 5,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          hintText: 'Misal: Menyelesaikan laporan bulanan atau Maintenance Server...',
+          hintStyle: TextStyle(color: AppColors.textTertiary.withOpacity(0.5), fontSize: 13),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(20),
+        ),
       ),
     );
   }
 
   Widget _buildEstimationCard() {
+    // Basic calculation for real case (e.g. 1.5x for workday, 2x for holiday)
+    double rate = _selectedTypeCode == 'holiday' ? 75000 : (_selectedTypeCode == 'emergency' ? 100000 : 50000);
+    double total = (_durationMinutes / 60) * rate;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -305,11 +321,11 @@ class _OvertimeRequestPageState extends State<OvertimeRequestPage> {
             children: [
               const Text('ESTIMASI UPAH', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white70, letterSpacing: 1.5)),
               const SizedBox(height: 4),
-              Text('${(_durationMinutes / 60).toStringAsFixed(1)} Jam Lembur', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text('${(_durationMinutes / 60).toStringAsFixed(1)} Jam (${_selectedTypeCode.replaceAll('_', ' ').toUpperCase()})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white70)),
             ],
           ),
           Text(
-            'Rp ${NumberFormat.decimalPattern('id').format((_durationMinutes / 60) * 50000)}',
+            'Rp ${NumberFormat.decimalPattern('id').format(total)}',
             style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
           ),
         ],

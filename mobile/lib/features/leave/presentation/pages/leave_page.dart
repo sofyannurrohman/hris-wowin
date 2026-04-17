@@ -89,7 +89,7 @@ class _LeavePageState extends State<LeavePage> {
           child: BlocBuilder<LeaveBloc, LeaveState>(
             builder: (context, state) {
               LeaveBalance? annualLeave;
-              if (state is LeaveBalancesLoaded && state.balances.isNotEmpty) {
+              if (state.balances.isNotEmpty) {
                 annualLeave = state.balances.firstWhere(
                   (b) => b.leaveTypeName.toLowerCase().contains('cuti tahunan'),
                   orElse: () => state.balances.first,
@@ -157,7 +157,8 @@ class _SliverTabDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class LeaveFormTab extends StatefulWidget {
-  const LeaveFormTab({super.key});
+  final Leave? leave;
+  const LeaveFormTab({super.key, this.leave});
 
   @override
   State<LeaveFormTab> createState() => _LeaveFormTabState();
@@ -170,6 +171,17 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
   String? _selectedLeaveTypeId;
   final ImagePicker _picker = ImagePicker();
   XFile? _attachment;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.leave != null) {
+      _reasonController.text = widget.leave!.reason;
+      _startDate = widget.leave!.startDate;
+      _endDate = widget.leave!.endDate;
+      _selectedLeaveTypeId = widget.leave!.leaveTypeId;
+    }
+  }
 
   @override
   void dispose() {
@@ -221,21 +233,32 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
       SnackBarUtils.showError(context, 'Lengkapi semua data pengajuan.');
       return;
     }
-    context.read<LeaveBloc>().add(SubmitLeaveRequested(
-      leaveTypeId: _selectedLeaveTypeId!,
-      startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
-      endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
-      reason: _reasonController.text,
-      attachmentPath: _attachment?.path,
-    ));
+    if (widget.leave != null) {
+      context.read<LeaveBloc>().add(UpdateLeaveRequested(
+        leaveId: widget.leave!.id,
+        leaveTypeId: _selectedLeaveTypeId!,
+        startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
+        endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
+        reason: _reasonController.text,
+        attachmentPath: _attachment?.path,
+      ));
+    } else {
+      context.read<LeaveBloc>().add(SubmitLeaveRequested(
+        leaveTypeId: _selectedLeaveTypeId!,
+        startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
+        endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
+        reason: _reasonController.text,
+        attachmentPath: _attachment?.path,
+      ));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<LeaveBloc, LeaveState>(
       listener: (context, state) {
-        if (state is LeaveActionSuccess) {
-          SnackBarUtils.showSuccess(context, state.message);
+        if (state.status == LeaveStatus.success && state.actionMessage != null) {
+          SnackBarUtils.showSuccess(context, state.actionMessage!);
           _reasonController.clear();
           setState(() {
             _startDate = null;
@@ -245,8 +268,8 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
           });
           context.read<LeaveBloc>().add(const FetchMyLeavesRequested());
           context.read<LeaveBloc>().add(const FetchLeaveBalancesRequested());
-        } else if (state is LeaveActionFailure) {
-          SnackBarUtils.showError(context, state.message);
+        } else if (state.status == LeaveStatus.failure && state.actionMessage != null) {
+          SnackBarUtils.showError(context, state.actionMessage!);
         }
       },
       child: SingleChildScrollView(
@@ -286,10 +309,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
   Widget _buildLeaveTypeSelection() {
     return BlocBuilder<LeaveBloc, LeaveState>(
       builder: (context, state) {
-        List<LeaveBalance> balances = [];
-        if (state is LeaveBalancesLoaded) {
-          balances = state.balances;
-        }
+        List<LeaveBalance> balances = state.balances;
 
         return Container(
           decoration: BoxDecoration(
@@ -309,7 +329,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
                   onChanged: (v) => setState(() => _selectedLeaveTypeId = v),
                 ),
               ),
-              if (_selectedLeaveTypeId != null) ...[
+              if (_selectedLeaveTypeId != null && balances.any((b) => b.leaveTypeId == _selectedLeaveTypeId)) ...[
                 const Divider(height: 1),
                 _buildPayInfo(balances.firstWhere((b) => b.leaveTypeId == _selectedLeaveTypeId)),
               ],
@@ -428,7 +448,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
   Widget _buildSubmitButton() {
     return BlocBuilder<LeaveBloc, LeaveState>(
       builder: (context, state) {
-        final isLoading = state is LeaveLoading;
+        final isLoading = state.status == LeaveStatus.loading && state.actionMessage == null;
         return SizedBox(
           width: double.infinity,
           height: 60,
@@ -442,7 +462,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
             ),
             child: isLoading 
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                : const Text('AJUKAN SEKARANG', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5, fontSize: 13)),
+                : Text(widget.leave != null ? 'PERBARUI PENGAJUAN' : 'AJUKAN SEKARANG', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5, fontSize: 13)),
           ),
         );
       },
@@ -457,12 +477,9 @@ class LeaveHistoryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<LeaveBloc, LeaveState>(
       builder: (context, state) {
-        List<Leave> leaves = [];
-        if (state is LeavesLoaded) {
-          leaves = state.leaves;
-        }
+        List<Leave> leaves = state.leaves;
 
-        if (state is LeaveLoading && leaves.isEmpty) {
+        if (state.status == LeaveStatus.loading && leaves.isEmpty) {
           return _buildLoadingShimmer();
         }
 
@@ -486,7 +503,7 @@ class LeaveHistoryTab extends StatelessWidget {
             itemCount: leaves.length,
             itemBuilder: (context, index) {
               final leave = leaves[index];
-              return _buildLeaveRequestCard(leave);
+              return _buildLeaveRequestCard(context, leave);
             },
           ),
         );
@@ -494,7 +511,7 @@ class LeaveHistoryTab extends StatelessWidget {
     );
   }
 
-  Widget _buildLeaveRequestCard(Leave leave) {
+  Widget _buildLeaveRequestCard(BuildContext context, Leave leave) {
     Color statusColor;
     IconData statusIcon;
     switch (leave.status.toLowerCase()) {
@@ -547,6 +564,8 @@ class LeaveHistoryTab extends StatelessWidget {
                   decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                   child: Text(leave.status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: statusColor, letterSpacing: 0.5)),
                 ),
+                if (leave.status.toLowerCase() == 'pending')
+                  _buildActionMenu(context, leave),
               ],
             ),
           ),
@@ -565,6 +584,45 @@ class LeaveHistoryTab extends StatelessWidget {
     );
   }
 
+  Widget _buildActionMenu(BuildContext context, Leave leave) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textTertiary),
+      onSelected: (value) {
+        if (value == 'edit') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EditLeavePage(leave: leave),
+            ),
+          );
+        } else if (value == 'delete') {
+          _showDeleteConfirmation(context, leave.id);
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18), SizedBox(width: 8), Text('Edit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))])),
+        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: Colors.red), SizedBox(width: 8), Text('Batalkan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.red))])),
+      ],
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String leaveId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Batalkan Pengajuan', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Apakah anda yakin ingin membatalkan pengajuan cuti ini? Kuota cuti akan dikembalikan otomatis.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tidak')),
+          TextButton(onPressed: () {
+            context.read<LeaveBloc>().add(DeleteLeaveRequested(leaveId));
+            Navigator.pop(context);
+          }, child: const Text('Ya, Batalkan', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoadingShimmer() {
     return Shimmer.fromColors(
       baseColor: AppColors.grayLight,
@@ -577,6 +635,35 @@ class LeaveHistoryTab extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
         ),
+      ),
+    );
+  }
+}
+
+class EditLeavePage extends StatelessWidget {
+  final Leave leave;
+  const EditLeavePage({super.key, required this.leave});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundAlt,
+      appBar: AppBar(
+        title: const Text('EDIT PENGAJUAN', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 1)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: BlocListener<LeaveBloc, LeaveState>(
+        listener: (context, state) {
+          if (state.status == LeaveStatus.success && state.actionMessage != null) {
+            Navigator.pop(context);
+          }
+        },
+        child: LeaveFormTab(leave: leave),
       ),
     );
   }

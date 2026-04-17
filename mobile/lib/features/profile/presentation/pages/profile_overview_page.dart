@@ -111,9 +111,9 @@ class _ProfileOverviewPageState extends State<ProfileOverviewPage> {
   }
 
   Widget _buildSliverAppBar(Map<dynamic, dynamic> profile) {
-    final name = '${profile['FirstName'] ?? 'User'} ${profile['LastName'] ?? ''}'.trim();
-    final position = profile['JobPosition']?['Name'] ?? 'Employee';
-    final nik = profile['EmployeeIDNumber'] ?? '-';
+    final name = '${profile['first_name'] ?? 'User'} ${profile['last_name'] ?? ''}'.trim();
+    final position = profile['job_position']?['title'] ?? 'Employee';
+    final nik = profile['employee_id_number'] ?? '-';
 
     return SliverAppBar(
       expandedHeight: 280,
@@ -141,12 +141,12 @@ class _ProfileOverviewPageState extends State<ProfileOverviewPage> {
                     child: CircleAvatar(
                       radius: 54,
                       backgroundColor: Colors.white,
-                      backgroundImage: (profile['FaceReferenceURL'] != null && profile['FaceReferenceURL'].toString().isNotEmpty)
-                          ? NetworkImage(profile['FaceReferenceURL'].toString().startsWith('http') 
-                              ? profile['FaceReferenceURL'] 
-                              : '${Uri.parse(AppConstants.baseUrl).origin}${profile['FaceReferenceURL'].toString().startsWith('/') ? profile['FaceReferenceURL'] : '/${profile['FaceReferenceURL']}'}')
+                      backgroundImage: (profile['face_reference_url'] != null && profile['face_reference_url'].toString().isNotEmpty)
+                          ? NetworkImage(profile['face_reference_url'].toString().startsWith('http') 
+                              ? profile['face_reference_url'] 
+                              : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}')
                           : null,
-                      child: (profile['FaceReferenceURL'] == null || profile['FaceReferenceURL'].toString().isEmpty)
+                      child: (profile['face_reference_url'] == null || profile['face_reference_url'].toString().isEmpty)
                           ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.primaryRed))
                           : null,
                     ),
@@ -228,13 +228,8 @@ class _ProfileOverviewPageState extends State<ProfileOverviewPage> {
   Widget _buildBiometricTile() {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        bool isSupported = false;
-        bool isEnabled = false;
-
-        if (state is Unauthenticated) {
-          isSupported = state.isBiometricSupported;
-          isEnabled = state.isBiometricEnabled;
-        }
+        final bool isSupported = state.isBiometricSupported;
+        final bool isEnabled = state.isBiometricEnabled;
 
         return ListTile(
           leading: Container(

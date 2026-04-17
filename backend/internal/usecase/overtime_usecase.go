@@ -32,6 +32,7 @@ type OvertimeRequest struct {
 	StartTime       string `json:"start_time" binding:"required"` // RFC3339 or similar parseable time
 	EndTime         string `json:"end_time" binding:"required"`
 	DurationMinutes int    `json:"duration_minutes" binding:"required"`
+	Type            string `json:"type" binding:"required"`
 	Reason          string `json:"reason" binding:"required"`
 }
 
@@ -80,6 +81,7 @@ func (u *overtimeUseCase) RequestOvertime(userID uuid.UUID, req OvertimeRequest)
 		StartTime:       start,
 		EndTime:         end,
 		DurationMinutes: req.DurationMinutes,
+		Type:            req.Type,
 		Reason:          req.Reason,
 		Status:          domain.OvertimePending,
 	}
@@ -142,6 +144,7 @@ func (u *overtimeUseCase) UpdateOvertime(userID uuid.UUID, id uuid.UUID, req Ove
 	overtime.StartTime = start
 	overtime.EndTime = end
 	overtime.DurationMinutes = req.DurationMinutes
+	overtime.Type = req.Type
 	overtime.Reason = req.Reason
 
 	return u.repo.Update(overtime)

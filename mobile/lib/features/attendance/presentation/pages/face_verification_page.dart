@@ -30,6 +30,31 @@ class FaceVerificationResult {
   FaceVerificationResult({required this.embedding, required this.imagePath});
 }
 
+class _FaceProcessingParams {
+  final String path;
+  final Rect boundingBox;
+  _FaceProcessingParams(this.path, this.boundingBox);
+}
+
+Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params) async {
+  try {
+    final bytes = await File(params.path).readAsBytes();
+    final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+    if (capturedImage == null) return null;
+
+    return imglib.copyCrop(
+      capturedImage,
+      x: params.boundingBox.left.toInt(),
+      y: params.boundingBox.top.toInt(),
+      width: params.boundingBox.width.toInt(),
+      height: params.boundingBox.height.toInt(),
+    );
+  } catch (e) {
+    debugPrint("Background processing error: $e");
+    return null;
+  }
+}
+
 class FaceVerificationPage extends StatefulWidget {
   final bool isClockIn;
   final bool isRegistration;
@@ -121,18 +146,34 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       profileResult.fold(
         (l) => debugPrint("Error profile: ${l.message}"),
         (profile) {
-          final branchId = profile['branch_id'];
+          // Compatibility layer for branch_id
+          final branchId = profile['branch_id'] ?? profile['BranchID'];
+          
+          if (branchId == null) {
+            debugPrint("Warning: No branch_id found in profile. Is a branch assigned to this employee?");
+          }
+
           branchesResult.fold(
             (l) => debugPrint("Error branches: ${l.message}"),
             (branches) {
-              final branch = branches.firstWhere((b) => (b['id'] ?? b['ID']) == branchId, orElse: () => {});
+              // Compatibility layer for branch ID lookup
+              final branch = branches.firstWhere(
+                (b) => (b['id'] ?? b['ID'] ?? b['id_branch']) == branchId, 
+                orElse: () => {}
+              );
+              
               if (mounted) {
                 setState(() {
                   _assignedBranch = branch.isNotEmpty ? branch : null;
                 });
                 
                 if (_assignedBranch != null && !kIsWeb) {
-                  _getBranchAddress(_assignedBranch!['Latitude'], _assignedBranch!['Longitude']);
+                  // Compatibility layer for latitude/longitude
+                  final lat = _assignedBranch!['latitude'] ?? _assignedBranch!['Latitude'];
+                  final lng = _assignedBranch!['longitude'] ?? _assignedBranch!['Longitude'];
+                  if (lat != null && lng != null) {
+                    _getBranchAddress(lat, lng);
+                  }
                 }
               }
             }
@@ -253,7 +294,21 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
       if (permission == LocationPermission.deniedForever) return;
 
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
+      } catch (e) {
+        debugPrint("Current position timeout/error: $e. trying last known...");
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        if (mounted) SnackBarUtils.showError(context, "Gagal mendapatkan lokasi. Pastikan GPS aktif.");
+        return;
+      }
       
       // Reverse Geocoding
       try {
@@ -274,14 +329,17 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       double distance = -1;
       bool withinGeofence = false;
       
-      if (!widget.isRegistration && _assignedBranch != null && _assignedBranch!['Latitude'] != null) {
+      final branchLat = _assignedBranch?['latitude'] ?? _assignedBranch?['Latitude'];
+      final branchLng = _assignedBranch?['longitude'] ?? _assignedBranch?['Longitude'];
+      final radius = _assignedBranch?['radius_meter'] ?? _assignedBranch?['RadiusMeter'] ?? 100;
+
+      if (!widget.isRegistration && _assignedBranch != null && branchLat != null) {
         distance = Geolocator.distanceBetween(
           position.latitude,
           position.longitude,
-          _assignedBranch!['Latitude'],
-          _assignedBranch!['Longitude'],
+          branchLat,
+          branchLng,
         );
-        final radius = _assignedBranch!['RadiusMeter'] ?? 100;
         withinGeofence = distance <= radius;
       }
 
@@ -399,7 +457,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
       final photo = await _cameraController!.takePicture();
       
-      // After taking a picture, we verify the face from the file (Universal Fix for RMX2030)
+      // Face detection from file (fast because it uses native JNI)
       final faces = await _faceDetectorService.processImageFromFile(photo.path);
       
       if (faces.isEmpty) {
@@ -407,7 +465,6 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
           SnackBarUtils.showError(context, "Wajah tidak ditemukan di foto. Coba lagi.");
           setState(() {
              _isVerifying = false;
-             // Restart stream
              _startCamera();
           });
         }
@@ -416,35 +473,40 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
       final face = faces.first;
       
-      // Extract embedding from the captured file
-      final bytes = await File(photo.path).readAsBytes();
-      final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+      // OFF-LOAD HEAVY DECODING AND CROPPING TO ISOLATE
+      final imglib.Image? faceCrop = await compute(
+        _decodeAndCropFaceBackground, 
+        _FaceProcessingParams(photo.path, face.boundingBox)
+      );
       
-      if (capturedImage == null) {
+      if (faceCrop == null) {
         throw Exception("Gagal memproses file foto.");
       }
-
-      // Pre-process for ML
-      final imglib.Image faceCrop = imglib.copyCrop(
-        capturedImage,
-        x: face.boundingBox.left.toInt(),
-        y: face.boundingBox.top.toInt(),
-        width: face.boundingBox.width.toInt(),
-        height: face.boundingBox.height.toInt(),
-      );
 
       if (!_mlService.isInitialized) {
         throw Exception("Sistem AI belum siap: ${_mlService.lastError ?? 'Tunggu sebentar'}");
       }
+      
       final embedding = _mlService.predict(faceCrop);
 
       if (widget.isRegistration) {
-        // Just save the path and embedding
         setState(() {
           _capturedImagePath = photo.path;
           _isVerifying = false;
         });
-      } else if (_baselineEmbedding != null) {
+      } else {
+        if (_baselineEmbedding == null) {
+          // Handle missing baseline - IMPORTANT: prevents hang
+          if (mounted) {
+             SnackBarUtils.showError(context, "Data wajah Anda tidak ditemukan. Silakan registrasi ulang.");
+             setState(() {
+               _isVerifying = false;
+               _startCamera();
+             });
+          }
+          return;
+        }
+
         // Verify against baseline
         final double distance = _mlService.calculateEuclideanDistance(_baselineEmbedding!, embedding);
         final bool isMatched = distance < 1.5;
@@ -667,7 +729,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primaryRed, letterSpacing: 0.5),
                                 ),
                                 Text(
-                                  'Silakan lakukan absensi di sekitar lokasi cabang ${_assignedBranch?['Name'] ?? 'Anda'}.',
+                                  'Silakan lakukan absensi di sekitar lokasi cabang ${_assignedBranch?['name'] ?? 'Anda'}.',
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary, height: 1.3),
                                 ),
                               ],
@@ -715,14 +777,16 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                                     style: TextStyle(fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w800, color: AppColors.textTertiary)
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    _currentAddress ?? (_currentPosition != null 
-                                        ? '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}'
-                                        : 'Mencari lokasi...'),
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  _isWithinGeofence && _currentAddress == null 
+                                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(
+                                          _currentAddress ?? (_currentPosition != null 
+                                              ? '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}'
+                                              : 'Mencari lokasi...'),
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                 ],
                               ),
                             ),
@@ -757,9 +821,13 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     _assignedBranch != null 
-                                        ? '${_assignedBranch!['Name']}\n${_targetBranchAddress ?? '(${_assignedBranch!['Latitude']}, ${_assignedBranch!['Longitude']})'}'
-                                        : 'Data cabang tidak ditemukan',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                        ? '${_assignedBranch!['name'] ?? _assignedBranch!['Name']}\n${_targetBranchAddress ?? '(${_assignedBranch?['latitude'] ?? _assignedBranch?['Latitude']}, ${_assignedBranch?['longitude'] ?? _assignedBranch?['Longitude']})'}'
+                                        : 'Cabang belum ditugaskan',
+                                    style: TextStyle(
+                                      fontSize: 13, 
+                                      fontWeight: FontWeight.w700, 
+                                      color: _assignedBranch != null ? AppColors.textPrimary : AppColors.primaryRed
+                                    ),
                                   ),
                                 ],
                               ),

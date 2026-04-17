@@ -12,4 +12,12 @@ abstract class ReimbursementRepository {
   Future<Either<Failure, List<Reimbursement>>> getMyHistory({int page = 1, int limit = 10});
   Future<Either<Failure, List<Reimbursement>>> getAllPending({int page = 1, int limit = 20});
   Future<Either<Failure, void>> approveReimbursement(String id, String status);
+  Future<Either<Failure, void>> updateReimbursement({
+    required String id,
+    required String title,
+    String? description,
+    required double amount,
+    String? attachmentPath,
+  });
+  Future<Either<Failure, void>> deleteReimbursement(String id);
 }

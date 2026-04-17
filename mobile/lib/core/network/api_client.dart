@@ -49,6 +49,7 @@ class ApiClient {
   }
 
   Dio get client => dio;
+  String get baseUrl => dio.options.baseUrl;
 
   // Cleanup stream controller
   void dispose() {

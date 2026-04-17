@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/leave/domain/usecases/leave_usecases.dart';
+import 'package:hris_app/features/leave/domain/repositories/leave_repository.dart';
 import 'leave_event.dart';
 import 'leave_state.dart';
 
@@ -16,55 +17,85 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
     required this.getAllLeavesUseCase,
     required this.approveLeaveUseCase,
     required this.getLeaveBalancesUseCase,
-  }) : super(LeaveInitial()) {
+  }) : super(const LeaveState()) {
     on<SubmitLeaveRequested>(_onSubmitLeave);
     on<FetchMyLeavesRequested>(_onFetchMyLeaves);
     on<FetchAllLeavesRequested>(_onFetchAllLeaves);
     on<ApproveLeaveRequested>(_onApproveLeave);
     on<FetchLeaveBalancesRequested>(_onFetchLeaveBalances);
+    on<UpdateLeaveRequested>(_onUpdateLeave);
+    on<DeleteLeaveRequested>(_onDeleteLeave);
   }
 
   Future<void> _onSubmitLeave(SubmitLeaveRequested event, Emitter<LeaveState> emit) async {
-    emit(LeaveLoading());
+    emit(state.copyWith(status: LeaveStatus.loading, actionMessage: null));
     final result = await submitLeaveUseCase(event.leaveTypeId, event.startDate, event.endDate, event.reason, attachmentPath: event.attachmentPath);
     result.fold(
-      (failure) => emit(LeaveActionFailure(failure.message)),
-      (_) => emit(const LeaveActionSuccess('Leave submitted successfully!')),
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, actionMessage: failure.message)),
+      (_) => emit(state.copyWith(status: LeaveStatus.success, actionMessage: 'Pengajuan cuti berhasil dikirim!')),
     );
   }
 
   Future<void> _onFetchMyLeaves(FetchMyLeavesRequested event, Emitter<LeaveState> emit) async {
-    emit(LeaveLoading());
+    emit(state.copyWith(status: LeaveStatus.loading));
     final result = await getMyLeavesUseCase(page: event.page, limit: event.limit);
     result.fold(
-      (failure) => emit(LeavesFailure(failure.message)),
-      (leaves) => emit(LeavesLoaded(leaves)),
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, message: failure.message)),
+      (leaves) => emit(state.copyWith(status: LeaveStatus.success, leaves: leaves)),
     );
   }
 
   Future<void> _onFetchAllLeaves(FetchAllLeavesRequested event, Emitter<LeaveState> emit) async {
-    emit(LeaveLoading());
+    emit(state.copyWith(status: LeaveStatus.loading));
     final result = await getAllLeavesUseCase(status: event.status, page: event.page, limit: event.limit);
     result.fold(
-      (failure) => emit(LeavesFailure(failure.message)),
-      (leaves) => emit(LeavesLoaded(leaves)),
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, message: failure.message)),
+      (leaves) => emit(state.copyWith(status: LeaveStatus.success, leaves: leaves)),
     );
   }
 
   Future<void> _onApproveLeave(ApproveLeaveRequested event, Emitter<LeaveState> emit) async {
-    emit(LeaveLoading());
+    emit(state.copyWith(status: LeaveStatus.loading, actionMessage: null));
     final result = await approveLeaveUseCase(event.leaveId, event.status);
     result.fold(
-      (failure) => emit(LeaveActionFailure(failure.message)),
-      (_) => emit(LeaveActionSuccess('Leave status updated to ${event.status}')),
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, actionMessage: failure.message)),
+      (_) => emit(state.copyWith(status: LeaveStatus.success, actionMessage: 'Status cuti diperbarui menjadi ${event.status}')),
     );
   }
 
   Future<void> _onFetchLeaveBalances(FetchLeaveBalancesRequested event, Emitter<LeaveState> emit) async {
+    // We don't set status to loading here to avoid flickering the history list
     final result = await getLeaveBalancesUseCase();
     result.fold(
-      (failure) => emit(LeavesFailure(failure.message)),
-      (balances) => emit(LeaveBalancesLoaded(balances)),
+      (failure) => emit(state.copyWith(message: failure.message)),
+      (balances) => emit(state.copyWith(balances: balances)),
     );
   }
+
+  Future<void> _onUpdateLeave(UpdateLeaveRequested event, Emitter<LeaveState> emit) async {
+    emit(state.copyWith(status: LeaveStatus.loading, actionMessage: null));
+    final result = await repo.updateLeave(
+      event.leaveId,
+      event.leaveTypeId,
+      event.startDate,
+      event.endDate,
+      event.reason,
+      attachmentPath: event.attachmentPath,
+    );
+    result.fold(
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, actionMessage: failure.message)),
+      (_) => emit(state.copyWith(status: LeaveStatus.success, actionMessage: 'Pengajuan cuti berhasil diperbarui!')),
+    );
+  }
+
+  Future<void> _onDeleteLeave(DeleteLeaveRequested event, Emitter<LeaveState> emit) async {
+    emit(state.copyWith(status: LeaveStatus.loading, actionMessage: null));
+    final result = await repo.deleteLeave(event.leaveId);
+    result.fold(
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, actionMessage: failure.message)),
+      (_) => emit(state.copyWith(status: LeaveStatus.success, actionMessage: 'Pengajuan cuti berhasil dibatalkan!')),
+    );
+  }
+
+  LeaveRepository get repo => (submitLeaveUseCase as dynamic).repository; 
 }

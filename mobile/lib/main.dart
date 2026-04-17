@@ -47,7 +47,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'SIK PT Wowin Purnomo Putra',
+        title: 'HRIS Wowin',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const SplashScreen(),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:hris_app/main.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -115,11 +116,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   const SizedBox(height: 54),
                   Text(
                     'HR CONNECT',
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                      letterSpacing: 6,
-                      fontSize: 34,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 32,
                       fontWeight: FontWeight.w900,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 4,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -131,11 +132,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     ),
                     child: Text(
                       'INTEGRATED HRIS SOLUTION',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.primaryRed,
                         letterSpacing: 2,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
                       ),
                     ),
                   ),
@@ -163,12 +164,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    'Powered by PT Wowin Purnomo Putra',
+                    'VERSION 1.0.2 • HRIS WOWIN',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary.withOpacity(0.6),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
                     ),
                   ),
                 ],

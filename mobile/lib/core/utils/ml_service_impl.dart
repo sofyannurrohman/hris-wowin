@@ -103,28 +103,23 @@ class MLService {
     return _normalize(rawOutput);
   }
 
-  // Create a nested List of shape [1, size, size, 3]
-  List<List<List<List<double>>>> _imageTo4DList(
+  // Efficient build of 4D list via Float32List
+  List<dynamic> _imageTo4DList(
       imglib.Image image, int size, double mean, double std) {
-    var input = List.generate(
-      1,
-      (_) => List.generate(
-        size,
-        (y) => List.generate(
-          size,
-          (x) => List.generate(3, (c) {
-            final pixel = image.getPixelSafe(x, y);
-            switch (c) {
-              case 0: return (pixel.r - mean) / std;
-              case 1: return (pixel.g - mean) / std;
-              case 2: return (pixel.b - mean) / std;
-              default: return 0.0;
-            }
-          }),
-        ),
-      ),
-    );
-    return input;
+    var rawBytes = Float32List(1 * size * size * 3);
+    int pixelIndex = 0;
+    
+    for (int y = 0; y < size; y++) {
+      for (int x = 0; x < size; x++) {
+        final pixel = image.getPixelSafe(x, y);
+        rawBytes[pixelIndex++] = (pixel.r - mean) / std;
+        rawBytes[pixelIndex++] = (pixel.g - mean) / std;
+        rawBytes[pixelIndex++] = (pixel.b - mean) / std;
+      }
+    }
+    
+    // reshape returns List<dynamic> (which contains nested lists)
+    return rawBytes.reshape([1, size, size, 3]);
   }
 
   List<double> _normalize(List<double> input) {

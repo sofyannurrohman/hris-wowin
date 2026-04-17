@@ -127,8 +127,10 @@ class _HomeViewState extends State<HomeView> {
         builder: (context, state) {
           Map<String, dynamic>? profile;
           if (state is Authenticated) {
-            // Profile can be fetched if needed, but normally stored in Bloc
+            profile = state.userProfile;
           }
+          final name = '${profile?['first_name'] ?? 'User'}'.toUpperCase();
+          final job = profile?['job_position']?['title'] ?? 'DASHBOARD PANEL';
           
           return Column(
             children: [
@@ -148,12 +150,24 @@ class _HomeViewState extends State<HomeView> {
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-                      child: const CircleAvatar(radius: 36, backgroundColor: Colors.white, child: Icon(Icons.person, size: 40, color: AppColors.primaryRed)),
+                      child: CircleAvatar(
+                        radius: 36, 
+                        backgroundColor: Colors.white, 
+                        backgroundImage: (profile?['face_reference_url'] != null && profile!['face_reference_url'].toString().isNotEmpty)
+                            ? NetworkImage(profile['face_reference_url'].toString().startsWith('http') 
+                                ? profile['face_reference_url'] 
+                                : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}')
+                            : null,
+                        child: (profile?['face_reference_url'] == null || profile!['face_reference_url'].toString().isEmpty)
+                            ? const Icon(Icons.person, size: 40, color: AppColors.primaryRed)
+                            : null,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text('MENU UTAMA', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 2)),
                     const SizedBox(height: 4),
-                    const Text('DASHBOARD PANEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                    Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                    Text(job.toUpperCase(), style: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1)),
                   ],
                 ),
               ),
@@ -193,10 +207,11 @@ class _HomeViewState extends State<HomeView> {
                       Navigator.pop(context);
                       Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<DirectoryBloc>(), child: const DirectoryPage())));
                     }),
-                    _buildDrawerItem(Icons.verified_user_rounded, 'Approval Panel', () {
-                      Navigator.pop(context);
-                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<ApprovalBloc>(), child: const ApprovalPage())));
-                    }, color: AppColors.primaryRed),
+                    if (profile?['user']?['role'] != 'employee')
+                      _buildDrawerItem(Icons.verified_user_rounded, 'Approval Panel', () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<ApprovalBloc>(), child: const ApprovalPage())));
+                      }, color: AppColors.primaryRed),
                   ],
                 ),
               ),

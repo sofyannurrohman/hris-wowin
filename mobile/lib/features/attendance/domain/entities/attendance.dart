@@ -21,13 +21,13 @@ class Attendance extends Equatable {
 
   factory Attendance.fromJson(Map<String, dynamic> json) {
     return Attendance(
-      id: json['ID'] ?? '',
-      userId: json['UserID'] ?? '',
-      checkIn: json['CheckIn'] != null ? DateTime.parse(json['CheckIn']).toLocal() : DateTime.now(),
-      checkOut: json['CheckOut'] != null ? DateTime.parse(json['CheckOut']).toLocal() : null,
-      status: json['Status'] ?? 'UNKNOWN',
-      selfiePath: json['SelfieURL'] ?? '',
-      workDuration: json['WorkDuration'] ?? 0,
+      id: json['id'] ?? '',
+      userId: json['user_id'] ?? '',
+      checkIn: json['check_in'] != null ? DateTime.parse(json['check_in']).toLocal() : DateTime.now(),
+      checkOut: json['check_out'] != null ? DateTime.parse(json['check_out']).toLocal() : null,
+      status: json['status'] ?? 'UNKNOWN',
+      selfiePath: json['selfie_url'] ?? '',
+      workDuration: json['work_duration'] ?? 0,
     );
   }
 
