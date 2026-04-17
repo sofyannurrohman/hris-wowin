@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
@@ -27,6 +28,14 @@ class FaceDetectorService {
     return await _faceDetector.processImage(inputImage);
   }
 
+  Future<List<Face>> processImageFromFile(String filePath) async {
+    if (!_isInitialized) {
+      throw Exception('FaceDetectorService is not initialized');
+    }
+    final inputImage = InputImage.fromFilePath(filePath);
+    return await _faceDetector.processImage(inputImage);
+  }
+
   void dispose() {
     if (_isInitialized) {
       _faceDetector.close();
@@ -42,29 +51,25 @@ class FaceDetectorService {
         InputImageRotationValue.fromRawValue(sensorOrientation);
     if (rotation == null) return null;
 
-    // Get image format
-    final processFormat = InputImageFormatValue.fromRawValue(image.format.raw);
-    if (processFormat == null ||
-        (processFormat != InputImageFormat.nv21 &&
-            processFormat != InputImageFormat.yuv_420_888 &&
-            processFormat != InputImageFormat.bgra8888)) {
-      return null;
-    }
+    // Determine format based on plane count (more reliable on flaky Android devices)
+    final int numPlanes = image.planes.length;
+    final InputImageFormat format = numPlanes == 3 
+        ? InputImageFormat.yuv_420_888 
+        : InputImageFormat.nv21;
 
-    // Since format is supported, we can process it
-    if (image.planes.length != 1 && image.planes.length != 3) {
-      return null;
+    final WriteBuffer allBytes = WriteBuffer();
+    for (final Plane plane in image.planes) {
+      allBytes.putUint8List(plane.bytes);
     }
-
-    final plane = image.planes.first;
+    final bytes = allBytes.done().buffer.asUint8List();
 
     return InputImage.fromBytes(
-      bytes: plane.bytes,
+      bytes: bytes,
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation, // used only in Android
-        format: processFormat, // used only in iOS
-        bytesPerRow: plane.bytesPerRow, // used only in iOS
+        rotation: rotation,
+        format: format,
+        bytesPerRow: image.planes.first.bytesPerRow,
       ),
     );
   }

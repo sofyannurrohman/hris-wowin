@@ -2,8 +2,9 @@ import 'package:image/image.dart' as imglib;
 
 class MLService {
   bool get isInitialized => false;
+  String? get lastError => null;
 
-  void initialize() async {
+  Future<void> initialize() async {
     // No-op for web or platforms without tflite_flutter support
   }
 

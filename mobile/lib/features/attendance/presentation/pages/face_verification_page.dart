@@ -19,6 +19,7 @@ import 'package:hris_app/features/auth/domain/repositories/auth_repository.dart'
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.dart';
+import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/features/attendance/presentation/pages/clock_in_success_page.dart';
 import 'package:hris_app/features/attendance/presentation/pages/clock_in_failed_page.dart';
 
@@ -86,67 +87,78 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   Future<void> _initializeServices() async {
     if (!kIsWeb) {
       _faceDetectorService.initialize();
-      _mlService.initialize();
+      await _mlService.initialize();
     }
     
-    await _fetchBranchAndBaseline();
+    // Start camera immediately so the user doesn't see a hang
     await _startCamera();
-    await _getCurrentLocation();
+    
+    // Request location and branch data in background
+    _fetchBranchAndBaseline();
+    _getCurrentLocation();
   }
 
   Future<void> _fetchBranchAndBaseline() async {
-    // Skip authenticated calls during registration
-    if (widget.isRegistration) {
-      final branchesResult = await di.sl<AuthRepository>().getBranches();
-      branchesResult.fold(
-        (l) => debugPrint("Error branches: ${l.message}"),
-        (branches) {
-          if (mounted) {
-            // During registration we don't have an assigned branch yet in the profile,
-            // but we might want to allow all branches or none.
-            // For now, just keep branches empty or handle as needed.
-          }
-        }
-      );
-      return;
-    }
-
-    final profileResult = await di.sl<AuthRepository>().getProfile();
-    final branchesResult = await di.sl<AuthRepository>().getBranches();
-    final embeddingResult = await di.sl<AuthRepository>().getStoredFaceEmbedding();
-    
-    profileResult.fold(
-      (l) => debugPrint("Error profile: ${l.message}"),
-      (profile) {
-        final branchId = profile['branch_id'];
+    try {
+      // Skip authenticated calls during registration
+      if (widget.isRegistration) {
+        final branchesResult = await di.sl<AuthRepository>().getBranches();
         branchesResult.fold(
           (l) => debugPrint("Error branches: ${l.message}"),
           (branches) {
-            final branch = branches.firstWhere((b) => (b['id'] ?? b['ID']) == branchId, orElse: () => {});
             if (mounted) {
-              setState(() {
-                _assignedBranch = branch.isNotEmpty ? branch : null;
-              });
-              
-              if (_assignedBranch != null && !kIsWeb) {
-                _getBranchAddress(_assignedBranch!['Latitude'], _assignedBranch!['Longitude']);
-              }
+              // During registration we don't have an assigned branch yet
             }
           }
         );
+        return;
       }
-    );
 
-    embeddingResult.fold(
-      (l) => debugPrint("Error embedding: ${l.message}"),
-      (embedding) {
-        if (mounted) {
-          setState(() {
-            _baselineEmbedding = embedding;
-          });
+      final profileResult = await di.sl<AuthRepository>().getProfile();
+      final branchesResult = await di.sl<AuthRepository>().getBranches();
+      final embeddingResult = await di.sl<AuthRepository>().getStoredFaceEmbedding();
+      
+      profileResult.fold(
+        (l) => debugPrint("Error profile: ${l.message}"),
+        (profile) {
+          final branchId = profile['branch_id'];
+          branchesResult.fold(
+            (l) => debugPrint("Error branches: ${l.message}"),
+            (branches) {
+              final branch = branches.firstWhere((b) => (b['id'] ?? b['ID']) == branchId, orElse: () => {});
+              if (mounted) {
+                setState(() {
+                  _assignedBranch = branch.isNotEmpty ? branch : null;
+                });
+                
+                if (_assignedBranch != null && !kIsWeb) {
+                  _getBranchAddress(_assignedBranch!['Latitude'], _assignedBranch!['Longitude']);
+                }
+              }
+            }
+          );
         }
+      );
+
+      embeddingResult.fold(
+        (l) => debugPrint("Error embedding: ${l.message}"),
+        (embedding) {
+          if (mounted) {
+            setState(() {
+              _baselineEmbedding = embedding;
+            });
+          }
+        }
+      );
+    } catch (e) {
+      debugPrint("Background fetch error: $e");
+    } finally {
+      if (mounted && _statusText == "Menginisialisasi...") {
+        setState(() {
+           _statusText = "Mencari wajah...";
+        });
       }
-    );
+    }
   }
 
   Future<void> _getBranchAddress(double lat, double lng) async {
@@ -336,7 +348,14 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         }
       }
     } catch (e) {
-      debugPrint("Error processing image: $e");
+      // Suppress format errors in logs as we have a manual fallback
+      if (e.toString().contains("InputImageConverterError")) {
+        if (mounted && _statusText == "Mencari wajah...") {
+          setState(() => _statusText = "Posisikan wajah & ambil foto.");
+        }
+      } else {
+        debugPrint("Error processing image: $e");
+      }
     }
     _isProcessing = false;
   }
@@ -344,6 +363,10 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   Future<void> _extractAndVerifyFace(CameraImage image, Face face) async {
     try {
       imglib.Image convertedImage = _convertCameraImage(image);
+      if (!_mlService.isInitialized) {
+        debugPrint("MLService not initialized, skipping verification.");
+        return;
+      }
       final currentEmbedding = _mlService.predict(convertedImage);
       
       if (_baselineEmbedding != null) {
@@ -368,17 +391,85 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
     
     try {
       setState(() => _isVerifying = true);
-      if (!kIsWeb) {
+      
+      // Stop stream if it's running
+      try {
         await _cameraController!.stopImageStream();
-      }
+      } catch (_) {}
+
       final photo = await _cameraController!.takePicture();
-      setState(() {
-        _capturedImagePath = photo.path;
-        _isVerifying = false;
-      });
+      
+      // After taking a picture, we verify the face from the file (Universal Fix for RMX2030)
+      final faces = await _faceDetectorService.processImageFromFile(photo.path);
+      
+      if (faces.isEmpty) {
+        if (mounted) {
+          SnackBarUtils.showError(context, "Wajah tidak ditemukan di foto. Coba lagi.");
+          setState(() {
+             _isVerifying = false;
+             // Restart stream
+             _startCamera();
+          });
+        }
+        return;
+      }
+
+      final face = faces.first;
+      
+      // Extract embedding from the captured file
+      final bytes = await File(photo.path).readAsBytes();
+      final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+      
+      if (capturedImage == null) {
+        throw Exception("Gagal memproses file foto.");
+      }
+
+      // Pre-process for ML
+      final imglib.Image faceCrop = imglib.copyCrop(
+        capturedImage,
+        x: face.boundingBox.left.toInt(),
+        y: face.boundingBox.top.toInt(),
+        width: face.boundingBox.width.toInt(),
+        height: face.boundingBox.height.toInt(),
+      );
+
+      if (!_mlService.isInitialized) {
+        throw Exception("Sistem AI belum siap: ${_mlService.lastError ?? 'Tunggu sebentar'}");
+      }
+      final embedding = _mlService.predict(faceCrop);
+
+      if (widget.isRegistration) {
+        // Just save the path and embedding
+        setState(() {
+          _capturedImagePath = photo.path;
+          _isVerifying = false;
+        });
+      } else if (_baselineEmbedding != null) {
+        // Verify against baseline
+        final double distance = _mlService.calculateEuclideanDistance(_baselineEmbedding!, embedding);
+        final bool isMatched = distance < 1.5;
+
+        if (mounted) {
+          setState(() {
+            _capturedImagePath = photo.path;
+            _isFaceMatched = isMatched;
+            _isVerifying = false;
+            _statusText = isMatched ? "Wajah diverifikasi." : "Wajah tidak sesuai.";
+          });
+          
+          if (!isMatched) {
+            SnackBarUtils.showError(context, "Verifikasi gagal. Pastikan wajah Anda terlihat jelas.");
+            _startCamera();
+          }
+        }
+      }
     } catch (e) {
-      debugPrint("Take picture error: $e");
-      setState(() => _isVerifying = false);
+      debugPrint("Take picture logic error: $e");
+      if (mounted) {
+        SnackBarUtils.showError(context, "Gagal memproses foto: $e");
+        setState(() => _isVerifying = false);
+        _startCamera();
+      }
     }
   }
 
@@ -772,7 +863,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 48),
                     child: ElevatedButton.icon(
-                      onPressed: (_isFaceDetected && (kIsWeb || widget.isRegistration || _isFaceMatched) && !_isVerifying) ? _takePicture : null,
+                      onPressed: (!_isVerifying && _cameraController != null && _cameraController!.value.isInitialized) ? _takePicture : null,
                       icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                       label: Text(_isVerifying ? 'MEMPROSES...' : 'AMBIL FOTO'),
                       style: ElevatedButton.styleFrom(

@@ -187,10 +187,14 @@ class _RegisterPageState extends State<RegisterPage> {
                                           icon: Icons.location_on_outlined,
                                           items: _branches
                                               .where((branch) => (branch['id'] ?? branch['ID']) != null)
-                                              .map((branch) => DropdownMenuItem<String>(
-                                                value: (branch['id'] ?? branch['ID']).toString(),
-                                                child: Text((branch['name'] ?? branch['Name'] ?? 'Unit unknown').toString()),
-                                              )).toList(),
+                                                .map((branch) => DropdownMenuItem<String>(
+                                                  value: (branch['id'] ?? branch['ID']).toString(),
+                                                  child: Text(
+                                                    (branch['name'] ?? branch['Name'] ?? 'Unit unknown').toString(),
+                                                    overflow: TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
+                                                )).toList(),
                                           onChanged: (v) => setState(() => _selectedBranchId = v),
                                           validator: (v) => v == null ? 'Pilih cabang' : null,
                                         ),
@@ -202,10 +206,14 @@ class _RegisterPageState extends State<RegisterPage> {
                                           icon: Icons.work_outline_rounded,
                                           items: _jobPositions
                                               .where((pos) => (pos['id'] ?? pos['ID']) != null)
-                                              .map((pos) => DropdownMenuItem<String>(
-                                                value: (pos['id'] ?? pos['ID']).toString(),
-                                                child: Text((pos['title'] ?? pos['Title'] ?? pos['name'] ?? pos['Name'] ?? 'Posisi').toString()),
-                                              )).toList(),
+                                                .map((pos) => DropdownMenuItem<String>(
+                                                  value: (pos['id'] ?? pos['ID']).toString(),
+                                                  child: Text(
+                                                    (pos['title'] ?? pos['Title'] ?? pos['name'] ?? pos['Name'] ?? 'Posisi').toString(),
+                                                    overflow: TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
+                                                )).toList(),
                                           onChanged: (v) => setState(() => _selectedJobPositionId = v),
                                           validator: (v) => v == null ? 'Pilih posisi' : null,
                                         ),
@@ -428,6 +436,7 @@ class _RegisterPageState extends State<RegisterPage> {
           items: items,
           onChanged: onChanged,
           validator: validator,
+          isExpanded: true,
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15, 
             fontWeight: FontWeight.w600,

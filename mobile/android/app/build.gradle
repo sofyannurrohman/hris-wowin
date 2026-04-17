@@ -45,6 +45,11 @@ android {
             crunchPngs false
         }
     }
+
+    aaptOptions {
+        noCompress 'tflite'
+        noCompress 'lite'
+    }
 }
 
 flutter {

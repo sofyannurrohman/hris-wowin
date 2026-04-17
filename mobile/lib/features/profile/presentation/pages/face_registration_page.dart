@@ -41,7 +41,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
 
   Future<void> _initializeServices() async {
     _faceDetectorService.initialize();
-    _mlService.initialize();
+    await _mlService.initialize();
     
     final cameras = await availableCameras();
     final frontCamera = cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.front, orElse: () => cameras.first);
@@ -112,7 +112,14 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
         }
       }
     } catch (e) {
-      print("Error processing image: \$e");
+      // Suppress format errors in logs as we have a manual fallback
+      if (e.toString().contains("InputImageConverterError")) {
+        if (mounted && _statusText == "Mencari wajah...") {
+          setState(() => _statusText = "Posisikan wajah & ambil foto.");
+        }
+      } else {
+        debugPrint("Error processing image: $e");
+      }
     }
     _isProcessing = false;
   }
@@ -120,11 +127,81 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
   Future<void> _extractFaceEmbedding(CameraImage image, Face face) async {
     try {
       imglib.Image convertedImage = _convertCameraImage(image);
-      final embedding = _mlService.predict(convertedImage);
       
-      // Stop the stream and take a high res picture for baseline
-      await _cameraController!.stopImageStream();
+      // Pre-process for ML: crop to face bounding box
+      final imglib.Image faceCrop = imglib.copyCrop(
+        convertedImage,
+        x: face.boundingBox.left.toInt(),
+        y: face.boundingBox.top.toInt(),
+        width: face.boundingBox.width.toInt(),
+        height: face.boundingBox.height.toInt(),
+      );
+
+      if (!_mlService.isInitialized) {
+        debugPrint("MLService not initialized, skipping extraction.");
+        return;
+      }
+      final embedding = _mlService.predict(faceCrop);
+      
+      if (mounted) {
+        setState(() {
+          _currentEmbedding = embedding;
+          _statusText = "Data wajah berhasil diambil. Siap disimpan.";
+        });
+      }
+    } catch (e) {
+      debugPrint("Error extracting embedding: $e");
+    }
+  }
+
+  Future<void> _takePictureManual() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    
+    try {
+      setState(() => _statusText = "Mengambil foto...");
+      
+      try {
+        await _cameraController!.stopImageStream();
+      } catch (_) {}
+
       final xFile = await _cameraController!.takePicture();
+      
+      setState(() => _statusText = "Memproses wajah...");
+      
+      // Face detection on the captured file
+      final faces = await _faceDetectorService.processImageFromFile(xFile.path);
+      
+      if (faces.isEmpty) {
+        if (mounted) {
+          SnackBarUtils.showError(context, "Wajah tidak ditemukan di foto. Coba lagi.");
+          _initializeServices(); // Restart stream/camera
+        }
+        return;
+      }
+
+      final face = faces.first;
+      
+      // Extract embedding from the file
+      final bytes = await File(xFile.path).readAsBytes();
+      final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+      
+      if (capturedImage == null) {
+        throw Exception("Gagal memproses file foto.");
+      }
+
+      // Pre-process for ML
+      final imglib.Image faceCrop = imglib.copyCrop(
+        capturedImage,
+        x: face.boundingBox.left.toInt(),
+        y: face.boundingBox.top.toInt(),
+        width: face.boundingBox.width.toInt(),
+        height: face.boundingBox.height.toInt(),
+      );
+
+      if (!_mlService.isInitialized) {
+        throw Exception("Sistem AI belum siap: ${_mlService.lastError ?? 'Tunggu sebentar'}");
+      }
+      final embedding = _mlService.predict(faceCrop);
       
       if (mounted) {
         setState(() {
@@ -134,11 +211,11 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
         });
       }
     } catch (e) {
-      print("Error extracting embedding: \$e");
+      print("Manual capture error: $e");
       if (mounted) {
-        setState(() {
-          _statusText = "Gagal memproses wajah.";
-        });
+        setState(() => _statusText = "Gagal memproses wajah.");
+        SnackBarUtils.showError(context, "Gagal: $e");
+        _initializeServices();
       }
     }
   }
@@ -243,30 +320,43 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _currentEmbedding != null
-                          ? () {
-                              context.read<AuthBloc>().add(RegisterFaceRequested(_currentEmbedding!, _currentSelfiePath!));
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1B60F1),
-                        disabledBackgroundColor: Colors.grey,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: BlocBuilder<AuthBloc, AuthState>(
-                        builder: (context, state) {
-                          if (state is AuthLoading) {
-                            return const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2));
-                          }
-                          return Text("Simpan Data Wajah", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold));
-                        }
+                  if (_currentEmbedding == null)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: (_cameraController != null && _cameraController!.value.isInitialized) ? _takePictureManual : null,
+                        icon: const Icon(Icons.camera_alt_rounded),
+                        label: Text("Ambil Foto Wajah", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
                     ),
-                  ),
+                  if (_currentEmbedding != null)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          context.read<AuthBloc>().add(RegisterFaceRequested(_currentEmbedding!, _currentSelfiePath!));
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1B60F1),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: BlocBuilder<AuthBloc, AuthState>(
+                          builder: (context, state) {
+                            if (state is AuthLoading) {
+                              return const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2));
+                            }
+                            return Text("Simpan Data Wajah", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold));
+                          }
+                        ),
+                      ),
+                    ),
                 ],
               ),
             )
