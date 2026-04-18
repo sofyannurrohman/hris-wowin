@@ -13,6 +13,7 @@ RUN go mod download
 # Copy source and build
 COPY . .
 RUN go build -o bin/api cmd/api/main.go
+RUN go build -o bin/seeder cmd/seeder/main.go
 
 # Stage 2: Final image
 FROM alpine:latest
@@ -24,7 +25,12 @@ RUN apk --no-cache add ca-certificates tzdata
 
 # Copy the compiled binary
 COPY --from=builder /app/bin/api .
+COPY --from=builder /app/bin/seeder .
+
+# Copy entrypoint script
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 EXPOSE 8081
 
-CMD ["./api"]
+CMD ["./entrypoint.sh"]

@@ -1,21 +1,70 @@
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
+import { Pencil } from 'lucide-vue-next'
 import apiClient from '@/api/axios'
 import DataTable from '@/components/DataTable.vue'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'vue-sonner'
 
 const balances = ref<any[]>([])
 const isLoading = ref(true)
+const isModalOpen = ref(false)
+const isSubmitting = ref(false)
+
+const editingBalance = ref({
+  employee_id: '',
+  leave_type_id: '',
+  year: new Date().getFullYear(),
+  balance_total: 0,
+  balance_used: 0,
+  employeeName: '',
+  leaveTypeName: ''
+})
 
 const fetchBalances = async () => {
   isLoading.value = true
   try {
-    // HR views all leave balances directly via DB
     const res = await apiClient.get('/leave-balances')
     balances.value = res.data.data
   } catch (e) {
     console.error(e)
   } finally {
     isLoading.value = false
+  }
+}
+
+const openEditModal = (row: any) => {
+  editingBalance.value = {
+    employee_id: row.EmployeeID,
+    leave_type_id: row.LeaveTypeID,
+    year: row.Year,
+    balance_total: row.BalanceTotal,
+    balance_used: row.BalanceUsed,
+    employeeName: row.Employee ? `${row.Employee.FirstName} ${row.Employee.LastName}` : 'Unknown',
+    leaveTypeName: row.LeaveType?.Name || 'Unknown'
+  }
+  isModalOpen.value = true
+}
+
+const saveBalance = async () => {
+  isSubmitting.value = true
+  try {
+    await apiClient.put('/time-off/manage/balances', {
+      employee_id: editingBalance.value.employee_id,
+      leave_type_id: editingBalance.value.leave_type_id,
+      year: editingBalance.value.year,
+      balance_total: editingBalance.value.balance_total,
+      balance_used: editingBalance.value.balance_used
+    })
+    toast.success('Saldo cuti berhasil diperbarui!')
+    isModalOpen.value = false
+    fetchBalances()
+  } catch (error: any) {
+    toast.error('Gagal memperbarui saldo: ' + (error.response?.data?.message || error.message))
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -58,6 +107,18 @@ const columns = [
       const sisa = (r.BalanceTotal || 0) - (r.BalanceUsed || 0)
       return h('span', { class: `font-bold ${sisa > 0 ? 'text-green-600' : 'text-red-500'}` }, `${sisa} hari`)
     }
+  },
+  {
+    id: 'actions',
+    header: 'AKSI',
+    cell: ({ row }: any) => {
+      return h(Button, {
+        variant: 'ghost',
+        size: 'sm',
+        class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
+        onClick: () => openEditModal(row.original)
+      }, () => h(Pencil, { class: 'w-4 h-4' }))
+    }
   }
 ]
 </script>
@@ -66,16 +127,39 @@ const columns = [
   <div class="space-y-6">
     <div>
       <h1 class="text-[22px] font-bold text-gray-900">Saldo Cuti Karyawan</h1>
-      <p class="text-[14px] text-gray-500 mt-1">Lihat saldo cuti per karyawan. Data dikelola sistem secara otomatis.</p>
-    </div>
-
-    <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 items-start">
-      <svg class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <p class="text-[13px] text-amber-700">Saldo cuti diperbarui otomatis oleh sistem ketika pengajuan cuti disetujui. Tidak ada perubahan manual yang tersedia.</p>
+      <p class="text-[14px] text-gray-500 mt-1">Kelola saldo cuti per karyawan secara manual jika diperlukan.</p>
     </div>
 
     <DataTable :data="balances" :columns="columns" :isLoading="isLoading" />
+
+    <!-- Edit Modal -->
+    <Dialog v-model:open="isModalOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Sesuaikan Saldo Cuti</DialogTitle>
+          <DialogDescription>
+            Mengubah saldo untuk <b>{{ editingBalance.employeeName }}</b> pada tipe <b>{{ editingBalance.leaveTypeName }}</b>.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div class="grid gap-4 py-4">
+          <div class="grid gap-2">
+            <label class="text-[13px] font-medium text-gray-700">Total Jatah (Hari)</label>
+            <Input v-model.number="editingBalance.balance_total" type="number" min="0" />
+          </div>
+          <div class="grid gap-2">
+            <label class="text-[13px] font-medium text-gray-700">Terpakai (Hari)</label>
+            <Input v-model.number="editingBalance.balance_used" type="number" min="0" />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" @click="isModalOpen = false">Batal</Button>
+          <Button @click="saveBalance" :disabled="isSubmitting">
+            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

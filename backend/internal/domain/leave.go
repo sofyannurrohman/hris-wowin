@@ -12,6 +12,7 @@ type LeaveType struct {
 	CompanyID    *uuid.UUID `gorm:"type:uuid"`
 	Name         string     `gorm:"type:varchar(50);not null"`
 	IsPaid       bool       `gorm:"default:true"`
+	RequiresQuota bool      `gorm:"default:true"`
 	DefaultQuota int        `gorm:"default:12"`
 	CreatedAt    time.Time  `gorm:"default:now()"`
 

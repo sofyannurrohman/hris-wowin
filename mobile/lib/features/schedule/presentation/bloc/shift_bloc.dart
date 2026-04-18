@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/schedule/data/models/shift_model.dart';
 import 'package:hris_app/features/schedule/data/repositories/shift_repository.dart';
+import 'package:hris_app/core/services/notification_service.dart';
 
 // Events
 abstract class ShiftEvent extends Equatable {
@@ -43,14 +44,18 @@ class ShiftFailure extends ShiftState {
 // BLoC
 class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   final ShiftRepository repository;
+  final NotificationService notificationService;
 
-  ShiftBloc({required this.repository}) : super(ShiftInitial()) {
+  ShiftBloc({required this.repository, required this.notificationService}) : super(ShiftInitial()) {
     on<FetchSchedulesRequested>((event, emit) async {
       emit(ShiftLoading());
       final result = await repository.getSchedules(event.month, event.year);
       result.fold(
         (failure) => emit(ShiftFailure(failure.message)),
-        (lists) => emit(ShiftLoaded(lists)),
+        (lists) {
+          notificationService.scheduleShiftNotifications(lists);
+          emit(ShiftLoaded(lists));
+        },
       );
     });
   }

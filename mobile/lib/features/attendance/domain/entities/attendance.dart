@@ -7,6 +7,8 @@ class Attendance extends Equatable {
   final DateTime? checkOut;
   final String status;
   final String branchName;
+  final String selfiePath;
+  final int workDuration;
 
   const Attendance({
     required this.id,

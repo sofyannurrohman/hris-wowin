@@ -113,7 +113,7 @@ class ClockOutFailedPage extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.diagnostic_line_outlined, size: 20, color: AppColors.error),
+                            const Icon(Icons.report_problem_outlined, size: 20, color: AppColors.error),
                             const SizedBox(width: 12),
                             Text(
                               'DIAGNOSTIK SISTEM',

@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/core/services/biometric_service.dart';
 import 'package:hris_app/core/services/local_database_service.dart';
+import 'package:hris_app/core/services/notification_service.dart';
 
 import 'package:hris_app/features/kpi/domain/repositories/kpi_repository.dart';
 import 'package:hris_app/features/kpi/data/repositories/kpi_repository_impl.dart';
@@ -52,6 +53,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ApiClient(prefs: sl()));
   sl.registerLazySingleton(() => BiometricService());
   sl.registerLazySingleton(() => LocalDatabaseService());
+  sl.registerLazySingleton(() => NotificationService());
 
   // Repository
   sl.registerLazySingleton<AuthRepository>(
@@ -164,6 +166,6 @@ Future<void> init() async {
     () => DirectoryBloc(repository: sl()),
   );
   sl.registerFactory(
-    () => ShiftBloc(repository: sl()),
+    () => ShiftBloc(repository: sl(), notificationService: sl()),
   );
 }

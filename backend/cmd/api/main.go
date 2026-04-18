@@ -42,7 +42,7 @@ func main() {
 	authUseCase := usecase.NewAuthUseCase(userRepo)
 	employeeUseCase := usecase.NewEmployeeUsecase(employeeRepo, userRepo)
 	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo)
-	leaveUseCase := usecase.NewLeaveUseCase(leaveRepo, employeeRepo)
+	leaveUseCase := usecase.NewLeaveUseCase(db, leaveRepo, employeeRepo)
 	overtimeUseCase := usecase.NewOvertimeUseCase(overtimeRepo, employeeRepo)
 	payrollUseCase := usecase.NewPayrollUseCase(payrollRepo, employeeRepo, payrollConfigRepo)
 	jobPositionUseCase := usecase.NewJobPositionUseCase(jobPositionRepo)

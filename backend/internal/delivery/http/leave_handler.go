@@ -37,6 +37,7 @@ func (h *LeaveHandler) SetupRoutes(router *gin.RouterGroup) {
 			managed.PUT("/:id", h.AdminUpdateLeave)
 			managed.DELETE("/:id", h.AdminDeleteLeave)
 			managed.PUT("/:id/approve", h.ApproveLeave)
+			managed.PUT("/balances", h.AdminUpdateBalance)
 		}
 	}
 
@@ -295,4 +296,19 @@ func (h *LeaveHandler) DeleteMyLeave(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Leave request cancelled/deleted successfully", nil)
+}
+
+func (h *LeaveHandler) AdminUpdateBalance(c *gin.Context) {
+	var req usecase.AdminUpdateBalanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.leaveUseCase.AdminUpdateBalance(req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Leave balance updated successfully", nil)
 }

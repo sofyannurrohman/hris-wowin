@@ -115,7 +115,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                   const SizedBox(height: 54),
                   Text(
-                    'HR CONNECT',
+                    'HRIS WOWIN',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
@@ -131,7 +131,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'INTEGRATED HRIS SOLUTION',
+                      'Aplikasi HRIS Karyawan Terintegrasi',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

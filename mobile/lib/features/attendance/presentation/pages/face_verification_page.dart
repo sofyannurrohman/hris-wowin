@@ -24,6 +24,8 @@ import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/features/attendance/presentation/pages/clock_in_success_page.dart';
 import 'package:hris_app/features/attendance/presentation/pages/clock_in_failed_page.dart';
+import 'package:hris_app/features/attendance/presentation/pages/clock_out_success_page.dart';
+import 'package:hris_app/features/attendance/presentation/pages/clock_out_failed_page.dart';
 
 class FaceVerificationResult {
   final List<double> embedding;

@@ -171,16 +171,24 @@ func main() {
 				status = "LATE"
 			}
 
-			att := domain.AttendanceLog{
-				EmployeeID:   emp.ID,
-				ShiftID:      &shift.ID,
-				ClockInTime:  &checkInTime,
-				ClockOutTime: &checkOutTime,
-				ClockInLat:   -6.2088,
-				ClockInLong:  106.8456,
-				Status:       status,
+			// Check if attendance already exists for this day
+			var existingAtt domain.AttendanceLog
+			startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+			endOfDay := startOfDay.AddDate(0, 0, 1)
+			
+			err := db.Where("employee_id = ? AND clock_in_time >= ? AND clock_in_time < ?", emp.ID, startOfDay, endOfDay).First(&existingAtt).Error
+			if err != nil {
+				att := domain.AttendanceLog{
+					EmployeeID:   emp.ID,
+					ShiftID:      &shift.ID,
+					ClockInTime:  &checkInTime,
+					ClockOutTime: &checkOutTime,
+					ClockInLat:   -6.2088,
+					ClockInLong:  106.8456,
+					Status:       status,
+				}
+				db.Create(&att)
 			}
-			db.Create(&att)
 		}
 	}
 
@@ -193,13 +201,27 @@ func main() {
 		log.Fatalf("Failed to seed leave type: %v", err)
 	}
 
+	// 9b. Add Izin Types
+	izinTypes := []domain.LeaveType{
+		{CompanyID: &company.ID, Name: "Izin Sakit", IsPaid: true, RequiresQuota: false, DefaultQuota: 0},
+		{CompanyID: &company.ID, Name: "Izin Terkena Musibah", IsPaid: true, RequiresQuota: false, DefaultQuota: 0},
+		{CompanyID: &company.ID, Name: "Izin Lainnya", IsPaid: false, RequiresQuota: false, DefaultQuota: 0},
+	}
+	for _, it := range izinTypes {
+		db.FirstOrCreate(&domain.LeaveType{}, it)
+	}
+
 	log.Println("Seeding leaves...")
 	leaves := []domain.LeaveRequest{
 		{EmployeeID: staffEmployee.ID, LeaveTypeID: leaveType.ID, StartDate: time.Now().AddDate(0, 0, 5), EndDate: time.Now().AddDate(0, 0, 8), Reason: "Vacation", Status: "PENDING"},
 		{EmployeeID: staffEmployee.ID, LeaveTypeID: leaveType.ID, StartDate: time.Now().AddDate(0, 0, -2), EndDate: time.Now().AddDate(0, 0, -2), Reason: "Sick", Status: "APPROVED", ApprovedBy: &adminEmployee.ID},
 	}
 	for i := range leaves {
-		db.Create(&leaves[i])
+		db.Where(domain.LeaveRequest{
+			EmployeeID: leaves[i].EmployeeID,
+			StartDate:  leaves[i].StartDate,
+			EndDate:    leaves[i].EndDate,
+		}).FirstOrCreate(&leaves[i])
 	}
 
 	// 10. Create Overtimes
@@ -208,8 +230,30 @@ func main() {
 		{EmployeeID: staffEmployee.ID, Date: time.Now().AddDate(0, 0, -1), StartTime: time.Now().AddDate(0, 0, -1).Add(18 * time.Hour), EndTime: time.Now().AddDate(0, 0, -1).Add(20 * time.Hour), DurationMinutes: 120, Reason: "Project deadline", Status: domain.OvertimePending},
 	}
 	for i := range overtimes {
-		if err := db.Create(&overtimes[i]).Error; err != nil {
-			log.Printf("Failed to seed overtime: %v", err)
+		db.Where(domain.Overtime{
+			EmployeeID: overtimes[i].EmployeeID,
+			Date:       overtimes[i].Date,
+			Reason:     overtimes[i].Reason,
+		}).FirstOrCreate(&overtimes[i])
+	}
+
+	// 11. Initialize Leave Balances for all employees and types
+	log.Println("Initializing leave balances...")
+	var allEmployeesForBalances []domain.Employee
+	db.Find(&allEmployeesForBalances)
+	var allLeaveTypes []domain.LeaveType
+	db.Find(&allLeaveTypes)
+
+	currentYear := time.Now().Year()
+	for _, emp := range allEmployeesForBalances {
+		for _, lt := range allLeaveTypes {
+			db.FirstOrCreate(&domain.LeaveBalance{}, domain.LeaveBalance{
+				EmployeeID:  emp.ID,
+				LeaveTypeID: lt.ID,
+				Year:        currentYear,
+			}).Updates(domain.LeaveBalance{
+				BalanceTotal: lt.DefaultQuota,
+			})
 		}
 	}
 

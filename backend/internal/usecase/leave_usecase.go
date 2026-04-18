@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
+	"gorm.io/gorm"
 )
 
 type LeaveUseCase interface {
@@ -22,15 +23,17 @@ type LeaveUseCase interface {
 	GetAllLeaves(status string, page, limit int) ([]domain.LeaveRequest, error)
 	GetAllLeaveBalances() ([]*domain.LeaveBalance, error)
 	ApproveReturnLeave(leaveID, approverID uuid.UUID, req ApproveLeaveRequest) error
+	AdminUpdateBalance(req AdminUpdateBalanceRequest) error
 }
 
 type leaveUseCase struct {
+	db           *gorm.DB
 	repo         repository.LeaveRepository
 	employeeRepo repository.EmployeeRepository
 }
 
-func NewLeaveUseCase(repo repository.LeaveRepository, employeeRepo repository.EmployeeRepository) LeaveUseCase {
-	return &leaveUseCase{repo, employeeRepo}
+func NewLeaveUseCase(db *gorm.DB, repo repository.LeaveRepository, employeeRepo repository.EmployeeRepository) LeaveUseCase {
+	return &leaveUseCase{db, repo, employeeRepo}
 }
 
 type SubmitLeaveRequest struct {
@@ -45,6 +48,7 @@ type LeaveBalanceResponse struct {
 	LeaveTypeID   string `json:"leave_type_id"`
 	LeaveTypeName string `json:"leave_type_name"`
 	IsPaid        bool   `json:"is_paid"`
+	RequiresQuota bool   `json:"requires_quota"`
 	Total         int    `json:"total"`
 	Used          int    `json:"used"`
 	Remaining     int    `json:"remaining"`
@@ -63,6 +67,14 @@ type AdminLeaveRequest struct {
 	Reason        string `json:"reason"`
 	AttachmentURL string `json:"attachment_url"`
 	Status        string `json:"status"` // PENDING, APPROVED, REJECTED
+}
+
+type AdminUpdateBalanceRequest struct {
+	EmployeeID   string `json:"employee_id" binding:"required"`
+	LeaveTypeID  string `json:"leave_type_id" binding:"required"`
+	Year         int    `json:"year" binding:"required"`
+	BalanceTotal int    `json:"balance_total"`
+	BalanceUsed  int    `json:"balance_used"`
 }
 
 func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) error {
@@ -107,10 +119,43 @@ func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) err
 		return errors.New("Surat izin dokter wajib dilampirkan untuk izin sakit")
 	}
 
+	// VALIDATION: Annual Leave monthly limit (max 1 day per month)
+	isAnnualLeave := strings.Contains(strings.ToLower(leaveType.Name), "annual") || strings.Contains(strings.ToLower(leaveType.Name), "tahunan")
+	if isAnnualLeave {
+		// Divide request into monthly buckets
+		tempStart := start
+		for tempStart.Before(end) || tempStart.Equal(end) {
+			year, month, _ := tempStart.Date()
+			monthStart := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+			monthEnd := monthStart.AddDate(0, 1, -1)
+
+			// Calculate days in THIS month for THIS request
+			overlapStart := tempStart
+			overlapEnd := end
+			if overlapEnd.After(monthEnd) {
+				overlapEnd = monthEnd
+			}
+			requestedDaysInMonth := int(overlapEnd.Sub(overlapStart).Hours()/24) + 1
+
+			// Check existing usage in this month
+			existingDays, err := u.repo.CountMonthlyLeaveDays(employee.ID, leaveType.ID, int(month), year, uuid.Nil)
+			if err != nil {
+				return err
+			}
+
+			if existingDays+requestedDaysInMonth > 1 {
+				return errors.New("Maksimal pengambilan cuti tahunan adalah 1 hari per bulan. Anda sudah memiliki pengajuan atau jatah yang digunakan di bulan " + month.String())
+			}
+
+			// Move to start of next month
+			tempStart = monthEnd.AddDate(0, 0, 1)
+		}
+	}
+
 	var balanceToUpdate *domain.LeaveBalance
 	currentYear := time.Now().Year()
 
-	if leaveType.IsPaid {
+	if leaveType.RequiresQuota {
 		balance, err := u.repo.GetLeaveBalance(employee.ID, leaveType.ID, currentYear)
 		if err != nil {
 			return errors.New("leave balance not found for this year")
@@ -182,12 +227,41 @@ func (u *leaveUseCase) UpdateMyLeave(leaveID, userID uuid.UUID, req SubmitLeaveR
 		return errors.New("leave type not found")
 	}
 
+	// VALIDATION: Annual Leave monthly limit (max 1 day per month)
+	isAnnualLeave := strings.Contains(strings.ToLower(newLeaveType.Name), "annual") || strings.Contains(strings.ToLower(newLeaveType.Name), "tahunan")
+	if isAnnualLeave {
+		tempStart := newStart
+		for tempStart.Before(newEnd) || tempStart.Equal(newEnd) {
+			y, m, _ := tempStart.Date()
+			monthStart := time.Date(y, m, 1, 0, 0, 0, 0, time.Local)
+			monthEnd := monthStart.AddDate(0, 1, -1)
+
+			overlapStart := tempStart
+			overlapEnd := newEnd
+			if overlapEnd.After(monthEnd) {
+				overlapEnd = monthEnd
+			}
+			requestedDaysInMonth := int(overlapEnd.Sub(overlapStart).Hours()/24) + 1
+
+			// Exclude the current leave request from the count
+			existingDays, err := u.repo.CountMonthlyLeaveDays(employee.ID, newLeaveType.ID, int(m), y, leaveID)
+			if err != nil {
+				return err
+			}
+
+			if existingDays+requestedDaysInMonth > 1 {
+				return errors.New("Maksimal pengambilan cuti tahunan adalah 1 hari per bulan. Anda sudah memiliki pengajuan atau jatah yang digunakan di bulan " + m.String())
+			}
+			tempStart = monthEnd.AddDate(0, 0, 1)
+		}
+	}
+
 	var balanceToUpdate *domain.LeaveBalance
 	currentYear := time.Now().Year()
 
 	if leave.LeaveTypeID != newLeaveTypeID || !leave.StartDate.Equal(newStart) || !leave.EndDate.Equal(newEnd) {
 		oldLeaveType, _ := u.repo.GetLeaveTypeByID(leave.LeaveTypeID)
-		if oldLeaveType != nil && oldLeaveType.IsPaid {
+		if oldLeaveType != nil && oldLeaveType.RequiresQuota {
 			oldDuration := leave.EndDate.Sub(leave.StartDate)
 			oldTotalDays := int(oldDuration.Hours()/24) + 1
 			balance, err := u.repo.GetLeaveBalance(employee.ID, leave.LeaveTypeID, leave.StartDate.Year())
@@ -197,7 +271,7 @@ func (u *leaveUseCase) UpdateMyLeave(leaveID, userID uuid.UUID, req SubmitLeaveR
 			}
 		}
 
-		if newLeaveType.IsPaid {
+		if newLeaveType.RequiresQuota {
 			balance := balanceToUpdate
 			if balance == nil || balance.LeaveTypeID != newLeaveTypeID {
 				balance, err = u.repo.GetLeaveBalance(employee.ID, newLeaveTypeID, currentYear)
@@ -250,7 +324,7 @@ func (u *leaveUseCase) DeleteMyLeave(leaveID, userID uuid.UUID) error {
 
 	var balanceToRefund *domain.LeaveBalance
 	leaveType, _ := u.repo.GetLeaveTypeByID(leave.LeaveTypeID)
-	if leaveType != nil && leaveType.IsPaid {
+	if leaveType != nil && leaveType.RequiresQuota {
 		duration := leave.EndDate.Sub(leave.StartDate)
 		totalDays := int(duration.Hours()/24) + 1
 
@@ -365,21 +439,90 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 	}
 
 	currentYear := time.Now().Year()
+
+	if employee.CompanyID == nil {
+		return nil, errors.New("employee company not found")
+	}
+	leaveTypes, err := u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fail-safe: Ensure default Izin types are ALWAYS seeded for this company
+	// Removing the hasIzin check because if a company had a custom non-quota leave, it would permanently block these default types.
+	izinTypes := []domain.LeaveType{
+		{CompanyID: employee.CompanyID, Name: "Izin Sakit", IsPaid: true, RequiresQuota: false, DefaultQuota: 0},
+		{CompanyID: employee.CompanyID, Name: "Izin Terkena Musibah", IsPaid: true, RequiresQuota: false, DefaultQuota: 0},
+		{CompanyID: employee.CompanyID, Name: "Izin Lainnya", IsPaid: false, RequiresQuota: false, DefaultQuota: 0},
+	}
+	
+	needsRefetch := false
+	for _, it := range izinTypes {
+		// FirstOrCreate will find existing or create new. Either way, we force the correct attributes.
+		result := u.db.Where("company_id = ? AND name = ?", it.CompanyID, it.Name).FirstOrCreate(&it)
+		if result.RowsAffected > 0 {
+		    needsRefetch = true
+		}
+		
+		// Ensure zero-values (false, 0) are correctly saved to DB overriding GORM defaults if tampered
+		u.db.Model(&it).Updates(map[string]interface{}{
+			"is_paid":        it.IsPaid,
+			"requires_quota": it.RequiresQuota,
+			"default_quota":  it.DefaultQuota,
+		})
+	}
+	
+	if needsRefetch {
+		// RE-FETCH after seeding to include the new types
+		leaveTypes, _ = u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
+	}
+
+
+	// 2. Get existing balances
 	balances, err := u.repo.GetAllBalancesByEmployee(employee.ID, currentYear)
 	if err != nil {
 		return nil, err
 	}
 
+	// 3. Create map of existing leave type IDs
+	existingTypeMap := make(map[uuid.UUID]*domain.LeaveBalance)
+	for _, b := range balances {
+		existingTypeMap[b.LeaveTypeID] = b
+	}
+
+	// 4. Auto-initialize missing balances
+	for _, lt := range leaveTypes {
+		if _, exists := existingTypeMap[lt.ID]; !exists {
+			newBalance := &domain.LeaveBalance{
+				EmployeeID:   employee.ID,
+				LeaveTypeID:  lt.ID,
+				Year:         currentYear,
+				BalanceTotal: lt.DefaultQuota,
+				BalanceUsed:  0,
+			}
+			if err := u.repo.SaveBalance(newBalance); err == nil {
+				// Relink leave type for response consistency
+				newBalance.LeaveType = &lt
+				balances = append(balances, newBalance)
+			}
+		}
+	}
+
 	var res []LeaveBalanceResponse
 	for _, b := range balances {
 		name := ""
+		isPaid := true
+		requiresQuota := true
 		if b.LeaveType != nil {
 			name = b.LeaveType.Name
+			isPaid = b.LeaveType.IsPaid
+			requiresQuota = b.LeaveType.RequiresQuota
 		}
 		res = append(res, LeaveBalanceResponse{
 			LeaveTypeID:   b.LeaveTypeID.String(),
 			LeaveTypeName: name,
-			IsPaid:        b.LeaveType.IsPaid,
+			IsPaid:        isPaid,
+			RequiresQuota: requiresQuota,
 			Total:         b.BalanceTotal,
 			Used:          b.BalanceUsed,
 			Remaining:     b.BalanceTotal - b.BalanceUsed,
@@ -428,7 +571,7 @@ func (u *leaveUseCase) ApproveReturnLeave(leaveID, approverID uuid.UUID, req App
 
 	if req.Status == "REJECTED" {
 		leaveType, _ := u.repo.GetLeaveTypeByID(leave.LeaveTypeID)
-		if leaveType != nil && leaveType.IsPaid {
+		if leaveType != nil && leaveType.RequiresQuota {
 			duration := leave.EndDate.Sub(leave.StartDate)
 			totalDays := int(duration.Hours()/24) + 1
 
@@ -454,4 +597,32 @@ func (u *leaveUseCase) ApproveReturnLeave(leaveID, approverID uuid.UUID, req App
 	leave.ApprovedBy = &approverEmp.ID
 
 	return u.repo.UpdateLeaveRequestStatus(leave, balanceToRefund)
+}
+
+func (u *leaveUseCase) AdminUpdateBalance(req AdminUpdateBalanceRequest) error {
+	empID, err := uuid.Parse(req.EmployeeID)
+	if err != nil {
+		return errors.New("invalid employee_id")
+	}
+	ltID, err := uuid.Parse(req.LeaveTypeID)
+	if err != nil {
+		return errors.New("invalid leave_type_id")
+	}
+
+	balance, err := u.repo.GetLeaveBalance(empID, ltID, req.Year)
+	if err != nil {
+		// Create new if not exists
+		balance = &domain.LeaveBalance{
+			EmployeeID:   empID,
+			LeaveTypeID:  ltID,
+			Year:         req.Year,
+			BalanceTotal: req.BalanceTotal,
+			BalanceUsed:  req.BalanceUsed,
+		}
+	} else {
+		balance.BalanceTotal = req.BalanceTotal
+		balance.BalanceUsed = req.BalanceUsed
+	}
+
+	return u.repo.SaveBalance(balance)
 }

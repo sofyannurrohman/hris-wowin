@@ -174,6 +174,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
   String? _selectedLeaveTypeId;
   final ImagePicker _picker = ImagePicker();
   XFile? _attachment;
+  bool _isIzinMode = false;
 
   @override
   void initState() {
@@ -183,6 +184,16 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
       _startDate = widget.leave!.startDate;
       _endDate = widget.leave!.endDate;
       _selectedLeaveTypeId = widget.leave!.leaveTypeId;
+      // Determine mode based on initial leave type
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final balances = context.read<LeaveBloc>().state.balances;
+        if (balances.isNotEmpty) {
+          final balance = balances.firstWhere((b) => b.leaveTypeId == _selectedLeaveTypeId, orElse: () => balances.first);
+          setState(() {
+            _isIzinMode = !balance.requiresQuota;
+          });
+        }
+      });
     }
   }
 
@@ -232,10 +243,23 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
   }
 
   void _submit() {
-    if (_startDate == null || _endDate == null || _reasonController.text.isEmpty || _selectedLeaveTypeId == null) {
-      SnackBarUtils.showError(context, 'Lengkapi semua data pengajuan.');
+    if (_startDate == null) {
+      SnackBarUtils.showError(context, 'Pilih tanggal mulai.');
       return;
     }
+    if (_endDate == null) {
+      SnackBarUtils.showError(context, 'Pilih tanggal selesai.');
+      return;
+    }
+    if (_selectedLeaveTypeId == null) {
+      SnackBarUtils.showError(context, 'Pilih tipe cuti atau izin.');
+      return;
+    }
+    if (_reasonController.text.trim().isEmpty) {
+      SnackBarUtils.showError(context, 'Tuliskan alasan pengajuan anda.');
+      return;
+    }
+
     if (widget.leave != null) {
       context.read<LeaveBloc>().add(UpdateLeaveRequested(
         leaveId: widget.leave!.id,
@@ -288,6 +312,12 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildModeSelector(),
+                      const SizedBox(height: 24),
+                      if (!_isIzinMode) ...[
+                        _buildBalanceHeader(),
+                        const SizedBox(height: 24),
+                      ],
                       _buildSectionHeader('DETAIL LAYANAN'),
                       const SizedBox(height: 12),
                       _buildLeaveTypeSelection(),
@@ -318,14 +348,161 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1.5),
+      style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1.5),
+    );
+  }
+
+  Widget _buildModeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: AppColors.grayLight.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          _buildModeItem('Cuti', false, Icons.calendar_today_rounded, AppColors.primaryRed),
+          _buildModeItem('Izin / Sakit', true, Icons.medical_services_rounded, Colors.orange),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeItem(String label, bool isIzin, IconData icon, Color color) {
+    final isSelected = _isIzinMode == isIzin;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isIzinMode = isIzin;
+            _selectedLeaveTypeId = null; // Reset selection when switching mode
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))] : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? color : AppColors.textTertiary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                  color: isSelected ? AppColors.textPrimary : AppColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceHeader() {
+    return BlocBuilder<LeaveBloc, LeaveState>(
+      builder: (context, state) {
+        final annualLeave = state.balances.firstWhere(
+          (b) => b.leaveTypeName.toLowerCase().contains('cuti tahunan') || b.leaveTypeName.toLowerCase().contains('annual'),
+          orElse: () => state.balances.isNotEmpty ? state.balances.first : const LeaveBalance(leaveTypeId: '', leaveTypeName: 'Cuti', isPaid: true, requiresQuota: true, total: 0, used: 0, remaining: 0),
+        );
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primaryRed, AppColors.primaryRed.withOpacity(0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [BoxShadow(color: AppColors.primaryRed.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(Icons.beach_access_rounded, size: 100, color: Colors.white.withOpacity(0.1)),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Saldo Cuti Tahunan', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${annualLeave.remaining}', style: const TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900, height: 1)),
+                      const SizedBox(width: 8),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Text('HARI', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+                    child: Text('Total Jatah: ${annualLeave.total} Hari', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildLeaveTypeSelection() {
     return BlocBuilder<LeaveBloc, LeaveState>(
       builder: (context, state) {
-        List<LeaveBalance> balances = state.balances;
+        // Filter balances based on mode
+        List<LeaveBalance> allBalances = state.balances;
+        List<LeaveBalance> filteredBalances = allBalances.where((b) => b.requiresQuota == !_isIzinMode).toList();
+
+        // Ensure uniqueness to prevent Flutter Dropdown duplicate value crashes
+        final uniqueMap = <String, LeaveBalance>{};
+        for (var b in filteredBalances) {
+          if (!uniqueMap.containsKey(b.leaveTypeId) && b.leaveTypeId.isNotEmpty) {
+            uniqueMap[b.leaveTypeId] = b;
+          }
+        }
+        filteredBalances = uniqueMap.values.toList();
+
+        if (state.status == LeaveStatus.loading && allBalances.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (filteredBalances.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppColors.grayLight.withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
+            child: Text('Belum ada tipe ${_isIzinMode ? 'Izin' : 'Cuti'} yang dikonfigurasi (Total: ${allBalances.length}). Harap hubungi HRD.', style: const TextStyle(fontSize: 13, color: AppColors.textTertiary)),
+          );
+        }
+
+        // Auto-select if nothing selected or current selection is not in filtered list
+        if (_selectedLeaveTypeId == null || !filteredBalances.any((b) => b.leaveTypeId == _selectedLeaveTypeId)) {
+          // Use a small delay to avoid setState during build
+          Future.microtask(() {
+            if (mounted && filteredBalances.isNotEmpty) {
+              setState(() {
+                _selectedLeaveTypeId = filteredBalances.first.leaveTypeId;
+              });
+            }
+          });
+        }
 
         return Container(
           decoration: BoxDecoration(
@@ -339,15 +516,22 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                 child: DropdownButtonFormField<String>(
                   value: _selectedLeaveTypeId,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textTertiary),
                   decoration: const InputDecoration(border: InputBorder.none),
-                  hint: Text('Pilih Tipe Cuti / Izin', style: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontWeight: FontWeight.w700, fontSize: 14)),
-                  items: balances.map((b) => DropdownMenuItem(value: b.leaveTypeId, child: Text('${b.leaveTypeName} (Sisa: ${b.remaining})', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)))).toList(),
+                  hint: Text('Pilih Tipe ${_isIzinMode ? 'Izin' : 'Cuti'}', style: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontWeight: FontWeight.w700, fontSize: 14)),
+                  items: filteredBalances.map((b) => DropdownMenuItem(
+                    value: b.leaveTypeId, 
+                    child: Text(
+                      b.leaveTypeName,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)
+                    )
+                  )).toList(),
                   onChanged: (v) => setState(() => _selectedLeaveTypeId = v),
                 ),
               ),
-              if (_selectedLeaveTypeId != null && balances.any((b) => b.leaveTypeId == _selectedLeaveTypeId)) ...[
+              if (_selectedLeaveTypeId != null && filteredBalances.any((b) => b.leaveTypeId == _selectedLeaveTypeId)) ...[
                 const Divider(height: 1),
-                _buildPayInfo(balances.firstWhere((b) => b.leaveTypeId == _selectedLeaveTypeId)),
+                _buildPayInfo(filteredBalances.firstWhere((b) => b.leaveTypeId == _selectedLeaveTypeId)),
               ],
             ],
           ),
@@ -358,6 +542,15 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
 
   Widget _buildPayInfo(LeaveBalance balance) {
     final isPaid = balance.isPaid;
+    final requiresQuota = balance.requiresQuota;
+    
+    String message = isPaid ? 'Gaji tetap dibayarkan untuk tipe ini.' : 'Terdapat pemotongan gaji pokok.';
+    if (!requiresQuota) {
+      message = isPaid 
+        ? 'Izin ini dibayar & tidak memotong jatah cuti.' 
+        : 'Izin ini tidak memotong jatah cuti (Unpaid).';
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       color: (isPaid ? Colors.blue : Colors.orange).withOpacity(0.03),
@@ -367,7 +560,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              isPaid ? 'Gaji tetap dibayarkan untuk tipe ini.' : 'Terdapat pemotongan gaji pokok.',
+              message,
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isPaid ? Colors.blue : Colors.orange),
             ),
           ),
@@ -375,7 +568,6 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
       ),
     );
   }
-
   Widget _buildDateSelectors() {
     return Container(
       padding: const EdgeInsets.all(20),
