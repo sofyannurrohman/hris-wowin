@@ -138,17 +138,28 @@ class _ProfileOverviewPageState extends State<ProfileOverviewPage> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-                    child: CircleAvatar(
-                      radius: 54,
-                      backgroundColor: Colors.white,
-                      backgroundImage: (profile['face_reference_url'] != null && profile['face_reference_url'].toString().isNotEmpty)
-                          ? NetworkImage(profile['face_reference_url'].toString().startsWith('http') 
-                              ? profile['face_reference_url'] 
-                              : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}')
-                          : null,
-                      child: (profile['face_reference_url'] == null || profile['face_reference_url'].toString().isEmpty)
-                          ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.primaryRed))
-                          : null,
+                    child: Container(
+                      width: 108,
+                      height: 108,
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      clipBehavior: Clip.antiAlias,
+                      child: (profile['face_reference_url'] != null && profile['face_reference_url'].toString().isNotEmpty)
+                          ? Image.network(
+                              profile['face_reference_url'].toString().startsWith('http') 
+                                  ? profile['face_reference_url'] 
+                                  : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}',
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null));
+                              },
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.primaryRed)),
+                              ),
+                            )
+                          : Center(
+                              child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.primaryRed)),
+                            ),
                     ),
                   ),
                   Positioned(

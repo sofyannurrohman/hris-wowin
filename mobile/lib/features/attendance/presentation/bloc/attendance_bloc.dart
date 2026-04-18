@@ -57,13 +57,13 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       final lng = event.longitude ?? 0.0;
       
       if (event.isClockIn) {
-        final result = await repository.checkIn(lat, lng, event.imagePath);
+        final result = await repository.checkIn(lat, lng, event.imagePath, event.faceEmbedding);
         result.fold(
           (failure) => emit(AttendanceFailure(failure.message)),
           (attendance) => emit(AttendanceSuccess(message: 'Absen Masuk Berhasil', attendance: attendance)),
         );
       } else {
-        final result = await repository.checkOut(lat, lng, event.imagePath);
+        final result = await repository.checkOut(lat, lng, event.imagePath, event.faceEmbedding);
         result.fold(
           (failure) => emit(AttendanceFailure(failure.message)),
           (attendance) => emit(AttendanceSuccess(message: 'Absen Keluar Berhasil', attendance: attendance)),
@@ -73,7 +73,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
 
     on<RegisterFaceRequested>((event, emit) async {
       emit(FaceRegistrationLoading());
-      final result = await authRepository.registerFace([], event.imagePath);
+      final result = await authRepository.registerFace(event.faceEmbedding ?? [], event.imagePath);
       result.fold(
         (failure) => emit(AttendanceFailure(failure.message)),
         (_) => emit(FaceRegistrationSuccess()),
@@ -97,7 +97,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           event.photoPath,
           event.latitude,
           event.longitude,
-          [], 
+          [], // Still empty for now as offline queue needs embedding support refactor
         );
         final mockAttendance = Attendance(
           id: 'offline_${DateTime.now().millisecondsSinceEpoch}',

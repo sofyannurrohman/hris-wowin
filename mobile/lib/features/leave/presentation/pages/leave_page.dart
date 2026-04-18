@@ -42,19 +42,22 @@ class _LeavePageState extends State<LeavePage> {
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               _buildSliverAppBar(),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverTabDelegate(
-                  TabBar(
-                    labelColor: AppColors.primaryRed,
-                    unselectedLabelColor: AppColors.textTertiary,
-                    indicatorColor: AppColors.primaryRed,
-                    indicatorWeight: 3,
-                    labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1),
-                    tabs: const [
-                      Tab(text: 'PENGAJUAN'),
-                      Tab(text: 'RIWAYAT'),
-                    ],
+              SliverOverlapAbsorber(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                sliver: SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverTabDelegate(
+                    TabBar(
+                      labelColor: AppColors.primaryRed,
+                      unselectedLabelColor: AppColors.textTertiary,
+                      indicatorColor: AppColors.primaryRed,
+                      indicatorWeight: 3,
+                      labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1),
+                      tabs: const [
+                        Tab(text: 'PENGAJUAN'),
+                        Tab(text: 'RIWAYAT'),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -272,29 +275,42 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
           SnackBarUtils.showError(context, state.actionMessage!);
         }
       },
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader('DETAIL LAYANAN'),
-            const SizedBox(height: 12),
-            _buildLeaveTypeSelection(),
-            const SizedBox(height: 24),
-            _buildSectionHeader('WAKTU PENGAJUAN'),
-            const SizedBox(height: 12),
-            _buildDateSelectors(),
-            const SizedBox(height: 24),
-            _buildSectionHeader('ALASAN & LAMPIRAN'),
-            const SizedBox(height: 12),
-            _buildReasonField(),
-            const SizedBox(height: 16),
-            _buildAttachmentPicker(),
-            const SizedBox(height: 48),
-            _buildSubmitButton(),
-            const SizedBox(height: 40),
-          ],
-        ),
+      child: Builder(
+        builder: (context) {
+          return CustomScrollView(
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader('DETAIL LAYANAN'),
+                      const SizedBox(height: 12),
+                      _buildLeaveTypeSelection(),
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('WAKTU PENGAJUAN'),
+                      const SizedBox(height: 12),
+                      _buildDateSelectors(),
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('ALASAN & LAMPIRAN'),
+                      const SizedBox(height: 12),
+                      _buildReasonField(),
+                      const SizedBox(height: 16),
+                      _buildAttachmentPicker(),
+                      const SizedBox(height: 48),
+                      _buildSubmitButton(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
@@ -496,16 +512,31 @@ class LeaveHistoryTab extends StatelessWidget {
           );
         }
 
-        return RefreshIndicator(
-          onRefresh: () async => context.read<LeaveBloc>().add(const FetchMyLeavesRequested()),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(24),
-            itemCount: leaves.length,
-            itemBuilder: (context, index) {
-              final leave = leaves[index];
-              return _buildLeaveRequestCard(context, leave);
-            },
-          ),
+        return Builder(
+          builder: (context) {
+            return RefreshIndicator(
+              onRefresh: () async => context.read<LeaveBloc>().add(const FetchMyLeavesRequested()),
+              child: CustomScrollView(
+                slivers: [
+                  SliverOverlapInjector(
+                    handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final leave = leaves[index];
+                          return _buildLeaveRequestCard(context, leave);
+                        },
+                        childCount: leaves.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
         );
       },
     );

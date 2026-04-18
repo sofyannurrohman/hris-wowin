@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -39,8 +41,11 @@ class _FaceProcessingParams {
 Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params) async {
   try {
     final bytes = await File(params.path).readAsBytes();
-    final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+    imglib.Image? capturedImage = imglib.decodeImage(bytes);
     if (capturedImage == null) return null;
+
+    // Bake orientation logic
+    capturedImage = imglib.bakeOrientation(capturedImage);
 
     return imglib.copyCrop(
       capturedImage,
@@ -93,6 +98,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   bool _isFaceMatched = false;
   String _statusText = "Menginisialisasi...";
   bool _isProcessing = false;
+  List<double>? _currentEmbedding;
   List<double>? _baselineEmbedding;
 
   @override
@@ -511,18 +517,17 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         final double distance = _mlService.calculateEuclideanDistance(_baselineEmbedding!, embedding);
         final bool isMatched = distance < 1.5;
 
+        // Save the baked and cropped image for upload
+        final tempDir = await getTemporaryDirectory();
+        final facePath = p.join(tempDir.path, 'verify_face_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final faceFile = File(facePath);
+        await faceFile.writeAsBytes(imglib.encodeJpg(faceCrop));
+
         if (mounted) {
           setState(() {
-            _capturedImagePath = photo.path;
-            _isFaceMatched = isMatched;
-            _isVerifying = false;
-            _statusText = isMatched ? "Wajah diverifikasi." : "Wajah tidak sesuai.";
+            _currentEmbedding = embedding;
+            _handleCapturedImage(faceFile.path, isMatched);
           });
-          
-          if (!isMatched) {
-            SnackBarUtils.showError(context, "Verifikasi gagal. Pastikan wajah Anda terlihat jelas.");
-            _startCamera();
-          }
         }
       }
     } catch (e) {
@@ -532,6 +537,18 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         setState(() => _isVerifying = false);
         _startCamera();
       }
+    }
+  }
+
+  void _handleCapturedImage(String path, bool isMatched) {
+    _capturedImagePath = path;
+    _isFaceMatched = isMatched;
+    _isVerifying = false;
+    _statusText = isMatched ? "Wajah diverifikasi." : "Wajah tidak sesuai.";
+    
+    if (!isMatched) {
+      SnackBarUtils.showError(context, "Verifikasi gagal. Pastikan wajah Anda terlihat jelas.");
+      _startCamera();
     }
   }
 
@@ -593,7 +610,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       if (_capturedImagePath == null) return;
       // Navigator should return the result if it's for registration
       Navigator.of(context).pop(FaceVerificationResult(
-        embedding: [], // Mock embedding or get from ML kit if needed
+        embedding: _currentEmbedding ?? [], 
         imagePath: _capturedImagePath!,
       ));
     } else {
@@ -603,6 +620,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
           imagePath: _capturedImagePath,
           latitude: _currentPosition?.latitude,
           longitude: _currentPosition?.longitude,
+          faceEmbedding: _currentEmbedding,
         ),
       );
     }
@@ -618,17 +636,28 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         if (state is AttendanceSuccess) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => ClockInSuccessPage(
-                attendance: state.attendance,
-              ),
+              builder: (_) => widget.isClockIn
+                  ? ClockInSuccessPage(
+                      attendance: state.attendance,
+                      branchName: _assignedBranch?['name'] ?? _assignedBranch?['Name'] ?? 'Lokasi Terdaftar',
+                    )
+                  : ClockOutSuccessPage(
+                      attendance: state.attendance,
+                      branchName: _assignedBranch?['name'] ?? _assignedBranch?['Name'] ?? 'Lokasi Terdaftar',
+                    ),
             ),
           );
         } else if (state is AttendanceFailure) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => ClockInFailedPage(
-                errorMessage: state.message,
-              ),
+              builder: (_) => widget.isClockIn
+                  ? ClockInFailedPage(
+                      errorMessage: state.message,
+                      isClockIn: widget.isClockIn,
+                    )
+                  : ClockOutFailedPage(
+                      errorMessage: state.message,
+                    ),
             ),
           );
         } else if (state is FaceRegistrationSuccess) {
@@ -871,77 +900,84 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
                 const SizedBox(height: 32),
 
-                // Camera Section
+                // Circular Camera Section
                 if (_capturedImagePath == null) ...[
-                  Container(
-                    height: 320,
-                    width: double.infinity,
-                    margin: const EdgeInsets.symmetric(horizontal: 32),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: _isFaceDetected 
-                            ? (widget.isRegistration || _isFaceMatched ? const Color(0xFF10B981) : Colors.orange)
-                            : AppColors.grayBorder, 
-                        width: 4
-                      ),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      children: [
-                        if (_cameraController != null && _cameraController!.value.isInitialized)
-                          Positioned.fill(
-                            child: AspectRatio(
-                              aspectRatio: _cameraController!.value.aspectRatio,
-                              child: CameraPreview(_cameraController!),
-                            ),
-                          )
-                        else
-                          const Center(child: CircularProgressIndicator()),
-                        
-                        // Overlay Detection Status
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  SizedBox(
+                    height: 380,
+                    child: Center(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final circleSize = constraints.maxWidth * 0.75;
+                          
+                          return Container(
+                            width: circleSize,
+                            height: circleSize,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _isFaceDetected 
+                                    ? (widget.isRegistration || _isFaceMatched ? const Color(0xFF10B981) : Colors.orange)
+                                    : AppColors.grayBorder, 
+                                width: 4
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (_isFaceDetected ? Colors.blueAccent : Colors.black).withOpacity(0.1),
+                                  blurRadius: 20,
+                                  spreadRadius: 5
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              _statusText,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                            clipBehavior: Clip.antiAlias,
+                            child: _cameraController != null && _cameraController!.value.isInitialized
+                                ? FittedBox(
+                                    fit: BoxFit.cover,
+                                    child: SizedBox(
+                                      width: constraints.maxWidth,
+                                      height: constraints.maxWidth / _cameraController!.value.aspectRatio,
+                                      child: CameraPreview(_cameraController!),
+                                    ),
+                                  )
+                                : const Center(child: CircularProgressIndicator()),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(horizontal: 48),
+                    child: Column(
+                      children: [
+                        Text(
+                          _statusText,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _isFaceMatched ? const Color(0xFF10B981) : AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: (!_isVerifying && _cameraController != null && _cameraController!.value.isInitialized) ? _takePicture : null,
+                            icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+                            label: Text(_isVerifying ? 'MEMPROSES...' : 'AMBIL FOTO'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryRed,
+                              disabledBackgroundColor: Colors.grey.shade300,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: ElevatedButton.icon(
-                      onPressed: (!_isVerifying && _cameraController != null && _cameraController!.value.isInitialized) ? _takePicture : null,
-                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
-                      label: Text(_isVerifying ? 'MEMPROSES...' : 'AMBIL FOTO'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryRed,
-                        disabledBackgroundColor: Colors.grey.shade300,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
+                  
                   if (_isBiometricEnabled && !widget.isRegistration) ...[
                     const SizedBox(height: 16),
                     Padding(
@@ -951,30 +987,40 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                         icon: const Icon(Icons.fingerprint_rounded, size: 24),
                         label: const Text('VERIFIKASI SIDIK JARI'),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: const BorderSide(color: Color(0xFF10B981)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: Color(0xFF10B981), width: 2),
                           foregroundColor: const Color(0xFF10B981),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                       ),
                     ),
                   ],
                 ] else ...[
-                  Container(
-                    height: 300,
-                    width: 300,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: AppColors.primaryRed, width: 4),
-                      image: DecorationImage(
-                        image: kIsWeb
-                            ? NetworkImage(_capturedImagePath!) as ImageProvider
-                            : FileImage(File(_capturedImagePath!)),
-                        fit: BoxFit.cover,
+                  // Captured Image Preview
+                  Center(
+                    child: Container(
+                      height: 280,
+                      width: 280,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _isFaceMatched || widget.isRegistration ? const Color(0xFF10B981) : AppColors.primaryRed, 
+                          width: 4
+                        ),
+                        image: DecorationImage(
+                          image: kIsWeb
+                              ? NetworkImage(_capturedImagePath!) as ImageProvider
+                              : FileImage(File(_capturedImagePath!)),
+                          fit: BoxFit.cover,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_isFaceMatched || widget.isRegistration ? const Color(0xFF10B981) : AppColors.primaryRed).withOpacity(0.2), 
+                            blurRadius: 30, 
+                            offset: const Offset(0, 15)
+                          )
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(color: AppColors.primaryRed.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 15))
-                      ],
                     ),
                   ),
                   const SizedBox(height: 24),

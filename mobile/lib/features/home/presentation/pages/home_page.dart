@@ -148,20 +148,19 @@ class _HomeViewState extends State<HomeView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-                      child: CircleAvatar(
-                        radius: 36, 
-                        backgroundColor: Colors.white, 
-                        backgroundImage: (profile?['face_reference_url'] != null && profile!['face_reference_url'].toString().isNotEmpty)
-                            ? NetworkImage(profile['face_reference_url'].toString().startsWith('http') 
-                                ? profile['face_reference_url'] 
-                                : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}')
-                            : null,
-                        child: (profile?['face_reference_url'] == null || profile!['face_reference_url'].toString().isEmpty)
-                            ? const Icon(Icons.person, size: 40, color: AppColors.primaryRed)
-                            : null,
-                      ),
+                      width: 72,
+                      height: 72,
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      clipBehavior: Clip.antiAlias,
+                      child: (profile?['face_reference_url'] != null && profile!['face_reference_url'].toString().isNotEmpty)
+                          ? Image.network(
+                              profile['face_reference_url'].toString().startsWith('http') 
+                                  ? profile['face_reference_url'] 
+                                  : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}',
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 40, color: AppColors.primaryRed),
+                            )
+                          : const Icon(Icons.person, size: 40, color: AppColors.primaryRed),
                     ),
                     const SizedBox(height: 16),
                     const Text('MENU UTAMA', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 2)),
@@ -191,7 +190,7 @@ class _HomeViewState extends State<HomeView> {
                       Navigator.pop(context);
                       Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReimbursementListPage()));
                     }),
-                    _buildDrawerItem(Icons.face_unlock_rounded, 'Registrasi Wajah', () {
+                    _buildDrawerItem(Icons.face_retouching_natural_rounded, 'Registrasi Wajah', () {
                       Navigator.pop(context);
                       Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceRegistrationPage()));
                     }),

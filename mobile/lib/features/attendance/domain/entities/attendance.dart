@@ -6,8 +6,7 @@ class Attendance extends Equatable {
   final DateTime checkIn;
   final DateTime? checkOut;
   final String status;
-  final String selfiePath;
-  final int workDuration;
+  final String branchName;
 
   const Attendance({
     required this.id,
@@ -17,6 +16,7 @@ class Attendance extends Equatable {
     required this.status,
     this.selfiePath = '',
     this.workDuration = 0,
+    this.branchName = '',
   });
 
   factory Attendance.fromJson(Map<String, dynamic> json) {
@@ -28,9 +28,10 @@ class Attendance extends Equatable {
       status: json['status'] ?? 'UNKNOWN',
       selfiePath: json['selfie_url'] ?? '',
       workDuration: json['work_duration'] ?? 0,
+      branchName: json['branch_name'] ?? json['BranchName'] ?? '',
     );
   }
 
   @override
-  List<Object?> get props => [id, userId, checkIn, checkOut, status, selfiePath, workDuration];
+  List<Object?> get props => [id, userId, checkIn, checkOut, status, selfiePath, workDuration, branchName];
 }

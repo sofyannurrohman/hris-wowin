@@ -15,8 +15,8 @@ import (
 )
 
 type AttendanceUseCase interface {
-	CheckIn(userID uuid.UUID, req CheckInRequest) (*domain.AttendanceLog, error)
-	CheckOut(userID uuid.UUID, req CheckOutRequest) (*domain.AttendanceLog, error)
+	CheckIn(userID uuid.UUID, req CheckInRequest) (*AttendanceResponse, error)
+	CheckOut(userID uuid.UUID, req CheckOutRequest) (*AttendanceResponse, error)
 	GetHistory(userID uuid.UUID, startDate, endDate string) ([]AttendanceHistoryResponse, error)
 	GetStats(userID uuid.UUID) (*AttendanceStatsResponse, error)
 	GetAllHistory(page, limit int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error)
@@ -61,6 +61,16 @@ type AttendanceHistoryResponse struct {
 	WorkDuration int        `json:"work_duration"`
 }
 
+type AttendanceResponse struct {
+	ID           string     `json:"id"`
+	UserID       string     `json:"user_id"`
+	CheckIn      *time.Time `json:"check_in"`
+	CheckOut     *time.Time `json:"check_out"`
+	Status       string     `json:"status"`
+	SelfieURL    string     `json:"selfie_url"`
+	WorkDuration int        `json:"work_duration"`
+}
+
 type AttendanceStatsResponse struct {
 	TotalHours     float64 `json:"total_hours"`
 	OvertimeHours  float64 `json:"overtime_hours"`
@@ -83,7 +93,7 @@ type UpdateAttendanceRequest struct {
 	Notes        string `json:"notes"`
 }
 
-func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*domain.AttendanceLog, error) {
+func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*AttendanceResponse, error) {
 	// 1. Resolve Employee from UserID
 	employee, err := u.employeeRepo.FindByUserID(userID)
 	if err != nil {
@@ -182,10 +192,17 @@ func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*doma
 	if err := u.repo.Create(attendance); err != nil {
 		return nil, err
 	}
-	return attendance, nil
+	
+	return &AttendanceResponse{
+		ID:        attendance.ID.String(),
+		UserID:    employee.ID.String(),
+		CheckIn:   attendance.ClockInTime,
+		Status:    attendance.Status,
+		SelfieURL: attendance.ClockInPhotoURL,
+	}, nil
 }
 
-func (u *attendanceUseCase) CheckOut(userID uuid.UUID, req CheckOutRequest) (*domain.AttendanceLog, error) {
+func (u *attendanceUseCase) CheckOut(userID uuid.UUID, req CheckOutRequest) (*AttendanceResponse, error) {
 	// 1. Resolve Employee from UserID
 	employee, err := u.employeeRepo.FindByUserID(userID)
 	if err != nil {
@@ -220,16 +237,24 @@ func (u *attendanceUseCase) CheckOut(userID uuid.UUID, req CheckOutRequest) (*do
 		return nil, fmt.Errorf("wajah tidak cocok (distance: %.2f)", faceDistance)
 	}
 
-	// 4. Find today's attendance
-	existing, err := u.repo.FindTodayByUserID(employee.ID)
+	// 4. Find the latest attendance record for this employee
+	existing, err := u.repo.FindLatestByEmployeeID(employee.ID)
 	if err != nil {
 		return nil, err
 	}
 	if existing == nil {
 		return nil, errors.New("anda belum melakukan absen masuk (clock in) hari ini")
 	}
+
+	// Check if the record is from today (local time is better, but at least within 24 hours)
+	// Or simply check if it's not already clocked out
 	if existing.ClockOutTime != nil {
-		return nil, errors.New("anda sudah melakukan absen pulang hari ini")
+		return nil, errors.New("anda sudah melakukan absen pulang hari ini, atau sesi sebelumnya telah berakhir")
+	}
+
+	// Double check if it's too old (e.g. 24 hours+) - optional but good safety
+	if time.Since(*existing.ClockInTime) > 24*time.Hour {
+		return nil, errors.New("sesi absen masuk Anda sudah kedaluwarsa. Silakan lakukan absen masuk ulang.")
 	}
 
 	// 4. Handle Selfie Upload if provided
@@ -277,7 +302,15 @@ func (u *attendanceUseCase) CheckOut(userID uuid.UUID, req CheckOutRequest) (*do
 	if err := u.repo.Update(existing); err != nil {
 		return nil, errors.New("gagal menyimpan data absen pulang")
 	}
-	return existing, nil
+	
+	return &AttendanceResponse{
+		ID:        existing.ID.String(),
+		UserID:    employee.ID.String(),
+		CheckIn:   existing.ClockInTime,
+		CheckOut:  existing.ClockOutTime,
+		Status:    existing.Status,
+		SelfieURL: existing.ClockOutPhotoURL,
+	}, nil
 }
 
 func (u *attendanceUseCase) GetHistory(userID uuid.UUID, startDate, endDate string) ([]AttendanceHistoryResponse, error) {

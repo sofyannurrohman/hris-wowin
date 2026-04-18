@@ -1,235 +1,233 @@
 import 'package:flutter/material.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
 import 'package:hris_app/features/home/presentation/pages/home_page.dart';
 import 'package:intl/intl.dart';
-
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ClockInSuccessPage extends StatelessWidget {
   final Attendance attendance;
+  final String? branchName;
 
-  const ClockInSuccessPage({super.key, required this.attendance});
+  const ClockInSuccessPage({
+    super.key, 
+    required this.attendance,
+    this.branchName,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final checkInTime = DateFormat('HH:mm').format(attendance.checkIn);
-    final ampm = DateFormat('a').format(attendance.checkIn);
-    final dateStr = DateFormat('EEE, dd MMM yyyy').format(attendance.checkIn).toUpperCase();
+    final isClockOut = attendance.checkOut != null;
+    final displayTime = isClockOut ? attendance.checkOut! : attendance.checkIn;
+    
+    // Formatting for Indonesian locale
+    final timeStr = DateFormat('HH.mm').format(displayTime);
+    final dateStr = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(displayTime);
 
-    // Convert the API selfie path (assuming it starts with /uploads/...)
-    // to a local file path because the flutter app is picking it from the camera.
-    // However, if the `selfiePath` from `attendance` is actually an HTTP URL (from backend),
-    // we should use Image.network. For now, since it returns local path strings when uploaded,
-    // or maybe the backend returns a URL. Let's handle it as a network image assuming full URL,
-    // or fallback to a local file if it's the raw path from the camera block.
-    // Based on `attendance_usecase.go`, it returns `"/uploads/selfies/uuid_123.jpg"`. 
-    // We would need the full base URL. Since we don't have it explicitly here, we can show a placeholder if needed,
-    // or assume we have the original camera path. Let's just use the returned path appended to the API base URL.
-    // For simplicity of UI dev, we can extract the base url or just use a placeholder icon.
     final bool hasSelfie = attendance.selfiePath.isNotEmpty;
-    // Assuming backend runs on 10.0.2.2:8000 for Android emulator or localhost:8000
-    // We'll construct a mock URL or just show the placeholder for safety.
+    // Base URL should ideally come from a config, but for now we follow the existing pattern
     final String selfieUrl = hasSelfie ? 'http://localhost:8080${attendance.selfiePath}' : '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDF4), // Light green tint
+      backgroundColor: AppColors.backgroundAlt,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 60),
-              
-              // Success Icon
-              Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.green.withOpacity(0.1),
-                        blurRadius: 20,
-                        spreadRadius: 10,
-                      )
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.check,
-                      color: Color(0xFF22C55E), // Green
-                      size: 50,
-                    ),
+        child: AnimationLimiter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: AnimationConfiguration.toStaggeredList(
+                duration: const Duration(milliseconds: 600),
+                childAnimationBuilder: (widget) => SlideAnimation(
+                  verticalOffset: 50.0,
+                  child: FadeInAnimation(
+                    child: widget,
                   ),
                 ),
-              ),
-              const SizedBox(height: 32),
-              
-              // Title
-              const Text(
-                'Clock In Successful!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'You are checked in for the day.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 48),
-
-              // Info Card
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    children: [
-                      // Left Green Bar
-                      Container(
-                        width: 4,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF22C55E),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            bottomLeft: Radius.circular(16),
+                children: [
+                  const SizedBox(height: 60),
+                  
+                  // Success Icon with Pulse effect
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withOpacity(0.1),
+                            shape: BoxShape.circle,
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            color: AppColors.success,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.success.withOpacity(0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              )
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  // Title
+                  Text(
+                    isClockOut ? 'Absensi Keluar Berhasil!' : 'Absensi Masuk Berhasil!',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isClockOut 
+                      ? 'Terima kasih atas kerja keras Anda hari ini. Selamat beristirahat!' 
+                      : 'Selamat bekerja! Semoga hari Anda produktif dan menyenangkan.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+
+                  // Info Card
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        )
+                      ],
+                      border: Border.all(color: AppColors.grayBorder.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(24.0),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFF22C55E)),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            dateStr,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF64748B),
-                                            ),
-                                          ),
-                                        ],
+                                      Text(
+                                        dateStr,
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textTertiary,
+                                        ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 4),
                                       Row(
                                         crossAxisAlignment: CrossAxisAlignment.baseline,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
                                           Text(
-                                            checkInTime,
-                                            style: const TextStyle(
-                                              fontSize: 40,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF0F172A),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            ampm,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF64748B),
+                                            timeStr,
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 48,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.textPrimary,
+                                              letterSpacing: -1,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                  
-                                  // Selfie Image
+                                  const Spacer(),
+                                  // Selfie Preview
                                   Container(
-                                    width: 70,
-                                    height: 70,
+                                    width: 84,
+                                    height: 84,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.green.shade100, width: 2),
+                                      color: AppColors.grayLight,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: AppColors.success.withOpacity(0.2), width: 2),
                                     ),
                                     child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(18),
                                       child: hasSelfie
-                                          // Note: Because of local testing, Image.network might fail depending on emulator/web.
-                                          // We use an icon as fallback if it fails.
                                           ? Image.network(
                                               selfieUrl,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.grey),
+                                              errorBuilder: (context, error, stackTrace) => 
+                                                const Icon(Icons.person_rounded, color: AppColors.textTertiary, size: 40),
                                             )
-                                          : const Icon(Icons.person, color: Colors.grey),
+                                          : const Icon(Icons.person_rounded, color: AppColors.textTertiary, size: 40),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF22C55E)),
-                                  const SizedBox(width: 8),
-                                  const Expanded(
-                                    child: Text(
-                                      'PT Wowin - Factory 1', // Mock location based on coordinates could be added here
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF334155),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              const SizedBox(height: 24),
+                              const Divider(height: 1),
                               const SizedBox(height: 20),
-                              const Divider(),
-                              const SizedBox(height: 8),
+                              
+                              // Location Row
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Shift: Pagi (07:30 - 16:30)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade500,
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.info.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
+                                    child: const Icon(Icons.location_on_rounded, size: 20, color: AppColors.info),
                                   ),
-                                  Text(
-                                    attendance.status == 'on_time' ? 'On Time' : 'Late',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: attendance.status == 'on_time' ? const Color(0xFF22C55E) : Colors.amber,
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'LOKASI PRESENSI',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.textTertiary,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          (branchName != null && branchName!.isNotEmpty) 
+                                              ? branchName! 
+                                              : (attendance.branchName.isNotEmpty ? attendance.branchName : 'Cabang Terdaftar'),
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -237,51 +235,87 @@ class ClockInSuccessPage extends StatelessWidget {
                             ],
                           ),
                         ),
+                        
+                        // Status Bar bottom
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.grayLight.withOpacity(0.5),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(24),
+                              bottomRight: Radius.circular(24),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.schedule_rounded, size: 16, color: AppColors.textSecondary),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Shift: Pagi (07:30)',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: (attendance.status == 'on_time' ? AppColors.success : AppColors.warning).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  attendance.status == 'on_time' ? 'TEPAT WAKTU' : 'TERLAMBAT',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: attendance.status == 'on_time' ? AppColors.success : AppColors.warning,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Back to Home Button
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const HomePage()),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.textPrimary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ],
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Kembali ke Beranda',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16, 
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                ],
               ),
-
-              const Spacer(),
-
-              // Back to Home Button
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const HomePage()),
-                    (route) => false,
-                  );
-                },
-                icon: const Icon(Icons.home_outlined),
-                label: const Text(
-                  'Back to Home',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00E63B), // Bright green
-                  foregroundColor: const Color(0xFF064E3B), // Dark green text
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Bottom Handle mock
-              Center(
-                child: Container(
-                  width: 100,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              )
-            ],
+            ),
           ),
         ),
       ),

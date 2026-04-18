@@ -68,7 +68,7 @@ class AttendanceRepository {
         desiredAccuracy: LocationAccuracy.high);
   }
 
-  Future<Either<Failure, Attendance>> checkIn(double lat, double lng, String? photoPath) async {
+  Future<Either<Failure, Attendance>> checkIn(double lat, double lng, String? photoPath, List<double>? faceEmbedding) async {
     try {
       String? base64Photo;
       if (photoPath != null) {
@@ -81,7 +81,7 @@ class AttendanceRepository {
         "latitude": lat,
         "longitude": lng,
         "selfie": base64Photo,
-        "face_embedding": [], 
+        "face_embedding": faceEmbedding ?? [], 
       };
 
       final response = await apiClient.client.post(
@@ -95,14 +95,7 @@ class AttendanceRepository {
           return Right(Attendance.fromJson(attendanceData));
         }
       }
-      
-      return Right(Attendance(
-        id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
-        userId: 'current_user',
-        checkIn: DateTime.now(),
-        status: 'on_time',
-        selfiePath: photoPath ?? '',
-      ));
+      return Left(ServerFailure('Gagal memproses data kehadiran dari server'));
     } on DioException catch (e) {
       final errorMsg = (e.response?.data is Map) ? (e.response?.data['error'] ?? e.response?.data['message'] ?? 'Terjadi kesalahan jaringan') : 'Terjadi kesalahan jaringan';
       return Left(ServerFailure(errorMsg));
@@ -111,7 +104,7 @@ class AttendanceRepository {
     }
   }
 
-  Future<Either<Failure, Attendance>> checkOut(double lat, double lng, String? photoPath) async {
+  Future<Either<Failure, Attendance>> checkOut(double lat, double lng, String? photoPath, List<double>? faceEmbedding) async {
     try {
       String? base64Photo;
       if (photoPath != null) {
@@ -124,7 +117,7 @@ class AttendanceRepository {
         "latitude": lat,
         "longitude": lng,
         "selfie": base64Photo,
-        "face_embedding": [], 
+        "face_embedding": faceEmbedding ?? [], 
       };
 
       final response = await apiClient.client.post(
@@ -139,14 +132,7 @@ class AttendanceRepository {
         }
       }
 
-      return Right(Attendance(
-        id: 'mock_out_${DateTime.now().millisecondsSinceEpoch}',
-        userId: 'current_user',
-        checkIn: DateTime.now().subtract(const Duration(hours: 8)),
-        checkOut: DateTime.now(),
-        status: 'on_time',
-        selfiePath: photoPath ?? '',
-      ));
+      return Left(ServerFailure('Gagal memproses data kehadiran dari server'));
     } on DioException catch (e) {
       final errorMsg = (e.response?.data is Map) ? (e.response?.data['error'] ?? e.response?.data['message'] ?? 'Terjadi kesalahan jaringan') : 'Terjadi kesalahan jaringan';
       return Left(ServerFailure(errorMsg));

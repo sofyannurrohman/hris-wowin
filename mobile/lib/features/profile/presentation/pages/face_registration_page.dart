@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'dart:convert';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:hris_app/core/utils/face_detector_service.dart';
 import 'package:hris_app/core/utils/ml_service.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
@@ -13,6 +13,10 @@ import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:image/image.dart' as imglib;
 import 'package:hris_app/core/utils/snackbar_utils.dart';
+import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:hris_app/features/profile/presentation/bloc/profile_event.dart';
+import 'package:hris_app/features/attendance/presentation/bloc/attendance_bloc.dart';
+import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.dart' hide RegisterFaceRequested;
 
 class _FaceProcessingParams {
   final String path;
@@ -23,8 +27,11 @@ class _FaceProcessingParams {
 Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params) async {
   try {
     final bytes = await File(params.path).readAsBytes();
-    final imglib.Image? capturedImage = imglib.decodeImage(bytes);
+    imglib.Image? capturedImage = imglib.decodeImage(bytes);
     if (capturedImage == null) return null;
+
+    // Bake orientation to ensure the image is upright before we use coordinates from MLKit
+    capturedImage = imglib.bakeOrientation(capturedImage);
 
     return imglib.copyCrop(
       capturedImage,
@@ -38,6 +45,7 @@ Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params)
     return null;
   }
 }
+
 
 class FaceRegistrationPage extends StatefulWidget {
   const FaceRegistrationPage({super.key});
@@ -61,6 +69,16 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
   @override
   void initState() {
     super.initState();
+    _initializeServices();
+  }
+
+  void _resetState() {
+    setState(() {
+      _currentEmbedding = null;
+      _currentSelfiePath = null;
+      _isFaceDetected = false;
+      _statusText = "Mencari wajah...";
+    });
     _initializeServices();
   }
 
@@ -123,21 +141,15 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
             });
           }
         } else {
-          // Face is good
           if (mounted && !_isFaceDetected) {
             setState(() {
               _isFaceDetected = true;
-              _statusText = "Wajah terdeteksi. Mengambil data...";
+              _statusText = "Wajah terdeteksi. Silakan ambil foto.";
             });
-          }
-
-          if (_currentEmbedding == null) {
-            await _extractFaceEmbedding(image, face);
           }
         }
       }
     } catch (e) {
-      // Suppress format errors in logs as we have a manual fallback
       if (e.toString().contains("InputImageConverterError")) {
         if (mounted && _statusText == "Mencari wajah...") {
           setState(() => _statusText = "Posisikan wajah & ambil foto.");
@@ -147,36 +159,6 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       }
     }
     _isProcessing = false;
-  }
-
-  Future<void> _extractFaceEmbedding(CameraImage image, Face face) async {
-    try {
-      imglib.Image convertedImage = _convertCameraImage(image);
-      
-      // Pre-process for ML: crop to face bounding box
-      final imglib.Image faceCrop = imglib.copyCrop(
-        convertedImage,
-        x: face.boundingBox.left.toInt(),
-        y: face.boundingBox.top.toInt(),
-        width: face.boundingBox.width.toInt(),
-        height: face.boundingBox.height.toInt(),
-      );
-
-      if (!_mlService.isInitialized) {
-        debugPrint("MLService not initialized, skipping extraction.");
-        return;
-      }
-      final embedding = _mlService.predict(faceCrop);
-      
-      if (mounted) {
-        setState(() {
-          _currentEmbedding = embedding;
-          _statusText = "Data wajah berhasil diambil. Siap disimpan.";
-        });
-      }
-    } catch (e) {
-      debugPrint("Error extracting embedding: $e");
-    }
   }
 
   Future<void> _takePictureManual() async {
@@ -193,20 +175,18 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       
       setState(() => _statusText = "Memproses wajah...");
       
-      // Face detection on the captured file
       final faces = await _faceDetectorService.processImageFromFile(xFile.path);
       
       if (faces.isEmpty) {
         if (mounted) {
           SnackBarUtils.showError(context, "Wajah tidak ditemukan di foto. Coba lagi.");
-          _initializeServices(); // Restart stream/camera
+          _initializeServices();
         }
         return;
       }
 
       final face = faces.first;
       
-      // OFF-LOAD HEAVY DECODING AND CROPPING TO ISOLATE
       final imglib.Image? faceCrop = await compute(
         _decodeAndCropFaceBackground, 
         _FaceProcessingParams(xFile.path, face.boundingBox)
@@ -222,66 +202,30 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       final embedding = _mlService.predict(faceCrop);
       
       if (mounted) {
+        setState(() => _statusText = "Menyimpan data...");
+      }
+
+      // Save the baked and cropped image to a temporary file for upload
+      final tempDir = await getTemporaryDirectory();
+      final facePath = p.join(tempDir.path, 'face_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final faceFile = File(facePath);
+      await faceFile.writeAsBytes(imglib.encodeJpg(faceCrop));
+
+      if (mounted) {
         setState(() {
           _currentEmbedding = embedding;
-          _currentSelfiePath = xFile.path;
+          _currentSelfiePath = faceFile.path;
           _statusText = "Data wajah berhasil diambil. Siap disimpan.";
         });
       }
     } catch (e) {
-      print("Manual capture error: $e");
+      debugPrint("Manual capture error: $e");
       if (mounted) {
         setState(() => _statusText = "Gagal memproses wajah.");
         SnackBarUtils.showError(context, "Gagal: $e");
         _initializeServices();
       }
     }
-  }
-
-  imglib.Image _convertCameraImage(CameraImage image) {
-    if (image.format.group == ImageFormatGroup.nv21) {
-      return _convertNV21(image);
-    } else if (image.format.group == ImageFormatGroup.bgra8888) {
-      return _convertBGRA8888(image);
-    } else {
-      throw Exception('Unsupported image format');
-    }
-  }
-
-  imglib.Image _convertNV21(CameraImage image) {
-    final int width = image.width;
-    final int height = image.height;
-    final imglib.Image img = imglib.Image(width: width, height: height);
-
-    final plane0 = image.planes[0].bytes;
-    final plane1 = image.planes[1].bytes;
-    final plane2 = image.planes[2].bytes;
-
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        final int uvIndex = (y >> 1) * image.planes[1].bytesPerRow + (x & ~1);
-        final int index = y * image.planes[0].bytesPerRow + x;
-
-        final yp = plane0[index];
-        final up = plane1[uvIndex];
-        final vp = plane2[uvIndex];
-
-        int r = (yp + vp * 1436 / 1024 - 179).round().clamp(0, 255);
-        int g = (yp - up * 46549 / 131072 + 44 - vp * 93604 / 131072 + 91).round().clamp(0, 255);
-        int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
-
-        img.setPixelRgb(x, y, r, g, b);
-      }
-    }
-    // Rotate image to portrait since NV21 from Android camera is landscape
-    return imglib.copyRotate(img, angle: -90);
-  }
-
-  imglib.Image _convertBGRA8888(CameraImage image) {
-    final int width = image.width;
-    final int height = image.height;
-    final imglib.Image img = imglib.Image.fromBytes(width: width, height: height, bytes: image.planes[0].bytes.buffer, order: imglib.ChannelOrder.bgra);
-    return img; // iOS usually handles rotation appropriately
   }
 
   @override
@@ -299,6 +243,8 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
         if (state is FaceRegistrationSuccess) {
           SnackBarUtils.showSuccess(context, 'Registrasi Wajah Berhasil!');
           context.read<AuthBloc>().add(CheckAuthStatusRequested());
+          context.read<ProfileBloc>().add(LoadProfileRequested());
+          context.read<AttendanceBloc>().add(FetchHomeDataRequested());
           Navigator.of(context).pop();
         } else if (state is AuthError) {
           SnackBarUtils.showError(context, 'Gagal: ${state.message}');
@@ -315,14 +261,38 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
           children: [
             if (_cameraController != null && _cameraController!.value.isInitialized)
               Expanded(
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: _cameraController!.value.aspectRatio,
-                    child: CameraPreview(_cameraController!),
+                child: Center(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final size = constraints.biggest;
+                      final circleSize = size.width * 0.8;
+                      
+                      return Container(
+                        width: circleSize,
+                        height: circleSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                          boxShadow: [
+                            BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 5),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _currentSelfiePath != null
+                            ? Image.file(
+                                File(_currentSelfiePath!),
+                                fit: BoxFit.cover,
+                              )
+                            : FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  height: constraints.maxWidth / _cameraController!.value.aspectRatio,
+                                  child: CameraPreview(_cameraController!),
+                                ),
+                              ),
+                      );
+                    },
                   ),
                 ),
               )
@@ -330,51 +300,83 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
               const Expanded(child: Center(child: CircularProgressIndicator())),
             
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, -10)),
+                ],
+              ),
               child: Column(
                 children: [
                   Text(
                     _statusText,
-                    style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.inter(
+                      color: _currentEmbedding != null ? Colors.greenAccent : (_isFaceDetected ? Colors.blueAccent : Colors.white70), 
+                      fontSize: 16, 
+                      fontWeight: FontWeight.w700
+                    ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
-                  if (_currentEmbedding == null)
+                  const SizedBox(height: 24),
+                  if (_currentEmbedding == null || _currentSelfiePath == null)
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
-                      child: OutlinedButton.icon(
+                      height: 56,
+                      child: ElevatedButton.icon(
                         onPressed: (_cameraController != null && _cameraController!.value.isInitialized) ? _takePictureManual : null,
-                        icon: const Icon(Icons.camera_alt_rounded),
-                        label: Text("Ambil Foto Wajah", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                        label: Text("Ambil Foto Wajah", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isFaceDetected ? const Color(0xFF1B60F1) : Colors.white24,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                       ),
                     ),
-                  if (_currentEmbedding != null)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          context.read<AuthBloc>().add(RegisterFaceRequested(_currentEmbedding!, _currentSelfiePath!));
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1B60F1),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  if (_currentEmbedding != null && _currentSelfiePath != null)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 56,
+                            child: OutlinedButton(
+                              onPressed: _resetState,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white24, width: 2),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              ),
+                              child: Text("Ulangi", style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
+                            ),
+                          ),
                         ),
-                        child: BlocBuilder<AuthBloc, AuthState>(
-                          builder: (context, state) {
-                            if (state is AuthLoading) {
-                              return const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2));
-                            }
-                            return Text("Simpan Data Wajah", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold));
-                          }
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                context.read<AuthBloc>().add(RegisterFaceRequested(_currentEmbedding!, _currentSelfiePath!));
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1B60F1),
+                                elevation: 8,
+                                shadowColor: const Color(0xFF1B60F1).withOpacity(0.4),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              ),
+                              child: BlocBuilder<AuthBloc, AuthState>(
+                                builder: (context, state) {
+                                  if (state is AuthLoading) {
+                                    return const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3));
+                                  }
+                                  return Text("Simpan", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16));
+                                }
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                 ],
               ),

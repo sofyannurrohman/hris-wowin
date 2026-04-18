@@ -12,25 +12,28 @@ class ClockInRequested extends AttendanceEvent {
   final String? imagePath;
   final double? latitude;
   final double? longitude;
+  final List<double>? faceEmbedding;
 
   const ClockInRequested({
     required this.isClockIn,
     this.imagePath,
     this.latitude,
     this.longitude,
+    this.faceEmbedding,
   });
 
   @override
-  List<Object?> get props => [isClockIn, imagePath, latitude, longitude];
+  List<Object?> get props => [isClockIn, imagePath, latitude, longitude, faceEmbedding];
 }
 
 class RegisterFaceRequested extends AttendanceEvent {
   final String imagePath;
+  final List<double>? faceEmbedding;
 
-  const RegisterFaceRequested(this.imagePath);
+  const RegisterFaceRequested(this.imagePath, {this.faceEmbedding});
 
   @override
-  List<Object?> get props => [imagePath];
+  List<Object?> get props => [imagePath, faceEmbedding];
 }
 
 class FetchHistoryRequested extends AttendanceEvent {

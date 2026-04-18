@@ -16,6 +16,7 @@ type AttendanceRepository interface {
 	FindHistoryByDateRange(employeeID uuid.UUID, startDate, endDate time.Time) ([]domain.AttendanceLog, error)
 	FindAllHistory(limit, offset int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error)
 	FindByID(id uuid.UUID) (*domain.AttendanceLog, error)
+	FindLatestByEmployeeID(employeeID uuid.UUID) (*domain.AttendanceLog, error)
 	Delete(id uuid.UUID) error
 }
 
@@ -111,4 +112,16 @@ func (r *attendanceRepository) FindByID(id uuid.UUID) (*domain.AttendanceLog, er
 
 func (r *attendanceRepository) Delete(id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&domain.AttendanceLog{}).Error
+}
+
+func (r *attendanceRepository) FindLatestByEmployeeID(employeeID uuid.UUID) (*domain.AttendanceLog, error) {
+	var attendance domain.AttendanceLog
+	err := r.db.Where("employee_id = ?", employeeID).Order("clock_in_time DESC").First(&attendance).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &attendance, nil
 }

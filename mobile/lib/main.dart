@@ -12,9 +12,11 @@ import 'package:hris_app/features/auth/presentation/pages/login_page.dart';
 import 'package:hris_app/features/auth/presentation/pages/splash_screen.dart';
 import 'package:hris_app/core/theme/app_theme.dart';
 import 'package:hris_app/core/network/api_client.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
   await di.init();
   runApp(const MyApp());
 }
