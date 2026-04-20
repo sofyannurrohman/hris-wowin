@@ -20,22 +20,25 @@ class LeaveBalance extends Equatable {
   });
 
   factory LeaveBalance.fromJson(Map<String, dynamic> json) {
-    final name = (json['leave_type_name'] ?? '').toString().toLowerCase();
-    bool requiresQuota = json['requires_quota'] ?? true;
+    // Robust key mapping: Try both snake_case and PascalCase
+    final rawName = json['leave_type_name'] ?? json['LeaveTypeName'] ?? '';
+    final name = rawName.toString().toLowerCase();
     
-    // UI Robustness: Fallback if backend flag is missing or legacy
+    bool requiresQuota = json['requires_quota'] ?? json['RequiresQuota'] ?? true;
+    
+    // UI Robustness: Fallback if backend flag is missing or naming pattern matches
     if (name.contains('izin') || name.contains('sakit') || name.contains('musibah')) {
       requiresQuota = false;
     }
 
     return LeaveBalance(
-      leaveTypeId: json['leave_type_id'] ?? '',
-      leaveTypeName: json['leave_type_name'] ?? '',
-      isPaid: json['is_paid'] ?? true,
+      leaveTypeId: (json['leave_type_id'] ?? json['LeaveTypeID'] ?? json['ID'] ?? '').toString(),
+      leaveTypeName: rawName.toString(),
+      isPaid: json['is_paid'] ?? json['IsPaid'] ?? true,
       requiresQuota: requiresQuota,
-      total: json['total'] ?? 0,
-      used: json['used'] ?? 0,
-      remaining: json['remaining'] ?? 0,
+      total: json['total'] ?? json['Total'] ?? 0,
+      used: json['used'] ?? json['Used'] ?? 0,
+      remaining: json['remaining'] ?? json['Remaining'] ?? 0,
     );
   }
 

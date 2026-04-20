@@ -52,11 +52,11 @@ const openAddModal = () => {
 const openEditModal = (row: any) => {
   isEditMode.value = true
   assignment.value = {
-    id: row.ID,
-    employeeId: row.EmployeeID,
-    shiftId: row.ShiftID,
-    date: row.Date ? row.Date.substring(0, 10) : '',
-    isOffDay: row.IsOffDay || false
+    id: row.id,
+    employeeId: row.employee_id,
+    shiftId: row.shift_id,
+    date: row.date ? row.date.substring(0, 10) : '',
+    isOffDay: row.is_off_day || false
   }
   isModalOpen.value = true
 }
@@ -104,15 +104,15 @@ const columns = [
     id: 'employee',
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
-      const emp = row.original.Employee
-      return h('span', { class: 'font-bold text-gray-900' }, emp ? `${emp.FirstName} ${emp.LastName}` : '-')
+      const emp = row.original.employee
+      return h('span', { class: 'font-bold text-gray-900' }, emp ? `${emp.first_name} ${emp.last_name || ''}`.trim() : '-')
     }
   },
   {
     id: 'shift',
     header: 'SHIFT',
     cell: ({ row }: any) => {
-      const shift = row.original.Shift
+      const shift = row.original.shift
       const fmtTime = (iso: string) => {
         if (!iso) return ''
         const d = new Date(iso)
@@ -121,12 +121,12 @@ const columns = [
         const m = String(d.getUTCMinutes()).padStart(2, '0')
         return `${h}.${m}`
       }
-      const timeRange = shift ? ` (${fmtTime(shift.StartTime)} - ${fmtTime(shift.EndTime)})` : ''
-      return h('span', { class: 'bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-semibold' }, (shift?.Name || '-') + timeRange)
+      const timeRange = shift ? ` (${fmtTime(shift.start_time)} - ${fmtTime(shift.end_time)})` : ''
+      return h('span', { class: 'bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-semibold' }, (shift?.name || '-') + timeRange)
     }
   },
   {
-    accessorKey: 'Date',
+    accessorKey: 'date',
     header: 'TANGGAL',
     cell: (info: any) => {
       const d = new Date(info.getValue())
@@ -134,7 +134,7 @@ const columns = [
     }
   },
   {
-    accessorKey: 'IsOffDay',
+    accessorKey: 'is_off_day',
     header: 'HARI LIBUR',
     cell: (info: any) => {
       const off = info.getValue()
@@ -149,7 +149,7 @@ const columns = [
     header: 'AKSI',
     cell: ({ row }: any) => h('div', { class: 'flex gap-2' }, [
       h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-primary hover:bg-primary/5', onClick: () => openEditModal(row.original) }, () => h(Pencil, { class: 'w-4 h-4' })),
-      h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-red-600 hover:bg-red-50', onClick: () => remove(row.original.ID) }, () => h(Trash2, { class: 'w-4 h-4' }))
+      h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-red-600 hover:bg-red-50', onClick: () => remove(row.original.id) }, () => h(Trash2, { class: 'w-4 h-4' }))
     ])
   }
 ]
@@ -183,8 +183,8 @@ const columns = [
               <SelectTrigger><SelectValue placeholder="Pilih Karyawan" /></SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem v-for="emp in employees" :key="emp.ID" :value="emp.ID">
-                    {{ emp.FirstName }} {{ emp.LastName }}
+                  <SelectItem v-for="emp in employees" :key="emp.id" :value="emp.id">
+                    {{ emp.first_name }} {{ emp.last_name || '' }}
                   </SelectItem>
                 </SelectGroup>
               </SelectContent>
@@ -196,7 +196,7 @@ const columns = [
               <SelectTrigger><SelectValue placeholder="Pilih Shift" /></SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem v-for="s in shifts" :key="s.ID" :value="s.ID">{{ s.Name }}</SelectItem>
+                  <SelectItem v-for="s in shifts" :key="s.id" :value="s.id">{{ s.name }}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

@@ -34,9 +34,9 @@ const openAddModal = () => {
 const openEditModal = (position: any) => {
   isEditMode.value = true
   newPosition.value = {
-    id: position.ID,
-    title: position.Title || '',
-    level: position.Level || 1
+    id: position.id,
+    title: position.title || '',
+    level: position.level || 1
   }
   isModalOpen.value = true
 }
@@ -94,17 +94,17 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Title',
+    accessorKey: 'title',
     header: 'NAMA JABATAN',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'Level',
+    accessorKey: 'level',
     header: 'LEVEL',
     cell: (info: any) => h('span', { class: 'text-gray-500 font-medium' }, info.getValue())
   },
   {
-    accessorFn: (row: any) => row.CreatedAt ? new Date(row.CreatedAt).toLocaleDateString() : '-',
+    accessorFn: (row: any) => row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
     id: 'createdAt',
     header: 'TANGGAL DIBUAT',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
@@ -125,7 +125,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deletePosition(position.ID)
+            onClick: () => deletePosition(position.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }

@@ -176,13 +176,31 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.db.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
+	err = h.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Find the employee associated with this user
+		var employee domain.Employee
+		if err := tx.Where("user_id = ?", id).First(&employee).Error; err == nil {
+			// Found employee, use the repository's robust delete method
+			if err := h.employeeRepo.Delete(employee.ID); err != nil {
+				return err
+			}
+		}
+
+		// 2. Finally delete the user
+		if err := tx.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		fmt.Printf("Error deleting user %s: %v\n", id, err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to delete user")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to delete user and associated data")
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "User deleted successfully", nil)
+	utils.SuccessResponse(c, http.StatusOK, "User and all associated data deleted successfully", nil)
 }
 
 type RegisterFaceRequest struct {

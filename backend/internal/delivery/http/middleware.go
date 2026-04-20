@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -26,6 +27,8 @@ func AuthMiddleware(secret string) gin.HandlerFunc {
 
 		claims, err := utils.ValidateToken(parts[1], secret)
 		if err != nil {
+			// Log the actual error internally for debugging
+			log.Printf("Token validation failed: %v", err)
 			utils.ErrorResponse(c, http.StatusUnauthorized, "Invalid or expired token")
 			c.Abort()
 			return

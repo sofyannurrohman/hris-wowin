@@ -10,34 +10,34 @@ import (
 // PayrollConfig represents the global variables used in payroll calculations
 // like tax rates thresholds and insurance percentages.
 type PayrollConfig struct {
-	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	CompanyID *uuid.UUID `gorm:"type:uuid"`
+	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	CompanyID *uuid.UUID `gorm:"type:uuid" json:"company_id"`
 
 	// JHT (Jaminan Hari Tua)
-	JHTCompanyPercentage  float64 `gorm:"type:decimal(5,2);default:3.70"` // Default 3.7%
-	JHTEmployeePercentage float64 `gorm:"type:decimal(5,2);default:2.00"` // Default 2.0%
+	JHTCompanyPercentage  float64 `gorm:"type:decimal(5,2);default:3.70" json:"jht_company_percentage"`
+	JHTEmployeePercentage float64 `gorm:"type:decimal(5,2);default:2.00" json:"jht_employee_percentage"`
 
 	// JP (Jaminan Pensiun)
-	JPCompanyPercentage  float64 `gorm:"type:decimal(5,2);default:2.00"` // Default 2.0%
-	JPEmployeePercentage float64 `gorm:"type:decimal(5,2);default:1.00"` // Default 1.0%
-	JPMaxWageBase        float64 `gorm:"type:decimal(15,2);default:10042300"` // Example cap for JP calculation
+	JPCompanyPercentage  float64 `gorm:"type:decimal(5,2);default:2.00" json:"jp_company_percentage"`
+	JPEmployeePercentage float64 `gorm:"type:decimal(5,2);default:1.00" json:"jp_employee_percentage"`
+	JPMaxWageBase        float64 `gorm:"type:decimal(15,2);default:10042300" json:"jp_max_wage_base"`
 
 	// JKK (Kecelakaan Kerja) & JKM (Kematian) usually only company pays
-	JKKCompanyPercentage float64 `gorm:"type:decimal(5,2);default:0.24"` // Default 0.24%
-	JKMCompanyPercentage float64 `gorm:"type:decimal(5,2);default:0.30"` // Default 0.30%
+	JKKCompanyPercentage float64 `gorm:"type:decimal(5,2);default:0.24" json:"jkk_company_percentage"`
+	JKMCompanyPercentage float64 `gorm:"type:decimal(5,2);default:0.30" json:"jkm_company_percentage"`
 
 	// BPJS Kesehatan
-	BPJSKesCompanyPercentage  float64 `gorm:"type:decimal(5,2);default:4.00"` // Default 4.0%
-	BPJSKesEmployeePercentage float64 `gorm:"type:decimal(5,2);default:1.00"` // Default 1.0%
-	BPJSKesMaxWageBase        float64 `gorm:"type:decimal(15,2);default:12000000"` // Cap for BPJS Kes
+	BPJSKesCompanyPercentage  float64 `gorm:"type:decimal(5,2);default:4.00" json:"bpjs_kes_company_percentage"`
+	BPJSKesEmployeePercentage float64 `gorm:"type:decimal(5,2);default:1.00" json:"bpjs_kes_employee_percentage"`
+	BPJSKesMaxWageBase        float64 `gorm:"type:decimal(15,2);default:12000000" json:"bpjs_kes_max_wage_base"`
 
 	// Tax (PPh21 TER)
-	PtkpBaseTK0 float64 `gorm:"type:decimal(15,2);default:54000000"` // Dasar PTKP Lajang
+	PtkpBaseTK0 float64 `gorm:"type:decimal(15,2);default:54000000" json:"ptkp_base_tk0"`
 
-	UpdatedAt time.Time `gorm:"default:now()"`
-	CreatedAt time.Time `gorm:"default:now()"`
+	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`
+	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
 
-	Company *Company `gorm:"foreignKey:CompanyID"`
+	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
 }
 
 func (pc *PayrollConfig) BeforeCreate(tx *gorm.DB) (err error) {

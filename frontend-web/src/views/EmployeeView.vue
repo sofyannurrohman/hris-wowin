@@ -9,6 +9,10 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
 
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterData = useMasterDataStore()
+
 const isModalOpen = ref(false)
 const newEmployee = ref({
   id: '',
@@ -31,9 +35,6 @@ const isEditMode = ref(false)
 
 const isSubmitting = ref(false)
 const employees = ref<any[]>([])
-const departments = ref<any[]>([])
-const jobPositions = ref<any[]>([])
-const branches = ref<any[]>([])
 const isLoading = ref(true)
 
 const openAddModal = () => {
@@ -60,20 +61,20 @@ const openAddModal = () => {
 const openEditModal = (user: any) => {
   isEditMode.value = true
   newEmployee.value = {
-    id: user.ID,
-    name: user.FirstName || '',
-    email: user.User?.Email || '',
-    employeeIDNumber: user.EmployeeIDNumber || '',
-    departmentId: user.DepartmentID || '',
-    jobPositionId: user.JobPositionID || '',
-    branchId: user.BranchID || '',
-    employmentStatus: user.EmploymentStatus || 'Active',
-    joinDate: user.JoinDate ? new Date(user.JoinDate).toISOString().split('T')[0] : '',
-    bankName: user.BankName || '',
-    bankAccountNumber: user.BankAccountNumber || '',
-    accountHolderName: user.AccountHolderName || '',
-    salary: user.Salary || 0,
-    phoneNumber: user.PhoneNumber || ''
+    id: user.id,
+    name: user.first_name || '',
+    email: user.user?.email || '',
+    employeeIDNumber: user.employee_id_number || '',
+    departmentId: user.department_id || '',
+    jobPositionId: user.job_position_id || '',
+    branchId: user.branch_id || '',
+    employmentStatus: user.employment_status || 'Active',
+    joinDate: user.join_date ? new Date(user.join_date).toISOString().split('T')[0] : '',
+    bankName: user.bank_name || '',
+    bankAccountNumber: user.bank_account_number || '',
+    accountHolderName: user.account_holder_name || '',
+    salary: user.salary || 0,
+    phoneNumber: user.phone_number || ''
   }
   isModalOpen.value = true
 }
@@ -91,33 +92,6 @@ const fetchEmployees = async () => {
     console.error('Failed to fetch employees:', error)
   } finally {
     isLoading.value = false
-  }
-}
-
-const fetchDepartments = async () => {
-  try {
-    const res = await apiClient.get('/departments')
-    departments.value = res.data.data
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-const fetchJobPositions = async () => {
-  try {
-    const res = await apiClient.get('/job-positions')
-    jobPositions.value = res.data.data
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-const fetchBranches = async () => {
-  try {
-    const res = await apiClient.get('/branches')
-    branches.value = res.data.data
-  } catch (err) {
-    console.error(err)
   }
 }
 
@@ -164,43 +138,38 @@ const deleteEmployee = async (id: string) => {
 
 onMounted(() => {
   fetchEmployees()
-  fetchDepartments()
-  fetchJobPositions()
-  fetchBranches()
+  masterData.fetchDepartments()
+  masterData.fetchJobPositions()
+  masterData.fetchBranches()
 })
-
+const getInitials = (name: string) =>
+  name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
 
 const columns = [
   {
-    accessorFn: (row: any) => `${row.name} ${row.email}`,
+    accessorFn: (row: any) => row.first_name || 'Unnamed',
     id: 'name',
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
        const user = row.original
-       // Handle mapping from actual backend structure
-       const name = user.FirstName || 'Unnamed'
-       const email = user.User?.Email || ''
-       const avatarUrl = user.FaceReferenceURL ? `http://localhost:8081${user.FaceReferenceURL}` : `https://ui-avatars.com/api/?name=${name}`
+       const name = user.first_name || 'Unnamed'
+       const email = user.user?.email || ''
+       const initials = getInitials(name)
 
-       return h('div', { class: 'flex items-center gap-3' }, [
-         h('div', { class: 'w-10 h-10 rounded-full bg-gradient-to-br border border-white shadow-sm from-orange-200 to-red-100 flex items-center justify-center overflow-hidden' }, [
-           h('img', { src: avatarUrl, class: 'w-full h-full object-cover opacity-80' })
-         ]),
-         h('div', {}, [
-           h('p', { class: 'font-bold text-gray-900 leading-tight' }, name),
-           h('p', { class: 'text-[12px] text-gray-500' }, email)
-         ])
+       return h('div', { class: 'flex flex-col' }, [
+         h('p', { class: 'font-bold text-gray-900 leading-tight' }, name),
+         h('p', { class: 'text-[12px] text-gray-500' }, email)
        ])
     }
   },
   {
-    accessorKey: 'EmployeeIDNumber',
+    accessorKey: 'employee_id_number',
     header: 'ID',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px] font-medium' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'PhoneNumber',
+    accessorKey: 'phone_number',
     header: 'NOMOR WA',
     cell: (info: any) => {
       const val = info.getValue() || '-'
@@ -215,22 +184,25 @@ const columns = [
     }
   },
   {
+    accessorFn: (row: any) => row.job_position?.title || '-',
     id: 'jobPosition',
     header: 'JABATAN',
-    cell: ({ row }: any) => h('span', { class: 'font-bold text-gray-700' }, row.original.JobPosition?.Name || '-')
+    cell: (info: any) => h('span', { class: 'font-bold text-gray-700' }, info.getValue())
   },
   {
+    accessorFn: (row: any) => row.department?.Name || '-',
     id: 'department',
     header: 'DEPARTEMEN',
-    cell: ({ row }: any) => h('span', { class: 'text-gray-500' }, row.original.Department?.Name || '-')
+    cell: (info: any) => h('span', { class: 'text-gray-500' }, info.getValue())
   },
   {
+    accessorFn: (row: any) => row.branch?.name || '-',
     id: 'branch',
     header: 'CABANG',
-    cell: ({ row }: any) => h('span', { class: 'text-gray-500 font-medium' }, row.original.Branch?.Name || '-')
+    cell: (info: any) => h('span', { class: 'text-gray-500 font-medium' }, info.getValue())
   },
   {
-    accessorKey: 'EmploymentStatus',
+    accessorKey: 'employment_status',
     header: 'STATUS',
     cell: ({ getValue }: any) => {
         const val = getValue() as string || 'Unknown'
@@ -241,13 +213,16 @@ const columns = [
     }
   },
   {
-    accessorFn: (row: any) => row.JoinDate ? new Date(row.JoinDate).toLocaleDateString() : '-',
+    accessorKey: 'join_date',
     id: 'joinDate',
     header: 'TANGGAL MASUK',
-    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
+    cell: (info: any) => {
+      const val = info.getValue()
+      return h('span', { class: 'text-gray-500 text-[13px]' }, val ? new Date(val).toLocaleDateString() : '-')
+    }
   },
   {
-    accessorKey: 'Salary',
+    accessorKey: 'salary',
     header: 'GAJI POKOK',
     cell: (info: any) => {
       const val = info.getValue() || 0
@@ -255,17 +230,17 @@ const columns = [
     }
   },
   {
-    accessorKey: 'BankName',
+    accessorKey: 'bank_name',
     header: 'NAMA BANK',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'BankAccountNumber',
+    accessorKey: 'bank_account_number',
     header: 'NOMOR REKENING',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'AccountHolderName',
+    accessorKey: 'account_holder_name',
     header: 'PEMILIK REKENING',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
   },
@@ -285,7 +260,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteEmployee(user.ID)
+            onClick: () => deleteEmployee(user.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }
@@ -378,7 +353,7 @@ const columns = [
                 <SelectValue placeholder="Pilih Cabang" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="b in branches" :key="b.ID" :value="b.ID">{{ b.Name }}</SelectItem>
+                <SelectItem v-for="b in masterData.branches" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -391,7 +366,7 @@ const columns = [
                   <SelectValue placeholder="Pilih Departemen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="d in departments" :key="d.ID" :value="d.ID">{{ d.Name }}</SelectItem>
+                  <SelectItem v-for="d in masterData.departments" :key="d.id" :value="d.id">{{ d.name }}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -402,7 +377,7 @@ const columns = [
                   <SelectValue placeholder="Pilih Jabatan" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="j in jobPositions" :key="j.ID" :value="j.ID">{{ j.Name }}</SelectItem>
+                  <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.name }}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

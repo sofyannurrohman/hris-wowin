@@ -25,6 +25,8 @@ func LoadConfig() Config {
 	
 	if err != nil {
 		log.Println("No .env file found or error loading it, looking at environment variables")
+	} else {
+		log.Println("Loaded configuration from .env file")
 	}
 
 	return Config{

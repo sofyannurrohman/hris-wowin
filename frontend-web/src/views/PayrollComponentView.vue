@@ -37,10 +37,10 @@ const openAddModal = () => {
 const openEditModal = (component: any) => {
   isEditMode.value = true
   newComponent.value = {
-    id: component.ID,
-    name: component.Name || '',
-    type: component.Type || 'EARNING',
-    isTaxable: component.IsTaxable
+    id: component.id,
+    name: component.name || '',
+    type: component.type || 'EARNING',
+    isTaxable: component.is_taxable
   }
   isModalOpen.value = true
 }
@@ -98,12 +98,12 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Name',
+    accessorKey: 'name',
     header: 'NAMA KOMPONEN',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'Type',
+    accessorKey: 'type',
     header: 'TIPE',
     cell: ({ getValue }: any) => {
         const val = getValue() as string || 'Unknown'
@@ -115,12 +115,12 @@ const columns = [
     }
   },
   {
-    accessorKey: 'IsTaxable',
+    accessorKey: 'is_taxable',
     header: 'KENA PAJAK',
     cell: (info: any) => h('span', { class: 'text-gray-500 font-medium' }, info.getValue() ? 'Ya' : 'Tidak')
   },
   {
-    accessorFn: (row: any) => row.CreatedAt ? new Date(row.CreatedAt).toLocaleDateString() : '-',
+    accessorFn: (row: any) => row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
     id: 'createdAt',
     header: 'TANGGAL DIBUAT',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
@@ -141,7 +141,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteComponent(component.ID)
+            onClick: () => deleteComponent(component.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }

@@ -35,38 +35,38 @@ const columns = [
     id: 'employee',
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
-      const emp = row.original.Employee
-      return h('span', { class: 'font-bold text-gray-900' }, emp ? `${emp.FirstName} ${emp.LastName}` : '-')
+      const emp = row.original.employee
+      return h('span', { class: 'font-bold text-gray-900' }, emp ? `${emp.first_name} ${emp.last_name || ''}`.trim() : '-')
     }
   },
   {
-    accessorKey: 'CheckInTime',
+    accessorKey: 'clock_in_time',
     header: 'MASUK',
     cell: (info: any) => h('span', { class: 'text-[13px] text-gray-700' }, fmt(info.getValue()))
   },
   {
-    accessorKey: 'CheckOutTime',
+    accessorKey: 'clock_out_time',
     header: 'KELUAR',
     cell: (info: any) => h('span', { class: 'text-[13px] text-gray-700' }, fmt(info.getValue()))
   },
   {
-    accessorKey: 'Status',
+    accessorKey: 'status',
     header: 'STATUS',
     cell: (info: any) => {
       const s = info.getValue() as string
-      const cls = s === 'PRESENT' ? 'border-green-200 text-green-700'
+      const cls = s === 'PRESENT' || s === 'ON_TIME' ? 'border-green-200 text-green-700'
                 : s === 'LATE' ? 'border-orange-200 text-orange-600'
                 : 'border-gray-200 text-gray-600'
       return h('span', { class: `border ${cls} px-2 py-0.5 rounded-full text-[11px] font-bold uppercase` }, s || '-')
     }
   },
   {
-    accessorKey: 'Note',
+    accessorKey: 'notes',
     header: 'CATATAN',
     cell: (info: any) => h('span', { class: 'text-gray-400 text-[13px] italic' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'IsManual',
+    accessorKey: 'is_manual',
     header: 'TYPE',
     cell: (info: any) => {
       const manual = info.getValue()

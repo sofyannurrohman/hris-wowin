@@ -64,11 +64,11 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
   }
 
   Future<void> _onFetchLeaveBalances(FetchLeaveBalancesRequested event, Emitter<LeaveState> emit) async {
-    // We don't set status to loading here to avoid flickering the history list
+    emit(state.copyWith(status: LeaveStatus.loading));
     final result = await getLeaveBalancesUseCase();
     result.fold(
-      (failure) => emit(state.copyWith(message: failure.message)),
-      (balances) => emit(state.copyWith(balances: balances)),
+      (failure) => emit(state.copyWith(status: LeaveStatus.failure, message: failure.message)),
+      (balances) => emit(state.copyWith(status: LeaveStatus.success, balances: balances)),
     );
   }
 

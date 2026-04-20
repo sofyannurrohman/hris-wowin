@@ -36,10 +36,10 @@ const openAddModal = () => {
 const openEditModal = (leaveType: any) => {
   isEditMode.value = true
   newLeaveType.value = {
-    id: leaveType.ID,
-    name: leaveType.Name || '',
-    isPaid: leaveType.IsPaid,
-    defaultQuota: leaveType.DefaultQuota || 12
+    id: leaveType.id,
+    name: leaveType.name || '',
+    isPaid: leaveType.is_paid,
+    defaultQuota: leaveType.default_quota || 12
   }
   isModalOpen.value = true
 }
@@ -97,12 +97,12 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Name',
+    accessorKey: 'name',
     header: 'NAMA TIPE CUTI',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'IsPaid',
+    accessorKey: 'is_paid',
     header: 'DIBAYAR',
     cell: (info: any) => {
       const isPaid = info.getValue()
@@ -113,12 +113,12 @@ const columns = [
     }
   },
   {
-    accessorKey: 'DefaultQuota',
+    accessorKey: 'default_quota',
     header: 'KUOTA DEFAULT (HARI)',
     cell: (info: any) => h('span', { class: 'text-gray-500 font-medium' }, info.getValue())
   },
   {
-    accessorFn: (row: any) => row.CreatedAt ? new Date(row.CreatedAt).toLocaleDateString() : '-',
+    accessorFn: (row: any) => row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
     id: 'createdAt',
     header: 'TANGGAL DIBUAT',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
@@ -139,7 +139,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteLeaveType(leaveType.ID)
+            onClick: () => deleteLeaveType(leaveType.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }

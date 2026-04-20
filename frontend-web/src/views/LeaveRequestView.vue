@@ -26,7 +26,7 @@ const fetchLeaveRequests = async () => {
 const processLeave = async (id: string, status: 'APPROVED' | 'REJECTED') => {
   const reason = status === 'REJECTED' ? prompt('Alasan penolakan (opsional):') : null
   try {
-    await apiClient.put(`/time-off/${id}/approve`, { status, rejectReason: reason || '' })
+    await apiClient.put(`/time-off/${id}/approve`, { status, reject_reason: reason || '' })
     toast.success(`Pengajuan berhasil ${status === 'APPROVED' ? 'disetujui' : 'ditolak'}!`)
     fetchLeaveRequests()
   } catch (err: any) {
@@ -41,16 +41,16 @@ const columns = [
     id: 'employee',
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
-      const emp = row.original.Employee
-      return h('span', { class: 'font-bold text-gray-900' }, emp ? `${emp.FirstName} ${emp.LastName}` : '-')
+      const emp = row.original.employee
+      return h('span', { class: 'font-bold text-gray-900' }, emp ? `${emp.first_name} ${emp.last_name || ''}`.trim() : '-')
     }
   },
   {
     id: 'leaveType',
     header: 'JENIS CUTI',
     cell: ({ row }: any) => {
-      const lt = row.original.LeaveType
-      return h('span', { class: 'text-gray-700' }, lt?.Name || '-')
+      const lt = row.original.leave_type
+      return h('span', { class: 'text-gray-700' }, lt?.name || '-')
     }
   },
   {
@@ -59,16 +59,16 @@ const columns = [
     cell: ({ row }: any) => {
       const r = row.original
       const fmt = (d: string) => new Date(d).toLocaleDateString('id-ID', { dateStyle: 'medium' })
-      return h('span', { class: 'text-[13px] text-gray-600' }, `${fmt(r.StartDate)} - ${fmt(r.EndDate)}`)
+      return h('span', { class: 'text-[13px] text-gray-600' }, `${fmt(r.start_date)} - ${fmt(r.end_date)}`)
     }
   },
   {
-    accessorKey: 'Reason',
+    accessorKey: 'reason',
     header: 'ALASAN',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px] max-w-[160px] truncate inline-block', title: info.getValue() }, info.getValue() || '-')
   },
   {
-    accessorKey: 'Status',
+    accessorKey: 'status',
     header: 'STATUS',
     cell: (info: any) => {
       const s = info.getValue()
@@ -83,10 +83,10 @@ const columns = [
     header: 'AKSI',
     cell: ({ row }: any) => {
       const r = row.original
-      if (r.Status !== 'PENDING') return h('span', { class: 'text-gray-400 text-[13px]' }, 'Sudah Diproses')
+      if (r.status !== 'PENDING') return h('span', { class: 'text-gray-400 text-[13px]' }, 'Sudah Diproses')
       return h('div', { class: 'flex gap-2' }, [
-        h('button', { class: 'text-[13px] font-semibold text-green-700 hover:underline', onClick: () => processLeave(r.ID, 'APPROVED') }, 'Setujui'),
-        h('button', { class: 'text-[13px] font-semibold text-red-600 hover:underline', onClick: () => processLeave(r.ID, 'REJECTED') }, 'Tolak')
+        h('button', { class: 'text-[13px] font-semibold text-green-700 hover:underline', onClick: () => processLeave(r.id, 'APPROVED') }, 'Setujui'),
+        h('button', { class: 'text-[13px] font-semibold text-red-600 hover:underline', onClick: () => processLeave(r.id, 'REJECTED') }, 'Tolak')
       ])
     }
   }

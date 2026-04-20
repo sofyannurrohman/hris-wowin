@@ -1,3 +1,4 @@
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { toast } from 'vue-sonner'
 import axios from '@/api/axios'
@@ -90,7 +91,7 @@ onMounted(() => {
   <div class="space-y-6 max-w-5xl">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Pengaturan Payroll & Parameter Master</h1>
+        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Pengaturan Payroll &amp; Parameter Master</h1>
         <p class="text-[14px] text-gray-500 mt-1">Konfigurasikan persentase pemotongan BPJS dan PTKP/Pajak secara global agar kalkulasi selalu akurat tanpa mengubah sistem backend.</p>
       </div>
       <button 
@@ -121,7 +122,7 @@ onMounted(() => {
             'text-left px-4 py-3 rounded-lg text-[14px] font-medium transition-colors',
             activeTab === 'pajak' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
           ]">
-           Tarif Pajak (PTKP & TER)
+           Tarif Pajak (PTKP &amp; TER)
         </button>
       </div>
 
@@ -207,7 +208,7 @@ onMounted(() => {
              <section>
                 <div class="flex items-center gap-2 mb-4">
                   <div class="w-2 h-6 bg-yellow-500 rounded-sm"></div>
-                  <h3 class="font-bold text-gray-800 text-[15px]">JKK & JKM (Kecelakaan Kerja & Kematian)</h3>
+                  <h3 class="font-bold text-gray-800 text-[15px]">JKK &amp; JKM (Kecelakaan Kerja &amp; Kematian)</h3>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>

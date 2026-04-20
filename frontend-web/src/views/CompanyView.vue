@@ -37,11 +37,11 @@ const openAddModal = () => {
 const openEditModal = (company: any) => {
   isEditMode.value = true
   newCompany.value = {
-    id: company.ID,
-    name: company.Name || '',
-    taxNumber: company.TaxNumber || '',
-    address: company.Address || '',
-    logoUrl: company.LogoURL || ''
+    id: company.id,
+    name: company.name || '',
+    taxNumber: company.tax_number || '',
+    address: company.address || '',
+    logoUrl: company.logo_url || ''
   }
   isModalOpen.value = true
 }
@@ -99,17 +99,17 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Name',
+    accessorKey: 'name',
     header: 'NAMA PERUSAHAAN',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'TaxNumber',
+    accessorKey: 'tax_number',
     header: 'NPWP',
     cell: (info: any) => h('span', { class: 'text-gray-600' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'Address',
+    accessorKey: 'address',
     header: 'ALAMAT',
     cell: (info: any) => h('span', { class: 'text-gray-600 truncate max-w-[200px] inline-block', title: info.getValue() }, info.getValue() || '-')
   },
@@ -129,7 +129,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteCompany(company.ID)
+            onClick: () => deleteCompany(company.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }

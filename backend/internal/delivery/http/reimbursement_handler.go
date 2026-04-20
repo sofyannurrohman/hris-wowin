@@ -2,6 +2,8 @@ package http
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -28,11 +30,14 @@ func (h *ReimbursementHandler) SetupRoutes(router *gin.RouterGroup) {
 		reimbursements.DELETE("/:id", h.Delete)
 
 		// Admin only
-		admin := reimbursements.Group("")
-		admin.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
+		manage := reimbursements.Group("/manage")
+		manage.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
 		{
-			admin.GET("", h.GetAll)
-			admin.PUT("/:id/approve", h.Approve)
+			manage.GET("", h.GetAll)
+			manage.POST("", h.AdminCreate)
+			manage.PUT("/:id", h.AdminUpdate)
+			manage.DELETE("/:id", h.AdminDelete)
+			manage.PUT("/:id/approve", h.Approve)
 		}
 	}
 }
@@ -52,15 +57,13 @@ func (h *ReimbursementHandler) Submit(c *gin.Context) {
 	}
 
 	// Handle file upload
-	file, err := c.FormFile("attachment")
-	if err == nil {
-		filename := uuid.New().String() + "-" + file.Filename
-		savePath := "uploads/attachments/" + filename
-		if err := c.SaveUploadedFile(file, savePath); err != nil {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
-			return
-		}
-		req.AttachmentURL = "/uploads/attachments/" + filename
+	attachmentURL, err := h.handleFileUpload(c)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		return
+	}
+	if attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
 	}
 
 	err = h.useCase.Submit(userID, req)
@@ -158,15 +161,9 @@ func (h *ReimbursementHandler) Update(c *gin.Context) {
 	}
 
 	// Handle file upload if any
-	file, err := c.FormFile("attachment")
-	if err == nil {
-		filename := uuid.New().String() + "-" + file.Filename
-		savePath := "uploads/attachments/" + filename
-		if err := c.SaveUploadedFile(file, savePath); err != nil {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
-			return
-		}
-		req.AttachmentURL = "/uploads/attachments/" + filename
+	attachmentURL, err := h.handleFileUpload(c)
+	if err == nil && attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
 	}
 
 	err = h.useCase.UpdateMyReimbursement(userID, id, req)
@@ -200,4 +197,102 @@ func (h *ReimbursementHandler) Delete(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Reimbursement deleted successfully", nil)
+}
+
+func (h *ReimbursementHandler) AdminCreate(c *gin.Context) {
+	var req usecase.AdminReimbursementRequest
+	if err := c.ShouldBind(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Handle file upload
+	attachmentURL, err := h.handleFileUpload(c)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		return
+	}
+	if attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
+	}
+
+	err = h.useCase.AdminCreate(req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusCreated, "Reimbursement created successfully", nil)
+}
+
+func (h *ReimbursementHandler) AdminUpdate(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid id format")
+		return
+	}
+
+	var req usecase.AdminReimbursementRequest
+	if err := c.ShouldBind(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Handle file upload
+	attachmentURL, err := h.handleFileUpload(c)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		return
+	}
+	if attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
+	}
+
+	err = h.useCase.AdminUpdate(id, req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Reimbursement updated successfully", nil)
+}
+
+func (h *ReimbursementHandler) AdminDelete(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid id format")
+		return
+	}
+
+	err = h.useCase.AdminDelete(id)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Reimbursement deleted successfully", nil)
+}
+
+func (h *ReimbursementHandler) handleFileUpload(c *gin.Context) (string, error) {
+	file, err := c.FormFile("attachment")
+	if err != nil {
+		if err == http.ErrMissingFile {
+			return "", nil
+		}
+		return "", err
+	}
+
+	filename := uuid.New().String() + "-" + filepath.Base(file.Filename)
+	uploadDir := "uploads/attachments"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", err
+	}
+	savePath := uploadDir + "/" + filename
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		return "", err
+	}
+
+	return "/uploads/attachments/" + filename, nil
 }

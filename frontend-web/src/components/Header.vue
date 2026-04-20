@@ -91,8 +91,8 @@ const setModule = (moduleId: string) => {
           <p class="text-[11px] text-primary font-bold uppercase tracking-wider mt-0.5">Super Administrator</p>
         </div>
         <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-0.5 shadow-lg shadow-primary/20 rotate-0 group-hover:rotate-6 transition-transform duration-500">
-          <div class="h-full w-full rounded-[14px] border-2 border-white/20 bg-white overflow-hidden shadow-inner">
-            <img src="https://ui-avatars.com/api/?name=Admin+HR&background=990000&color=ffffff&bold=true" alt="Avatar" class="h-full w-full object-cover" />
+          <div class="h-full w-full rounded-[14px] border-2 border-white/20 bg-primary flex items-center justify-center overflow-hidden shadow-inner">
+            <span class="text-white font-black text-xs">AH</span>
           </div>
         </div>
       </div>

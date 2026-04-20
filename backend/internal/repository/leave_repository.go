@@ -23,6 +23,7 @@ type LeaveRepository interface {
 	CreateLeaveRequestWithBalance(req *domain.LeaveRequest, balance *domain.LeaveBalance) error
 	UpdateLeaveRequestStatus(req *domain.LeaveRequest, balanceToRefund *domain.LeaveBalance) error
 	SaveBalance(balance *domain.LeaveBalance) error
+	DeleteLeaveBalance(employeeID, leaveTypeID uuid.UUID, year int) error
 	CountMonthlyLeaveDays(employeeID, leaveTypeID uuid.UUID, month, year int, excludeID uuid.UUID) (int, error)
 }
 
@@ -155,6 +156,10 @@ func (r *leaveRepository) UpdateLeaveRequestStatus(req *domain.LeaveRequest, bal
 
 func (r *leaveRepository) SaveBalance(balance *domain.LeaveBalance) error {
 	return r.db.Save(balance).Error
+}
+
+func (r *leaveRepository) DeleteLeaveBalance(employeeID, leaveTypeID uuid.UUID, year int) error {
+	return r.db.Delete(&domain.LeaveBalance{}, "employee_id = ? AND leave_type_id = ? AND year = ?", employeeID, leaveTypeID, year).Error
 }
 
 func (r *leaveRepository) CountMonthlyLeaveDays(employeeID, leaveTypeID uuid.UUID, month, year int, excludeID uuid.UUID) (int, error) {

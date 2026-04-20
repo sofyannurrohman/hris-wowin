@@ -137,24 +137,24 @@ const fetchTodayAttendance = async () => {
     const res = await apiClient.get('/attendance/all?limit=200')
     if (res.data?.data) {
       const todayRecords = res.data.data.filter((item: any) =>
-        item.ClockInTime && isToday(item.ClockInTime)
+        item.clock_in_time && isToday(item.clock_in_time)
       )
       presentToday.value = todayRecords.length
       lateToday.value = todayRecords.filter((item: any) =>
-        item.Status === 'LATE'
+        item.status === 'LATE'
       ).length
 
       // Build recent attendance table (latest 5)
       recentAttendance.value = todayRecords.slice(0, 5).map((item: any) => {
-        const name = item.Employee?.FirstName || 'Karyawan'
-        const role = item.Employee?.JobPosition?.Name || '-'
-        const dept = item.Employee?.Department?.Name || '-'
-        const checkInTime = item.ClockInTime
-          ? new Date(item.ClockInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        const name = item.employee?.first_name || 'Karyawan'
+        const role = item.employee?.job_position?.title || '-'
+        const dept = item.employee?.department?.Name || '-'
+        const checkInTime = item.clock_in_time
+          ? new Date(item.clock_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
           : '-'
-        const status = item.Status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'
+        const status = item.status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'
         return {
-          id: item.ID,
+          id: item.id,
           name,
           role,
           dept,
@@ -176,21 +176,21 @@ const fetchPendingLeaves = async () => {
     if (res.data?.data) {
       pendingLeavesCount.value = res.data.data.length
       pendingLeaves.value = res.data.data.slice(0, 3).map((item: any) => ({
-        id: item.ID,
-        name: item.Employee?.FirstName || 'Karyawan',
-        type: item.LeaveType?.Name || 'Cuti',
+        id: item.id,
+        name: item.employee?.first_name || 'Karyawan',
+        type: item.leave_type?.Name || 'Cuti',
         days: (() => {
-          const start = new Date(item.StartDate)
-          const end = new Date(item.EndDate)
+          const start = new Date(item.start_date)
+          const end = new Date(item.end_date)
           const d = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1
           return `${d} Hari`
         })(),
         time: (() => {
-          const created = new Date(item.CreatedAt || item.StartDate)
+          const created = new Date(item.created_at || item.start_date)
           const diffH = Math.round((Date.now() - created.getTime()) / 3600000)
           return diffH < 1 ? 'Baru saja' : `${diffH}j lalu`
         })(),
-        image: `https://ui-avatars.com/api/?name=${item.Employee?.FirstName}+${item.Employee?.LastName || ''}&background=990000&color=ffffff&bold=true`
+        initials: getInitials(item.employee?.first_name || 'K')
       }))
     }
   } catch (e) {
@@ -394,12 +394,9 @@ onMounted(() => {
               <tbody class="divide-y divide-slate-100">
                 <tr v-for="user in recentAttendance" :key="user.id" class="group hover:bg-slate-50/70 transition-colors">
                   <td class="px-6 py-4">
-                    <div class="flex items-center gap-4">
-                      <div :class="`w-10 h-10 rounded-2xl flex items-center justify-center font-extrabold text-xs shadow-sm ${user.color}`">{{ user.initials }}</div>
-                      <div>
-                        <p class="font-bold text-slate-900 group-hover:text-primary transition-colors">{{ user.name }}</p>
-                        <p class="text-[12px] text-slate-400 font-medium">{{ user.role }}</p>
-                      </div>
+                    <div class="flex flex-col">
+                      <p class="font-bold text-slate-900 group-hover:text-primary transition-colors">{{ user.name }}</p>
+                      <p class="text-[12px] text-slate-400 font-medium">{{ user.role }}</p>
                     </div>
                   </td>
                   <td class="px-6 py-4 text-sm font-bold text-slate-500">{{ user.dept }}</td>
@@ -455,31 +452,25 @@ onMounted(() => {
           <!-- Leave cards -->
           <div v-else class="space-y-4">
             <div v-for="leave in pendingLeaves" :key="leave.id" class="bg-white p-5 rounded-3xl shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
-              <div class="flex items-start gap-4">
-                <div class="relative">
-                  <img :src="leave.image" class="w-12 h-12 rounded-2xl object-cover border-2 border-slate-50" />
-                  <div class="absolute -right-1 -bottom-1 w-4 h-4 bg-primary border-2 border-white rounded-full"></div>
-                </div>
-                <div class="flex-1 min-w-0">
+                <div>
                   <div class="flex items-start justify-between">
                     <p class="text-sm font-extrabold text-slate-900">{{ leave.name }}</p>
                     <span class="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-lg">{{ leave.time }}</span>
                   </div>
                   <p class="text-[12px] text-slate-500 font-bold mt-1 uppercase tracking-tight">{{ leave.type }} <span class="text-slate-300 mx-1">•</span> <span class="text-slate-900">{{ leave.days }}</span></p>
                 </div>
-              </div>
-              <div class="flex gap-2.5 mt-5">
-                <button
-                  @click="approveLeave(leave.id)"
-                  :disabled="isSubmittingLeave"
-                  class="flex-1 bg-primary text-white hover:bg-primary/90 rounded-xl py-2.5 text-[12px] font-extrabold transition-all shadow-md shadow-primary/20 disabled:opacity-50 active:scale-95"
-                >SETUJUI</button>
-                <button
-                  @click="rejectLeave(leave.id)"
-                  :disabled="isSubmittingLeave"
-                  class="flex-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl py-2.5 text-[12px] font-extrabold transition-all disabled:opacity-50 active:scale-95"
-                >TOLAK</button>
-              </div>
+                <div class="flex gap-2.5 mt-5">
+                  <button
+                    @click="approveLeave(leave.id)"
+                    :disabled="isSubmittingLeave"
+                    class="flex-1 bg-primary text-white hover:bg-primary/90 rounded-xl py-2.5 text-[12px] font-extrabold transition-all shadow-md shadow-primary/20 disabled:opacity-50 active:scale-95"
+                  >SETUJUI</button>
+                  <button
+                    @click="rejectLeave(leave.id)"
+                    :disabled="isSubmittingLeave"
+                    class="flex-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl py-2.5 text-[12px] font-extrabold transition-all disabled:opacity-50 active:scale-95"
+                  >TOLAK</button>
+                </div>
             </div>
           </div>
           

@@ -67,7 +67,64 @@ func (r *employeeRepository) Update(employee *domain.Employee) error {
 }
 
 func (r *employeeRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&domain.Employee{}).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Handle Payslip Items (via Payslips)
+		// We need to delete payslip items before payslips
+		if err := tx.Exec("DELETE FROM payslip_items WHERE payslip_id IN (SELECT id FROM payslips WHERE employee_id = ?)", id).Error; err != nil {
+			return err
+		}
+
+		// 2. Delete dependent records using GORM's Where logic for safety
+		dependentModels := []interface{}{
+			&domain.Payslip{},
+			&domain.EmployeeSalarySetting{},
+			&domain.LeaveBalance{},
+			&domain.LeaveRequest{},
+			&domain.AttendanceLog{},
+			&domain.EmployeeShift{},
+			&domain.Reimbursement{},
+			&domain.Overtime{},
+			&domain.SalesKPI{},
+			&domain.EmployeeKPI{},
+			&domain.ManagerialAppraisal{},
+		}
+
+		for _, model := range dependentModels {
+			if err := tx.Where("employee_id = ?", id).Delete(model).Error; err != nil {
+				return err
+			}
+		}
+
+		// 3. Handle specific FKs that might point to this employee as an approver/manager
+		// Set ApprovedBy to NULL where this employee was the approver
+		if err := tx.Model(&domain.LeaveRequest{}).Where("approved_by = ?", id).Update("approved_by", nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&domain.Reimbursement{}).Where("approved_by = ?", id).Update("approved_by", nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&domain.Overtime{}).Where("approved_by = ?", id).Update("approved_by", nil).Error; err != nil {
+			return err
+		}
+
+		// Handle ManagerialAppraisal where this employee was the manager
+		// Since ManagerID is NOT NULL, we must delete these appraisals
+		if err := tx.Where("manager_id = ?", id).Delete(&domain.ManagerialAppraisal{}).Error; err != nil {
+			return err
+		}
+
+		// 4. Update subordinates (set manager_id to NULL)
+		if err := tx.Model(&domain.Employee{}).Where("manager_id = ?", id).Update("manager_id", nil).Error; err != nil {
+			return err
+		}
+
+		// 5. Finally delete the employee record
+		if err := tx.Where("id = ?", id).Delete(&domain.Employee{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *employeeRepository) FindBirthdaysToday() ([]domain.Employee, error) {

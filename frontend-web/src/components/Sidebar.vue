@@ -34,16 +34,11 @@ const router = useRouter()
 
 const user = computed(() => authStore.user)
 
+// Logout handler
 const handleLogout = () => {
   authStore.logout()
   router.push('/login')
 }
-
-// Generate avatar URL based on name
-const avatarUrl = computed(() => {
-  if (!user.value?.FirstName) return 'https://i.pravatar.cc/150?u=tom'
-  return `https://ui-avatars.com/api/?name=${user.value.FirstName}+${user.value.LastName || ''}&background=990000&color=ffffff&bold=true`
-})
 
 const menuGroups = [
   {

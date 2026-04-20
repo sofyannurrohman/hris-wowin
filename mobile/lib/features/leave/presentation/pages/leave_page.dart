@@ -481,14 +481,50 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
         filteredBalances = uniqueMap.values.toList();
 
         if (state.status == LeaveStatus.loading && allBalances.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return Container(
+            height: 60,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
+            child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryRed))),
+          );
+        }
+
+        if (state.status == LeaveStatus.failure && allBalances.isEmpty) {
+          return InkWell(
+            onTap: () => context.read<LeaveBloc>().add(const FetchLeaveBalancesRequested()),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.error.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.error.withOpacity(0.2))),
+              child: Column(
+                children: [
+                  Text('Gagal memuat tipe pengajuan: ${state.message}', style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  const Text('Ketuk untuk coba lagi', style: TextStyle(fontSize: 10, color: AppColors.error, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                ],
+              ),
+            ),
+          );
         }
 
         if (filteredBalances.isEmpty) {
+          final debugInfo = allBalances.isEmpty ? "List Kosong" : "${allBalances.length} tipe, 0 mode matches";
           return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: AppColors.grayLight.withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
-            child: Text('Belum ada tipe ${_isIzinMode ? 'Izin' : 'Cuti'} yang dikonfigurasi (Total: ${allBalances.length}). Harap hubungi HRD.', style: const TextStyle(fontSize: 13, color: AppColors.textTertiary)),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: AppColors.grayLight.withOpacity(0.3), borderRadius: BorderRadius.circular(24)),
+            child: Column(
+              children: [
+                Icon(Icons.info_outline_rounded, color: AppColors.textTertiary.withOpacity(0.5), size: 24),
+                const SizedBox(height: 12),
+                Text(
+                  'Belum ada tipe ${_isIzinMode ? 'Izin' : 'Cuti'} tersedia.',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  'Hubungi HRD untuk konfigurasi tipe pengajuan ($debugInfo).',
+                  style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                ),
+              ],
+            ),
           );
         }
 

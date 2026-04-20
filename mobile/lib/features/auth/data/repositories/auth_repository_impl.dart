@@ -234,7 +234,21 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final response = await apiClient.client.get('employees/profile');
       if (response.statusCode == 200) {
-        return Right(response.data['data']);
+        final data = response.data['data'];
+        
+        try {
+          if (data != null) {
+            final faceEmbedding = data['face_embedding'] ?? data['FaceEmbedding'];
+            if (faceEmbedding != null && faceEmbedding is List && faceEmbedding.isNotEmpty) {
+              final stringList = faceEmbedding.map((e) => e.toString()).toList();
+              await prefs.setStringList('face_embedding', stringList);
+            }
+          }
+        } catch (e) {
+          // Ignore parse errors, just continue
+        }
+
+        return Right(data);
       } else {
         return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to get profile') : 'Failed to get profile'));
       }

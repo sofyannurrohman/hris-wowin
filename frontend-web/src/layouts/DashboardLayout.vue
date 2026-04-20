@@ -16,7 +16,11 @@ const layoutStore = useLayoutStore()
       
       <main class="flex-1 overflow-x-hidden overflow-y-auto">
         <div class="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
-          <RouterView />
+          <RouterView v-slot="{ Component }">
+            <Transition name="page-fade" mode="out-in">
+              <component :is="Component" />
+            </Transition>
+          </RouterView>
         </div>
       </main>
     </div>

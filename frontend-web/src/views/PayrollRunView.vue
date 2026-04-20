@@ -35,9 +35,9 @@ const runPayroll = async () => {
   isSubmitting.value = true
   try {
     await apiClient.post('/payroll/generate', {
-      periodStart: newRun.value.periodStart,
-      periodEnd: newRun.value.periodEnd,
-      paymentSchedule: newRun.value.paymentSchedule || null
+      period_start: newRun.value.periodStart,
+      period_end: newRun.value.periodEnd,
+      payment_schedule: newRun.value.paymentSchedule || null
     })
     toast.success('Payroll berhasil dijalankan!')
     isRunModalOpen.value = false
@@ -87,11 +87,11 @@ const columns = [
     header: 'PERIODE',
     cell: ({ row }: any) => {
       const r = row.original
-      return h('span', { class: 'font-bold text-gray-900' }, `${fmtDate(r.PeriodStart)} – ${fmtDate(r.PeriodEnd)}`)
+      return h('span', { class: 'font-bold text-gray-900' }, `${fmtDate(r.period_start)} – ${fmtDate(r.period_end)}`)
     }
   },
   {
-    accessorKey: 'Status',
+    accessorKey: 'status',
     header: 'STATUS',
     cell: (info: any) => {
       const s = info.getValue()
@@ -102,12 +102,12 @@ const columns = [
     }
   },
   {
-    accessorKey: 'TotalPayout',
+    accessorKey: 'total_payout',
     header: 'TOTAL PEMBAYARAN',
     cell: (info: any) => h('span', { class: 'font-semibold text-gray-900' }, fmtCurrency(info.getValue()))
   },
   {
-    accessorKey: 'PaymentSchedule',
+    accessorKey: 'payment_schedule',
     header: 'JADWAL BAYAR',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, fmtDate(info.getValue()))
   },
@@ -117,8 +117,8 @@ const columns = [
     cell: ({ row }: any) => {
       const r = row.original
       return h('div', { class: 'flex gap-2 flex-wrap' }, [
-        h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-primary hover:bg-primary/5', onClick: () => exportCSV(r.ID) }, () => 'Export CSV'),
-        h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-red-600 hover:bg-red-50', onClick: () => deleteRun(r.ID) }, () => h(Trash2, { class: 'w-4 h-4' }))
+        h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-primary hover:bg-primary/5', onClick: () => exportCSV(r.id) }, () => 'Export CSV'),
+        h(Button, { variant: 'ghost', size: 'sm', class: 'h-8 px-2 text-red-600 hover:bg-red-50', onClick: () => deleteRun(r.id) }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }
   }

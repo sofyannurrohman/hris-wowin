@@ -50,5 +50,22 @@ func (r *leaveTypeRepository) Update(leaveType *domain.LeaveType) error {
 }
 
 func (r *leaveTypeRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&domain.LeaveType{}).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Delete related leave balances
+		if err := tx.Where("leave_type_id = ?", id).Delete(&domain.LeaveBalance{}).Error; err != nil {
+			return err
+		}
+
+		// Delete related leave requests
+		if err := tx.Where("leave_type_id = ?", id).Delete(&domain.LeaveRequest{}).Error; err != nil {
+			return err
+		}
+
+		// Finally delete the leave type
+		if err := tx.Where("id = ?", id).Delete(&domain.LeaveType{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

@@ -32,8 +32,8 @@ const fetchKPIs = async () => {
         return {
           id: item.ID,
           employee_id: item.EmployeeID,
-          name: item.Employee?.FirstName || 'Karyawan',
-          role: item.Employee?.JobPosition?.Name || '-',
+          name: item.Employee?.first_name || 'Karyawan',
+          role: item.Employee?.job_position?.title || '-',
           attendance_score: item.AttendanceScore,
           productivity_score: item.ProductivityScore,
           final_score: item.FinalScore,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, h, computed, toRaw } from 'vue'
 import { toast } from 'vue-sonner'
 import { Plus, Pencil, Trash2, CheckCircle, XCircle, FileText, Eye } from 'lucide-vue-next'
 import axios from '@/api/axios'
@@ -15,12 +15,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterData = useMasterDataStore()
 
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const displayData = ref<any[]>([])
 const employees = ref<any[]>([])
-const leaveTypes = ref<any[]>([])
 
 // --- Filter ---
 const activeFilter = ref('ALL')
@@ -28,7 +30,7 @@ const statusFilters = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
 
 const filteredData = computed(() => {
   if (activeFilter.value === 'ALL') return displayData.value
-  return displayData.value.filter(r => r.Status === activeFilter.value)
+  return displayData.value.filter(r => r.status === activeFilter.value)
 })
 
 // --- CRUD Modal ---
@@ -42,6 +44,7 @@ const form = ref({
   end_date: '',
   reason: '',
   attachment_url: '',
+  attachment_file: null as File | null,
   status: 'PENDING',
 })
 
@@ -64,6 +67,7 @@ const openAddModal = () => {
     end_date: '',
     reason: '',
     attachment_url: '',
+    attachment_file: null,
     status: 'PENDING',
   }
   isModalOpen.value = true
@@ -72,16 +76,24 @@ const openAddModal = () => {
 const openEditModal = (row: any) => {
   isEditMode.value = true
   form.value = {
-    id: row.ID,
-    employee_id: row.EmployeeID,
-    leave_type_id: row.LeaveTypeID,
-    start_date: row.StartDate ? new Date(row.StartDate).toISOString().split('T')[0] : '',
-    end_date: row.EndDate ? new Date(row.EndDate).toISOString().split('T')[0] : '',
-    reason: row.Reason || '',
-    attachment_url: row.AttachmentURL || '',
-    status: row.Status || 'PENDING',
+    id: String(row.id || ''),
+    employee_id: String(row.employee_id || ''),
+    leave_type_id: String(row.leave_type_id || ''),
+    start_date: row.start_date ? new Date(row.start_date).toISOString().slice(0, 10) : '',
+    end_date: row.end_date ? new Date(row.end_date).toISOString().slice(0, 10) : '',
+    reason: (row.reason || '') as string,
+    attachment_url: (row.attachment_url || '') as string,
+    attachment_file: null,
+    status: (row.status || 'PENDING') as string,
   }
   isModalOpen.value = true
+}
+
+const onFileChange = (e: any) => {
+  const file = e.target.files[0]
+  if (file) {
+    form.value.attachment_file = file
+  }
 }
 
 const closeModal = () => {
@@ -95,26 +107,28 @@ const saveLeave = async () => {
   }
   isSubmitting.value = true
   try {
+    const formData = new FormData()
+    formData.append('employee_id', form.value.employee_id)
+    formData.append('leave_type_id', form.value.leave_type_id)
+    formData.append('start_date', form.value.start_date)
+    formData.append('end_date', form.value.end_date)
+    formData.append('reason', form.value.reason)
+    formData.append('status', form.value.status)
+    if (form.value.attachment_file) {
+      formData.append('attachment', toRaw(form.value.attachment_file))
+    }
+
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }
+
     if (isEditMode.value) {
-      await axios.put(`/time-off/${form.value.id}`, {
-        leave_type_id: form.value.leave_type_id,
-        start_date: form.value.start_date,
-        end_date: form.value.end_date,
-        reason: form.value.reason,
-        attachment_url: form.value.attachment_url,
-        status: form.value.status,
-      })
+      await axios.put(`/time-off/manage/${form.value.id}`, formData, config)
       toast.success('Pengajuan berhasil diperbarui!')
     } else {
-      await axios.post('/time-off', {
-        employee_id: form.value.employee_id,
-        leave_type_id: form.value.leave_type_id,
-        start_date: form.value.start_date,
-        end_date: form.value.end_date,
-        reason: form.value.reason,
-        attachment_url: form.value.attachment_url,
-        status: form.value.status || 'PENDING',
-      })
+      await axios.post('/time-off/manage', formData, config)
       toast.success('Pengajuan berhasil ditambahkan!')
     }
     closeModal()
@@ -129,7 +143,7 @@ const saveLeave = async () => {
 const deleteLeave = async (id: string) => {
   if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return
   try {
-    await axios.delete(`/time-off/${id}`)
+    await axios.delete(`/time-off/manage/${id}`)
     toast.success('Pengajuan berhasil dihapus.')
     fetchLeaves()
   } catch (e: any) {
@@ -140,7 +154,7 @@ const deleteLeave = async (id: string) => {
 const approveLeave = async (id: string) => {
   if (!confirm('Setujui pengajuan cuti/izin ini?')) return
   try {
-    await axios.put(`/time-off/${id}/approve`, { status: 'APPROVED' })
+    await axios.put(`/time-off/manage/${id}/approve`, { status: 'APPROVED' })
     toast.success('Pengajuan berhasil disetujui.')
     fetchLeaves()
   } catch (e: any) {
@@ -161,7 +175,7 @@ const confirmReject = async () => {
   }
   isSubmitting.value = true
   try {
-    await axios.put(`/time-off/${selectedLeaveId.value}/approve`, {
+    await axios.put(`/time-off/manage/${selectedLeaveId.value}/approve`, {
       status: 'REJECTED',
       reject_reason: rejectReason.value,
     })
@@ -176,14 +190,15 @@ const confirmReject = async () => {
 }
 
 const openAttachmentModal = (url: string) => {
-  selectedAttachmentURL.value = url
+  const baseUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '')
+  selectedAttachmentURL.value = url.startsWith('http') ? url : `${baseUrl}${url}`
   attachmentModalOpen.value = true
 }
 
 const fetchLeaves = async () => {
   isLoading.value = true
   try {
-    const res = await axios.get('/time-off')
+    const res = await axios.get('/time-off/manage')
     if (res.data?.data) displayData.value = res.data.data
   } catch (error) {
     console.error('Failed fetching leave data', error)
@@ -199,34 +214,29 @@ const fetchEmployees = async () => {
   } catch (e) { console.error(e) }
 }
 
-const fetchLeaveTypes = async () => {
-  try {
-    const res = await axios.get('/leave-types')
-    leaveTypes.value = res.data.data || []
-  } catch (e) { console.error(e) }
-}
-
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
+
+const getInitials = (name: string) =>
+  name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
 const columns = [
   {
+    accessorFn: (row: any) => {
+      const emp = row.employee
+      return emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() : '-'
+    },
     id: 'employee',
     header: 'KARYAWAN',
-    cell: ({ row }: any) => {
-      const emp = row.original.Employee
-      const name = emp ? `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() : '-'
-      const image = `https://ui-avatars.com/api/?name=${name}&background=990000&color=ffffff&bold=true`
-      return h('div', { class: 'flex items-center gap-3' }, [
-        h('img', { src: image, class: 'w-8 h-8 rounded-full border border-gray-200 object-cover' }),
-        h('div', { class: 'font-bold text-gray-900 leading-tight text-[13px]' }, name)
-      ])
-    }
+    cell: (info: any) => h('div', { class: 'flex flex-col' }, [
+      h('div', { class: 'font-bold text-gray-900 leading-tight text-[13px]' }, info.getValue())
+    ])
   },
   {
+    accessorFn: (row: any) => row.leave_type?.name || '-',
     id: 'leaveType',
     header: 'JENIS CUTI/IZIN',
     cell: ({ row }: any) => {
-      const name = row.original.LeaveType?.Name || '-'
+      const name = row.original.leave_type?.name || '-'
       const isSick = name.toLowerCase().includes('sakit') || name.toLowerCase().includes('sick')
       return h('div', { class: 'flex flex-col gap-0.5' }, [
         h('span', { class: 'font-semibold text-gray-700 text-[13px]' }, name),
@@ -235,13 +245,14 @@ const columns = [
     }
   },
   {
+    accessorKey: 'start_date',
     id: 'period',
     header: 'PERIODE',
     cell: ({ row }: any) => {
       const r = row.original
-      const start = fmt(r.StartDate)
-      const end = fmt(r.EndDate)
-      const days = Math.ceil((new Date(r.EndDate).getTime() - new Date(r.StartDate).getTime()) / (1000 * 3600 * 24)) + 1
+      const start = fmt(r.start_date)
+      const end = fmt(r.end_date)
+      const days = Math.ceil((new Date(r.end_date).getTime() - new Date(r.start_date).getTime()) / (1000 * 3600 * 24)) + 1
       return h('div', { class: 'flex flex-col' }, [
         h('span', { class: 'text-gray-700 text-[13px]' }, `${start} - ${end}`),
         h('span', { class: 'text-gray-400 text-[11px]' }, `${days} hari`)
@@ -249,7 +260,7 @@ const columns = [
     }
   },
   {
-    accessorKey: 'Reason',
+    accessorKey: 'reason',
     header: 'ALASAN',
     cell: (info: any) => h('span', {
       class: 'text-gray-500 text-[13px] max-w-[180px] truncate inline-block',
@@ -260,7 +271,7 @@ const columns = [
     id: 'attachment',
     header: 'LAMPIRAN (DOKTER)',
     cell: ({ row }: any) => {
-      const url = row.original.AttachmentURL
+      const url = row.original.attachment_url
       if (!url) return h('span', { class: 'text-gray-400 text-[12px]' }, '—')
       return h('button', {
         class: 'flex items-center gap-1 text-primary text-[12px] font-semibold hover:underline',
@@ -272,7 +283,7 @@ const columns = [
     }
   },
   {
-    accessorKey: 'Status',
+    accessorKey: 'status',
     header: 'STATUS',
     cell: ({ getValue }: any) => {
       const val = getValue() as string
@@ -287,44 +298,41 @@ const columns = [
     header: 'AKSI',
     cell: ({ row }: any) => {
       const r = row.original
-      const status = r.Status
+      const status = r.status
       return h('div', { class: 'flex items-center gap-1' }, [
-        // Edit always allowed (if pending)
         h('button', {
           class: 'p-1.5 rounded hover:bg-blue-50 text-blue-600 transition-colors',
           title: 'Edit',
           onClick: () => openEditModal(r)
         }, h(Pencil, { class: 'w-3.5 h-3.5' })),
 
-        // Approve button
         status === 'PENDING' ? h('button', {
           class: 'p-1.5 rounded hover:bg-green-50 text-green-600 transition-colors',
           title: 'Setujui',
-          onClick: () => approveLeave(r.ID)
+          onClick: () => approveLeave(r.id)
         }, h(CheckCircle, { class: 'w-3.5 h-3.5' })) : null,
 
-        // Reject button
         status === 'PENDING' ? h('button', {
           class: 'p-1.5 rounded hover:bg-red-50 text-red-600 transition-colors',
           title: 'Tolak',
-          onClick: () => openRejectModal(r.ID)
+          onClick: () => openRejectModal(r.id)
         }, h(XCircle, { class: 'w-3.5 h-3.5' })) : null,
 
-        // Delete
         h('button', {
-          class: 'p-1.5 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors',
+          class: 'p-1.5 rounded hover:bg-rose-50 text-rose-600 transition-colors',
           title: 'Hapus',
-          onClick: () => deleteLeave(r.ID)
+          onClick: () => deleteLeave(r.id)
         }, h(Trash2, { class: 'w-3.5 h-3.5' }))
       ])
-    }
+    },
+    enableSorting: false
   }
 ]
 
 onMounted(() => {
   fetchLeaves()
   fetchEmployees()
-  fetchLeaveTypes()
+  masterData.fetchLeaveTypes()
 })
 </script>
 
@@ -359,18 +367,18 @@ onMounted(() => {
 
     <!-- Stats Summary -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div v-for="[label, color, filterKey] in [
-        ['Total Pengajuan', 'text-gray-700', 'ALL'],
-        ['Menunggu', 'text-yellow-600', 'PENDING'],
-        ['Disetujui', 'text-green-600', 'APPROVED'],
-        ['Ditolak', 'text-red-500', 'REJECTED'],
-      ]" :key="label"
+      <div v-for="stat in [
+        { label: 'Total Pengajuan', color: 'text-gray-700', key: 'ALL' },
+        { label: 'Menunggu', color: 'text-yellow-600', key: 'PENDING' },
+        { label: 'Disetujui', color: 'text-green-600', key: 'APPROVED' },
+        { label: 'Ditolak', color: 'text-red-500', key: 'REJECTED' },
+      ]" :key="stat.label"
         class="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-        @click="activeFilter = filterKey"
+        @click="activeFilter = stat.key"
       >
-        <p class="text-xs text-gray-500 font-medium">{{ label }}</p>
-        <p :class="['text-2xl font-bold mt-1', color]">
-          {{ filterKey === 'ALL' ? displayData.length : displayData.filter(r => r.Status === filterKey).length }}
+        <p class="text-xs text-gray-500 font-medium">{{ stat.label }}</p>
+        <p :class="['text-2xl font-bold mt-1', stat.color]">
+          {{ stat.key === 'ALL' ? displayData.length : displayData.filter(r => r.status === stat.key).length }}
         </p>
       </div>
     </div>
@@ -393,8 +401,8 @@ onMounted(() => {
             <Select v-model="form.employee_id">
               <SelectTrigger><SelectValue placeholder="Pilih Karyawan" /></SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="e in employees" :key="e.ID" :value="e.ID">
-                  {{ e.FirstName }} {{ e.LastName || '' }}
+                <SelectItem v-for="e in employees" :key="e.id" :value="e.id">
+                  {{ e.first_name }} {{ e.last_name || '' }}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -406,7 +414,7 @@ onMounted(() => {
             <Select v-model="form.leave_type_id">
               <SelectTrigger><SelectValue placeholder="Pilih Jenis Izin" /></SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="lt in leaveTypes" :key="lt.ID" :value="lt.ID">{{ lt.Name }}</SelectItem>
+                <SelectItem v-for="lt in masterData.leaveTypes" :key="lt.id" :value="lt.id">{{ lt.name }}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -437,10 +445,20 @@ onMounted(() => {
           <div class="grid gap-2">
             <label class="text-sm font-medium flex items-center gap-1.5">
               <FileText class="w-4 h-4 text-orange-500" />
-              URL Lampiran Surat Dokter
+              Lampiran Surat Dokter
             </label>
-            <Input v-model="form.attachment_url" placeholder="https://..." type="url" />
-            <p class="text-xs text-gray-500">Wajib diisi untuk izin sakit agar dapat divalidasi oleh manajerial.</p>
+            <Input type="file" @change="onFileChange" accept=".jpg,.jpeg,.png,.pdf" />
+            <div v-if="form.attachment_url" class="flex items-center gap-2 mt-1">
+              <span class="text-[11px] text-gray-500">Berkas saat ini:</span>
+              <button
+                type="button"
+                @click="openAttachmentModal(form.attachment_url)"
+                class="text-[11px] text-primary font-semibold hover:underline flex items-center gap-1"
+              >
+                <Eye class="w-3 h-3" /> Lihat
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 italic">Wajib diisi untuk izin sakit agar dapat divalidasi oleh manajerial.</p>
           </div>
 
           <!-- Status (Only in Edit Mode) -->

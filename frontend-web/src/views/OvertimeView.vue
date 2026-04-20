@@ -101,13 +101,13 @@ const fetchOvertimes = async () => {
     const res = await apiClient.get('/overtimes/')
     if (res.data?.data) {
       displayData.value = res.data.data.map((item: any) => ({
-        id: item.ID,
-        name: item.Employee?.FirstName || 'Karyawan',
-        date: item.Date ? new Date(item.Date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
-        duration: item.DurationMinutes ? `${Math.floor(item.DurationMinutes / 60)}j ${item.DurationMinutes % 60}m` : '-',
-        reason: item.Reason || '-',
-        status: item.Status || 'pending',
-        avatar: `https://i.pravatar.cc/150?u=${item.EmployeeID}`
+        id: item.id,
+        name: item.Employee?.first_name || 'Karyawan',
+        date: item.date ? new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-',
+        duration: item.duration_minutes ? `${Math.floor(item.duration_minutes / 60)}j ${item.duration_minutes % 60}m` : '-',
+        reason: item.reason || '-',
+        status: item.status || 'pending',
+        avatar: `https://i.pravatar.cc/150?u=${item.employee_id}`
       }))
     } else {
       displayData.value = []

@@ -38,11 +38,11 @@ const openAddModal = () => {
 const openEditModal = (user: any) => {
   isEditMode.value = true
   newUser.value = {
-    id: user.ID,
-    email: user.Email || '',
+    id: user.id,
+    email: user.email || '',
     password: '', // Blank initially for update
-    role: user.Role || 'employee',
-    isActive: user.IsActive
+    role: user.role || 'employee',
+    isActive: user.is_active
   }
   isModalOpen.value = true
 }
@@ -109,12 +109,12 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Email',
+    accessorKey: 'email',
     header: 'EMAIL',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'Role',
+    accessorKey: 'role',
     header: 'HAK AKSES',
     cell: ({ getValue }: any) => {
       const val = getValue() as string
@@ -126,7 +126,7 @@ const columns = [
     }
   },
   {
-    accessorKey: 'IsActive',
+    accessorKey: 'is_active',
     header: 'STATUS',
     cell: (info: any) => {
       const active = info.getValue()
@@ -136,7 +136,7 @@ const columns = [
     }
   },
   {
-    accessorFn: (row: any) => row.CreatedAt ? new Date(row.CreatedAt).toLocaleDateString() : '-',
+    accessorFn: (row: any) => row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
     id: 'createdAt',
     header: 'DIBUAT PADA',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
@@ -157,7 +157,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteUser(user.ID)
+            onClick: () => deleteUser(user.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }

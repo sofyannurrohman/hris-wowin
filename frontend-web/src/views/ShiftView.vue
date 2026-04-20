@@ -8,6 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
 
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterData = useMasterDataStore()
+
 const isModalOpen = ref(false)
 const newShift = ref({
   id: '',
@@ -23,7 +27,6 @@ const newShift = ref({
 const isEditMode = ref(false)
 const isSubmitting = ref(false)
 const shifts = ref<any[]>([])
-const branches = ref<any[]>([])
 const isLoading = ref(true)
 
 const openAddModal = () => {
@@ -41,26 +44,32 @@ const openAddModal = () => {
   isModalOpen.value = true
 }
 
+const formatTime = (iso: string) => {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '-'
+  return `${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')}`
+}
+
+const formatTimeForInput = (iso: string) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+}
+
 const openEditModal = (shift: any) => {
   isEditMode.value = true
   
-  // Convert full ISO string to HH:mm for simple input type="time"
-  const parseTime = (isoString: string) => {
-    if (!isoString) return ''
-    const d = new Date(isoString)
-    if (isNaN(d.getTime())) return ''
-    return d.toISOString().substring(11, 16)
-  }
-
   newShift.value = {
-    id: shift.ID,
-    name: shift.Name || '',
-    startTime: parseTime(shift.StartTime),
-    endTime: parseTime(shift.EndTime),
-    breakStart: shift.BreakStart ? parseTime(shift.BreakStart) : '',
-    breakEnd: shift.BreakEnd ? parseTime(shift.BreakEnd) : '',
-    branchId: shift.BranchID || '',
-    isFlexible: shift.IsFlexible || false
+    id: shift.id,
+    name: shift.name || '',
+    startTime: formatTimeForInput(shift.start_time),
+    endTime: formatTimeForInput(shift.end_time),
+    breakStart: shift.break_start ? formatTimeForInput(shift.break_start) : '',
+    breakEnd: shift.break_end ? formatTimeForInput(shift.break_end) : '',
+    branchId: shift.branch_id || 'all',
+    isFlexible: shift.is_flexible || false
   }
   isModalOpen.value = true
 }
@@ -81,32 +90,22 @@ const fetchShifts = async () => {
   }
 }
 
-const fetchBranches = async () => {
-  try {
-    const res = await apiClient.get('/branches')
-    branches.value = res.data.data
-  } catch (err) {
-    console.error(err)
-  }
-}
-
 const saveShift = async () => {
   isSubmitting.value = true
   try {
-    // Format back to ISO String for backend (fake date 1970-01-01 is fine for time types in our GORM schema usually, or use full current date)
     const toISO = (timeStr: string) => {
       if (!timeStr) return null
-      return `0000-01-01T${timeStr}:00Z` // backend parsing can usually handle this if it's purely time, or we can use 1970 
+      return `0000-01-01T${timeStr}:00Z`
     }
 
     const payload = {
       name: newShift.value.name,
-      startTime: toISO(newShift.value.startTime),
-      endTime: toISO(newShift.value.endTime),
-      breakStart: toISO(newShift.value.breakStart),
-      breakEnd: toISO(newShift.value.breakEnd),
-      branchId: newShift.value.branchId || null,
-      isFlexible: newShift.value.isFlexible
+      start_time: toISO(newShift.value.startTime),
+      end_time: toISO(newShift.value.endTime),
+      break_start: toISO(newShift.value.breakStart),
+      break_end: toISO(newShift.value.breakEnd),
+      branch_id: newShift.value.branchId === 'all' ? null : newShift.value.branchId,
+      is_flexible: newShift.value.isFlexible
     }
 
     if (isEditMode.value) {
@@ -139,54 +138,38 @@ const deleteShift = async (id: string) => {
 
 onMounted(() => {
   fetchShifts()
-  fetchBranches()
+  masterData.fetchBranches()
 })
 
 const columns = [
   {
-    accessorKey: 'Name',
+    accessorKey: 'name',
     header: 'NAMA SHIFT',
-    cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
+    cell: (info: any) => h('span', { class: 'font-bold text-gray-900 uppercase tracking-tight' }, info.getValue() || '-')
   },
   {
+    accessorFn: (row: any) => row.branch?.name || 'Semua Cabang',
     id: 'branch',
     header: 'CABANG',
-    cell: ({ row }: any) => h('span', { class: 'text-gray-500' }, row.original.Branch?.Name || 'Semua Cabang')
+    cell: (info: any) => h('span', { class: 'text-gray-500' }, info.getValue())
   },
   {
+    accessorFn: (row: any) => `${formatTime(row.start_time)} - ${formatTime(row.end_time)}`,
     id: 'waktu',
     header: 'JAM KERJA',
-    cell: ({ row }: any) => {
-      const shift = row.original
-      const fmtTime = (isoString: string) => {
-        if (!isoString) return '-'
-        const d = new Date(isoString)
-        if (isNaN(d.getTime())) return '-'
-        const h = String(d.getUTCHours()).padStart(2, '0')
-        const m = String(d.getUTCMinutes()).padStart(2, '0')
-        return `${h}.${m}`
-      }
-      return h('span', { class: 'text-gray-600' }, `${fmtTime(shift.StartTime)} - ${fmtTime(shift.EndTime)}`)
-    }
+    cell: ({ getValue }: any) => h('span', { class: 'text-gray-600' }, getValue())
   },
   {
+    accessorFn: (row: any) => {
+      if (!row.break_start || !row.break_end) return 'Tidak Ada'
+      return `${formatTime(row.break_start)} - ${formatTime(row.break_end)}`
+    },
     id: 'istirahat',
     header: 'ISTIRAHAT',
-    cell: ({ row }: any) => {
-      const shift = row.original
-      if (!shift.BreakStart || !shift.BreakEnd) return h('span', { class: 'text-gray-400' }, 'Tidak Ada')
-      const fmtTime = (isoString: string) => {
-        const d = new Date(isoString)
-        if (isNaN(d.getTime())) return ''
-        const h = String(d.getUTCHours()).padStart(2, '0')
-        const m = String(d.getUTCMinutes()).padStart(2, '0')
-        return `${h}.${m}`
-      }
-      return h('span', { class: 'text-gray-600 text-[13px]' }, `${fmtTime(shift.BreakStart)} - ${fmtTime(shift.BreakEnd)}`)
-    }
+    cell: ({ getValue }: any) => h('span', { class: 'text-gray-600 text-[13px]' }, getValue())
   },
   {
-    accessorKey: 'IsFlexible',
+    accessorKey: 'is_flexible',
     header: 'FLEXIBLE',
     cell: (info: any) => {
       const isFlex = info.getValue()
@@ -212,17 +195,17 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteShift(shift.ID)
+            onClick: () => deleteShift(shift.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
-    }
+    },
+    enableSorting: false
   }
 ]
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Header Page -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Master Shift Kerja</h1>
@@ -239,10 +222,8 @@ const columns = [
       </div>
     </div>
 
-    <!-- DataTable Instance -->
     <DataTable :data="shifts" :columns="columns" :isLoading="isLoading" />
 
-    <!-- Add/Edit Modal -->
     <Dialog v-model:open="isModalOpen">
       <DialogContent class="sm:max-w-xl">
         <DialogHeader>
@@ -259,11 +240,20 @@ const columns = [
           </div>
 
           <div class="grid gap-2">
-            <label class="text-[13px] font-medium text-gray-700">Berlaku di Cabang (Kosongkan jika semua)</label>
-            <select v-model="newShift.branchId" class="flex h-10 w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950">
-               <option value="">Semua Cabang</option>
-               <option v-for="b in branches" :key="b.ID" :value="b.ID">{{ b.Name }}</option>
-            </select>
+            <label class="text-[13px] font-medium text-gray-700">Berlaku di Cabang</label>
+            <Select v-model="newShift.branchId">
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih Cabang" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">Semua Cabang (Global)</SelectItem>
+                  <SelectItem v-for="b in masterData.branches" :key="b.id" :value="b.id">
+                    {{ b.name }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
           
           <div class="grid grid-cols-2 gap-4">

@@ -8,14 +8,14 @@ import (
 )
 
 type Department struct {
-	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	CompanyID *uuid.UUID `gorm:"type:uuid"`
-	Name      string     `gorm:"type:varchar(100);not null"`
-	ParentID  *uuid.UUID `gorm:"type:uuid"`
-	CreatedAt time.Time  `gorm:"default:now()"`
+	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	CompanyID *uuid.UUID `gorm:"type:uuid" json:"company_id"`
+	Name      string     `gorm:"type:varchar(100);not null" json:"name"`
+	ParentID  *uuid.UUID `gorm:"type:uuid" json:"parent_id"`
+	CreatedAt time.Time  `gorm:"default:now()" json:"created_at"`
 
-	Company          *Company    `gorm:"foreignKey:CompanyID"`
-	ParentDepartment *Department `gorm:"foreignKey:ParentID"`
+	Company          *Company    `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
+	ParentDepartment *Department `gorm:"foreignKey:ParentID" json:"parent_department,omitempty"`
 }
 
 func (d *Department) BeforeCreate(tx *gorm.DB) (err error) {

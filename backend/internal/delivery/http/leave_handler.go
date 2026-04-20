@@ -1,7 +1,10 @@
 package http
 
 import (
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +41,7 @@ func (h *LeaveHandler) SetupRoutes(router *gin.RouterGroup) {
 			managed.DELETE("/:id", h.AdminDeleteLeave)
 			managed.PUT("/:id/approve", h.ApproveLeave)
 			managed.PUT("/balances", h.AdminUpdateBalance)
+			managed.DELETE("/balances", h.AdminDeleteBalance)
 		}
 	}
 
@@ -65,16 +69,13 @@ func (h *LeaveHandler) SubmitLeave(c *gin.Context) {
 	}
 
 	// Handle file upload
-	file, err := c.FormFile("attachment")
-	if err == nil {
-		// Save file
-		filename := uuid.New().String() + "-" + file.Filename
-		savePath := "uploads/attachments/" + filename
-		if err := c.SaveUploadedFile(file, savePath); err != nil {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
-			return
-		}
-		req.AttachmentURL = "/uploads/attachments/" + filename
+	attachmentURL, err := h.handleFileUpload(c)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		return
+	}
+	if attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
 	}
 
 	err = h.leaveUseCase.SubmitLeave(userID, req)
@@ -189,10 +190,21 @@ func (h *LeaveHandler) GetAllLeaveBalances(c *gin.Context) {
 
 func (h *LeaveHandler) AdminCreateLeave(c *gin.Context) {
 	var req usecase.AdminLeaveRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBind(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Handle file upload
+	attachmentURL, err := h.handleFileUpload(c)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		return
+	}
+	if attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
+	}
+
 	if err := h.leaveUseCase.AdminCreateLeave(req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
@@ -209,9 +221,19 @@ func (h *LeaveHandler) AdminUpdateLeave(c *gin.Context) {
 	}
 
 	var req usecase.AdminLeaveRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBind(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// Handle file upload
+	attachmentURL, err := h.handleFileUpload(c)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		return
+	}
+	if attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
 	}
 
 	if err := h.leaveUseCase.AdminUpdateLeave(leaveID, req); err != nil {
@@ -256,13 +278,9 @@ func (h *LeaveHandler) UpdateMyLeave(c *gin.Context) {
 	}
 
 	// Handle file upload if any
-	file, err := c.FormFile("attachment")
-	if err == nil {
-		filename := uuid.New().String() + "-" + file.Filename
-		savePath := "uploads/attachments/" + filename
-		if err := c.SaveUploadedFile(file, savePath); err == nil {
-			req.AttachmentURL = "/uploads/attachments/" + filename
-		}
+	attachmentURL, err := h.handleFileUpload(c)
+	if err == nil && attachmentURL != "" {
+		req.AttachmentURL = attachmentURL
 	}
 
 	err = h.leaveUseCase.UpdateMyLeave(leaveID, userID, req)
@@ -311,4 +329,44 @@ func (h *LeaveHandler) AdminUpdateBalance(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Leave balance updated successfully", nil)
+}
+
+func (h *LeaveHandler) AdminDeleteBalance(c *gin.Context) {
+	var req usecase.AdminUpdateBalanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+
+	if err := h.leaveUseCase.AdminDeleteBalance(req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Leave balance deleted successfully", nil)
+}
+
+func (h *LeaveHandler) handleFileUpload(c *gin.Context) (string, error) {
+	file, err := c.FormFile("attachment")
+	if err != nil {
+		if err == http.ErrMissingFile {
+			return "", nil
+		}
+		log.Println("Error in FormFile:", err)
+		return "", err
+	}
+
+	filename := uuid.New().String() + "-" + filepath.Base(file.Filename)
+	uploadDir := "uploads/attachments"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		log.Println("Error in MkdirAll:", err)
+		return "", err
+	}
+	savePath := uploadDir + "/" + filename
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		log.Println("Error in SaveUploadedFile:", err)
+		return "", err
+	}
+
+	return "/uploads/attachments/" + filename, nil
 }

@@ -15,6 +15,9 @@ type ReimbursementUseCase interface {
 	Approve(approverID, id uuid.UUID, req ApproveReimbursementRequest) error
 	UpdateMyReimbursement(userID, id uuid.UUID, req SubmitReimbursementRequest) error
 	DeleteMyReimbursement(userID, id uuid.UUID) error
+	AdminCreate(req AdminReimbursementRequest) error
+	AdminUpdate(id uuid.UUID, req AdminReimbursementRequest) error
+	AdminDelete(id uuid.UUID) error
 }
 
 type reimbursementUseCase struct {
@@ -31,6 +34,15 @@ type SubmitReimbursementRequest struct {
 	Description   string  `json:"description" form:"description"`
 	Amount        float64 `json:"amount" form:"amount" binding:"required"`
 	AttachmentURL string  `json:"attachment_url" form:"attachment_url"`
+}
+
+type AdminReimbursementRequest struct {
+	EmployeeID    string  `json:"employee_id" form:"employee_id" binding:"required"`
+	Title         string  `json:"title" form:"title" binding:"required"`
+	Description   string  `json:"description" form:"description"`
+	Amount        float64 `json:"amount" form:"amount" binding:"required"`
+	AttachmentURL string  `json:"attachment_url" form:"attachment_url"`
+	Status        string  `json:"status" form:"status"`
 }
 
 type ApproveReimbursementRequest struct {
@@ -188,5 +200,59 @@ func (u *reimbursementUseCase) DeleteMyReimbursement(userID, id uuid.UUID) error
 		return errors.New("cannot delete reimbursement that is already processed")
 	}
 
+	return u.repo.Delete(id)
+}
+
+func (u *reimbursementUseCase) AdminCreate(req AdminReimbursementRequest) error {
+	empID, err := uuid.Parse(req.EmployeeID)
+	if err != nil {
+		return errors.New("invalid employee_id")
+	}
+
+	reimbursement := &domain.Reimbursement{
+		EmployeeID:    empID,
+		Title:         req.Title,
+		Description:   req.Description,
+		Amount:        req.Amount,
+		AttachmentURL: req.AttachmentURL,
+		Status:        domain.ReimbursementStatus(req.Status),
+	}
+	if reimbursement.Status == "" {
+		reimbursement.Status = domain.ReimbursementPending
+	}
+
+	return u.repo.Create(reimbursement)
+}
+
+func (u *reimbursementUseCase) AdminUpdate(id uuid.UUID, req AdminReimbursementRequest) error {
+	reimbursement, err := u.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if reimbursement == nil {
+		return errors.New("reimbursement not found")
+	}
+
+	if req.EmployeeID != "" {
+		empID, err := uuid.Parse(req.EmployeeID)
+		if err == nil {
+			reimbursement.EmployeeID = empID
+		}
+	}
+
+	reimbursement.Title = req.Title
+	reimbursement.Description = req.Description
+	reimbursement.Amount = req.Amount
+	if req.AttachmentURL != "" {
+		reimbursement.AttachmentURL = req.AttachmentURL
+	}
+	if req.Status != "" {
+		reimbursement.Status = domain.ReimbursementStatus(req.Status)
+	}
+
+	return u.repo.Update(reimbursement)
+}
+
+func (u *reimbursementUseCase) AdminDelete(id uuid.UUID) error {
 	return u.repo.Delete(id)
 }

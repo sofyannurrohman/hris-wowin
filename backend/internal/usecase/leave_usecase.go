@@ -24,6 +24,7 @@ type LeaveUseCase interface {
 	GetAllLeaveBalances() ([]*domain.LeaveBalance, error)
 	ApproveReturnLeave(leaveID, approverID uuid.UUID, req ApproveLeaveRequest) error
 	AdminUpdateBalance(req AdminUpdateBalanceRequest) error
+	AdminDeleteBalance(req AdminUpdateBalanceRequest) error
 }
 
 type leaveUseCase struct {
@@ -60,13 +61,13 @@ type ApproveLeaveRequest struct {
 }
 
 type AdminLeaveRequest struct {
-	EmployeeID    string `json:"employee_id" binding:"required"`
-	LeaveTypeID   string `json:"leave_type_id" binding:"required"`
-	StartDate     string `json:"start_date" binding:"required"`
-	EndDate       string `json:"end_date" binding:"required"`
-	Reason        string `json:"reason"`
-	AttachmentURL string `json:"attachment_url"`
-	Status        string `json:"status"` // PENDING, APPROVED, REJECTED
+	EmployeeID    string `json:"employee_id" form:"employee_id" binding:"required"`
+	LeaveTypeID   string `json:"leave_type_id" form:"leave_type_id" binding:"required"`
+	StartDate     string `json:"start_date" form:"start_date" binding:"required"`
+	EndDate       string `json:"end_date" form:"end_date" binding:"required"`
+	Reason        string `json:"reason" form:"reason"`
+	AttachmentURL string `json:"attachment_url" form:"attachment_url"`
+	Status        string `json:"status" form:"status"` // PENDING, APPROVED, REJECTED
 }
 
 type AdminUpdateBalanceRequest struct {
@@ -456,13 +457,9 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 		{CompanyID: employee.CompanyID, Name: "Izin Lainnya", IsPaid: false, RequiresQuota: false, DefaultQuota: 0},
 	}
 	
-	needsRefetch := false
 	for _, it := range izinTypes {
 		// FirstOrCreate will find existing or create new. Either way, we force the correct attributes.
-		result := u.db.Where("company_id = ? AND name = ?", it.CompanyID, it.Name).FirstOrCreate(&it)
-		if result.RowsAffected > 0 {
-		    needsRefetch = true
-		}
+		u.db.Where("company_id = ? AND name = ?", it.CompanyID, it.Name).FirstOrCreate(&it)
 		
 		// Ensure zero-values (false, 0) are correctly saved to DB overriding GORM defaults if tampered
 		u.db.Model(&it).Updates(map[string]interface{}{
@@ -472,10 +469,8 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 		})
 	}
 	
-	if needsRefetch {
-		// RE-FETCH after seeding to include the new types
-		leaveTypes, _ = u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
-	}
+	// ALWAYS RE-FETCH after seeding to include the new types and updated parameters
+	leaveTypes, _ = u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
 
 
 	// 2. Get existing balances
@@ -625,4 +620,17 @@ func (u *leaveUseCase) AdminUpdateBalance(req AdminUpdateBalanceRequest) error {
 	}
 
 	return u.repo.SaveBalance(balance)
+}
+
+func (u *leaveUseCase) AdminDeleteBalance(req AdminUpdateBalanceRequest) error {
+	empID, err := uuid.Parse(req.EmployeeID)
+	if err != nil {
+		return errors.New("invalid employee_id")
+	}
+	ltID, err := uuid.Parse(req.LeaveTypeID)
+	if err != nil {
+		return errors.New("invalid leave_type_id")
+	}
+
+	return u.repo.DeleteLeaveBalance(empID, ltID, req.Year)
 }

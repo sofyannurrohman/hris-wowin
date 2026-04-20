@@ -161,6 +161,21 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
             debugPrint("Warning: No branch_id found in profile. Is a branch assigned to this employee?");
           }
 
+          // Fallback embedding extraction from profile
+          final remoteEmbedding = profile['face_embedding'] ?? profile['FaceEmbedding'];
+          if (remoteEmbedding != null && remoteEmbedding is List && remoteEmbedding.isNotEmpty) {
+            try {
+              final List<double> mappedEmbedding = remoteEmbedding.map((e) => (e as num).toDouble()).toList();
+              if (mounted) {
+                setState(() {
+                  if (_baselineEmbedding == null || _baselineEmbedding!.isEmpty) {
+                    _baselineEmbedding = mappedEmbedding;
+                  }
+                });
+              }
+            } catch (_) {}
+          }
+
           branchesResult.fold(
             (l) => debugPrint("Error branches: ${l.message}"),
             (branches) {
@@ -192,7 +207,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       embeddingResult.fold(
         (l) => debugPrint("Error embedding: ${l.message}"),
         (embedding) {
-          if (mounted) {
+          if (mounted && embedding != null && embedding.isNotEmpty) {
             setState(() {
               _baselineEmbedding = embedding;
             });

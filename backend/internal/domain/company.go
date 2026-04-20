@@ -8,13 +8,13 @@ import (
 )
 
 type Company struct {
-	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Name      string    `gorm:"type:varchar(255);not null"`
-	TaxNumber string    `gorm:"type:varchar(50)"`
-	Address   string    `gorm:"type:text"`
-	LogoURL   string    `gorm:"type:text"`
-	CreatedAt time.Time `gorm:"default:now()"`
-	UpdatedAt time.Time `gorm:"default:now()"`
+	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Name      string    `gorm:"type:varchar(255);not null" json:"name"`
+	TaxNumber string    `gorm:"type:varchar(50)" json:"tax_number"`
+	Address   string    `gorm:"type:text" json:"address"`
+	LogoURL   string    `gorm:"type:text" json:"logo_url"`
+	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`
 }
 
 func (c *Company) BeforeCreate(tx *gorm.DB) (err error) {

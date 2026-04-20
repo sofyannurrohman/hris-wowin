@@ -21,11 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterData = useMasterDataStore()
 
 const isLoading = ref(true)
 const displayData = ref<any[]>([])
 const employeeOptions = ref<any[]>([])
-const branchOptions = ref<any[]>([])
 const selectedBranch = ref<string>('all')
 const filterType = ref<string>('month')
 const selectedMonth = ref<string>(new Date().toISOString().slice(0, 7)) // default current month: YYYY-MM
@@ -82,17 +84,14 @@ const columns = [
     cell: (info: any) => h('span', { class: 'text-gray-500' }, info.getValue())
   },
   {
-    accessorFn: (row: any) => `${row.name} ${row.role}`,
+    accessorFn: (row: any) => row.name || '-',
     id: 'name',
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
        const user = row.original
-       return h('div', { class: 'flex items-center gap-3' }, [
-         h('img', { src: user.avatar, class: 'w-8 h-8 rounded-full border border-gray-200 object-cover' }),
-         h('div', {}, [
-           h('p', { class: 'font-bold text-gray-900 leading-tight' }, user.name),
-           h('p', { class: 'text-[12px] text-gray-500' }, user.role)
-         ])
+       return h('div', { class: 'flex flex-col' }, [
+         h('p', { class: 'font-bold text-gray-900 leading-tight' }, user.name),
+         h('p', { class: 'text-[12px] text-gray-500' }, user.role)
        ])
     }
   },
@@ -182,18 +181,18 @@ const openEditModal = (item: any) => {
     if (isNaN(d.getTime())) return ''
     return `${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')}`
   }
-  const dateStr = item._raw.ClockInTime ? new Date(item._raw.ClockInTime).toISOString().split('T')[0] : ''
-  const inTimeStr = item._raw.ClockInTime ? fmtTime(item._raw.ClockInTime) : ''
-  const outTimeStr = item._raw.ClockOutTime ? fmtTime(item._raw.ClockOutTime) : ''
+  const dateStr = item._raw.clock_in_time ? new Date(item._raw.clock_in_time).toISOString().split('T')[0] : ''
+  const inTimeStr = item._raw.clock_in_time ? fmtTime(item._raw.clock_in_time) : ''
+  const outTimeStr = item._raw.clock_out_time ? fmtTime(item._raw.clock_out_time) : ''
 
   currentForm.value = {
     id: item.id,
-    employee_id: item._raw.EmployeeID,
+    employee_id: item._raw.employee_id,
     date: dateStr,
     clock_in_time: inTimeStr || '',
     clock_out_time: outTimeStr || '',
-    status: item._raw.Status || 'PRESENT',
-    notes: item._raw.Notes || ''
+    status: item._raw.status || 'PRESENT',
+    notes: item._raw.notes || ''
   }
   isModalOpen.value = true
 }
@@ -261,8 +260,8 @@ const fetchAttendance = async () => {
     const res = await apiClient.get(url)
     if (res.data?.data && res.data.data.length > 0) {
       displayData.value = res.data.data.map((item: any) => {
-        const clockIn = item.ClockInTime ? new Date(item.ClockInTime) : null
-        const clockOut = item.ClockOutTime ? new Date(item.ClockOutTime) : null
+        const clockIn = item.clock_in_time ? new Date(item.clock_in_time) : null
+        const clockOut = item.clock_out_time ? new Date(item.clock_out_time) : null
         let totalStr = '-'
         if (clockIn && clockOut) {
           const diffMs = clockOut.getTime() - clockIn.getTime()
@@ -271,17 +270,17 @@ const fetchAttendance = async () => {
           totalStr = `${totalH}j ${totalM}m`
         }
         return {
-          id: item.ID,
+          id: item.id,
           date: clockIn ? clockIn.toLocaleDateString('id-ID') : 'N/A',
-          name: item.Employee?.FirstName || 'Karyawan',
-          role: item.Employee?.JobPosition?.Name || '-',
+          name: item.employee?.first_name || 'Karyawan',
+          role: item.employee?.job_position?.title || '-',
           checkIn: clockIn ? `${String(clockIn.getUTCHours()).padStart(2, '0')}.${String(clockIn.getUTCMinutes()).padStart(2, '0')}` : '-',
           checkOut: clockOut ? `${String(clockOut.getUTCHours()).padStart(2, '0')}.${String(clockOut.getUTCMinutes()).padStart(2, '0')}` : '-',
           total: totalStr,
-          status: item.Status || 'PRESENT',
-          branch: item.Employee?.Branch?.Name || '-',
-          notes: item.Notes || '-',
-          avatar: `https://i.pravatar.cc/150?u=${item.EmployeeID}`,
+          status: item.status || 'PRESENT',
+          branch: item.employee?.branch?.name || '-',
+          notes: item.notes || '-',
+          avatar: `https://i.pravatar.cc/150?u=${item.employee_id}`,
           _raw: item
         }
       })
@@ -307,17 +306,6 @@ const fetchEmployeesForFilter = async () => {
   }
 }
 
-const fetchBranchesForFilter = async () => {
-  try {
-    const res = await apiClient.get('/branches')
-    if (res.data?.data) {
-      branchOptions.value = res.data.data
-    }
-  } catch (error) {
-    console.error('Failed fetching branches', error)
-  }
-}
-
 const exportCSV = () => {
   let url = `${apiClient.defaults.baseURL}/attendance/export-csv?`
   if (selectedBranch.value && selectedBranch.value !== 'all') {
@@ -334,7 +322,7 @@ const exportCSV = () => {
 onMounted(() => {
   fetchAttendance()
   fetchEmployeesForFilter()
-  fetchBranchesForFilter()
+  masterData.fetchBranches()
 })
 </script>
 
@@ -355,7 +343,7 @@ onMounted(() => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Cabang</SelectItem>
-            <SelectItem v-for="b in branchOptions" :key="b.ID" :value="b.ID">{{ b.Name }}</SelectItem>
+            <SelectItem v-for="b in masterData.branches" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -477,25 +465,6 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      
-      <!-- Chart Card (Takes 2 cols on very large screens but since we only have 5 total, we'll let it span 2 cols on lg) -->
-      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm lg:col-span-2 md:col-span-2">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-[14px] font-bold text-gray-900">Kehadiran Mingguan</h3>
-          <div class="text-[12px] text-gray-500 flex items-center gap-1 cursor-pointer border px-2 py-1 border-gray-200 rounded">Minggu Ini <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg></div>
-        </div>
-        <!-- Simple CSS Bar Chart -->
-        <div class="flex items-end justify-between h-20 pt-2 gap-1 px-2">
-          <div class="w-full bg-[#8fb6f6] rounded-t-sm" style="height: 50%;"></div>
-          <div class="w-full bg-[#6a9bf3] rounded-t-sm" style="height: 75%;"></div>
-          <div class="w-full bg-[#2563eb] rounded-t-sm" style="height: 100%;"></div>
-          <div class="w-full bg-[#4986ef] rounded-t-sm" style="height: 90%;"></div>
-          <div class="w-full bg-[#a9c9fa] rounded-t-sm" style="height: 40%;"></div>
-        </div>
-        <div class="flex justify-between mt-2 text-[11px] text-gray-500 font-medium px-4">
-          <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span>
-        </div>
-      </div>
     </div>
 
     <!-- DataTable Instance -->
@@ -523,8 +492,8 @@ onMounted(() => {
                 <SelectValue placeholder="Pilih Karyawan..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="emp in employeeOptions" :key="emp.ID" :value="emp.ID">
-                  {{ emp.FirstName }} ({{ emp.User?.Email }})
+                <SelectItem v-for="emp in employeeOptions" :key="emp.id" :value="emp.id">
+                  {{ emp.first_name }} ({{ emp.user?.email }})
                 </SelectItem>
               </SelectContent>
             </Select>

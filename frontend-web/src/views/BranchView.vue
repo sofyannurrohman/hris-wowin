@@ -52,14 +52,14 @@ const openAddModal = () => {
 const openEditModal = (branch: any) => {
   isEditMode.value = true
   newBranch.value = {
-    id: branch.ID,
-    companyId: branch.CompanyID || '',
-    name: branch.Name || '',
-    address: branch.Address || '',
-    timezone: branch.Timezone || 'Asia/Jakarta',
-    latitude: branch.Latitude || 0,
-    longitude: branch.Longitude || 0,
-    radiusMeter: branch.RadiusMeter || 100
+    id: branch.id,
+    companyId: branch.company_id || '',
+    name: branch.name || '',
+    address: branch.address || '',
+    timezone: branch.timezone || 'Asia/Jakarta',
+    latitude: branch.latitude || 0,
+    longitude: branch.longitude || 0,
+    radius_meter: branch.radius_meter || 100
   }
   isModalOpen.value = true
 }
@@ -136,7 +136,7 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Name',
+    accessorKey: 'name',
     header: 'NAMA CABANG',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
@@ -144,22 +144,22 @@ const columns = [
     id: 'company',
     header: 'PERUSAHAAN',
     cell: ({ row }: any) => {
-      const company = row.original.Company
-      return h('span', { class: 'text-gray-600' }, company?.Name || '-')
+      const company = row.original.company
+      return h('span', { class: 'text-gray-600' }, company?.name || '-')
     }
   },
   {
-    accessorKey: 'Address',
+    accessorKey: 'address',
     header: 'ALAMAT',
     cell: (info: any) => h('span', { class: 'text-gray-600 max-w-[200px] truncate inline-block', title: info.getValue() }, info.getValue() || '-')
   },
   {
-    accessorKey: 'Timezone',
+    accessorKey: 'timezone',
     header: 'ZONA WAKTU',
     cell: (info: any) => h('span', { class: 'text-[13px] bg-gray-100 px-2 py-1 rounded font-mono' }, info.getValue() || '-')
   },
   {
-    accessorKey: 'RadiusMeter',
+    accessorKey: 'radius_meter',
     header: 'RADIUS (METER)',
     cell: (info: any) => h('span', { class: 'text-gray-600' }, info.getValue() ?? '-')
   },
@@ -177,7 +177,7 @@ const columns = [
         h(Button, {
           variant: 'ghost', size: 'sm',
           class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-          onClick: () => deleteBranch(branch.ID)
+          onClick: () => deleteBranch(branch.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }
@@ -227,8 +227,8 @@ const columns = [
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem v-for="c in companies" :key="c.ID" :value="c.ID">
-                      {{ c.Name }}
+                    <SelectItem v-for="c in companies" :key="c.id" :value="c.id">
+                      {{ c.name }}
                     </SelectItem>
                   </SelectGroup>
                 </SelectContent>

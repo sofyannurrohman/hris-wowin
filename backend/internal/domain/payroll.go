@@ -8,14 +8,14 @@ import (
 )
 
 type PayrollComponent struct {
-	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	CompanyID *uuid.UUID `gorm:"type:uuid"`
-	Name      string     `gorm:"type:varchar(100);not null"`
-	Type      string     `gorm:"type:varchar(20);not null"` // EARNING, DEDUCTION, BENEFIT
-	IsTaxable bool       `gorm:"default:true"`
-	CreatedAt time.Time  `gorm:"default:now()"`
+	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	CompanyID *uuid.UUID `gorm:"type:uuid" json:"company_id"`
+	Name      string     `gorm:"type:varchar(100);not null" json:"name"`
+	Type      string     `gorm:"type:varchar(20);not null" json:"type"` // EARNING, DEDUCTION, BENEFIT
+	IsTaxable bool       `gorm:"default:true" json:"is_taxable"`
+	CreatedAt time.Time  `gorm:"default:now()" json:"created_at"`
 
-	Company *Company `gorm:"foreignKey:CompanyID"`
+	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
 }
 
 type MyPayslipResponse struct {
@@ -44,14 +44,14 @@ func (pc *PayrollComponent) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type EmployeeSalarySetting struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	EmployeeID  uuid.UUID `gorm:"type:uuid;not null"`
-	ComponentID uuid.UUID `gorm:"type:uuid;not null"`
-	Amount      float64   `gorm:"type:decimal(15,2);not null"`
-	CreatedAt   time.Time `gorm:"default:now()"`
+	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	EmployeeID  uuid.UUID `gorm:"type:uuid;not null" json:"employee_id"`
+	ComponentID uuid.UUID `gorm:"type:uuid;not null" json:"component_id"`
+	Amount      float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
+	CreatedAt   time.Time `gorm:"default:now()" json:"created_at"`
 
-	Employee  *Employee         `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
-	Component *PayrollComponent `gorm:"foreignKey:ComponentID"`
+	Employee  *Employee         `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;" json:"employee,omitempty"`
+	Component *PayrollComponent `gorm:"foreignKey:ComponentID" json:"component,omitempty"`
 }
 
 func (ess *EmployeeSalarySetting) BeforeCreate(tx *gorm.DB) (err error) {
@@ -62,16 +62,16 @@ func (ess *EmployeeSalarySetting) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type PayrollRun struct {
-	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	CompanyID       *uuid.UUID `gorm:"type:uuid"`
-	PeriodStart     time.Time  `gorm:"type:date;not null"`
-	PeriodEnd       time.Time  `gorm:"type:date;not null"`
-	PaymentSchedule *time.Time `gorm:"type:date"`
-	Status          string     `gorm:"type:varchar(20);default:'DRAFT'"`
-	TotalPayout     *float64   `gorm:"type:decimal(20,2)"`
-	CreatedAt       time.Time  `gorm:"default:now()"`
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	CompanyID       *uuid.UUID `gorm:"type:uuid" json:"company_id"`
+	PeriodStart     time.Time  `gorm:"type:date;not null" json:"period_start"`
+	PeriodEnd       time.Time  `gorm:"type:date;not null" json:"period_end"`
+	PaymentSchedule *time.Time `gorm:"type:date" json:"payment_schedule"`
+	Status          string     `gorm:"type:varchar(20);default:'DRAFT'" json:"status"`
+	TotalPayout     *float64   `gorm:"type:decimal(20,2)" json:"total_payout"`
+	CreatedAt       time.Time  `gorm:"default:now()" json:"created_at"`
 
-	Company *Company `gorm:"foreignKey:CompanyID"`
+	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
 }
 
 func (pr *PayrollRun) BeforeCreate(tx *gorm.DB) (err error) {
@@ -82,21 +82,21 @@ func (pr *PayrollRun) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type Payslip struct {
-	ID                 uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	PayrollRunID       uuid.UUID `gorm:"type:uuid;not null"`
-	EmployeeID         uuid.UUID `gorm:"type:uuid;not null"`
-	SnapshotJobTitle   string    `gorm:"type:varchar(100)"`
-	SnapshotPtkpStatus string    `gorm:"type:varchar(10)"`
-	BasicSalary        float64   `gorm:"type:decimal(15,2)"`
-	TotalAllowance     float64   `gorm:"type:decimal(15,2)"`
-	TotalDeduction     float64   `gorm:"type:decimal(15,2)"`
-	TakeHomePay        float64   `gorm:"type:decimal(15,2)"`
-	Pph21Amount        float64   `gorm:"type:decimal(15,2)"`
-	CreatedAt          time.Time `gorm:"default:now()"`
+	ID                 uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	PayrollRunID       uuid.UUID `gorm:"type:uuid;not null" json:"payroll_run_id"`
+	EmployeeID         uuid.UUID `gorm:"type:uuid;not null" json:"employee_id"`
+	SnapshotJobTitle   string    `gorm:"type:varchar(100)" json:"snapshot_job_title"`
+	SnapshotPtkpStatus string    `gorm:"type:varchar(10)" json:"snapshot_ptkp_status"`
+	BasicSalary        float64   `gorm:"type:decimal(15,2)" json:"basic_salary"`
+	TotalAllowance     float64   `gorm:"type:decimal(15,2)" json:"total_allowance"`
+	TotalDeduction     float64   `gorm:"type:decimal(15,2)" json:"total_deduction"`
+	TakeHomePay        float64   `gorm:"type:decimal(15,2)" json:"take_home_pay"`
+	Pph21Amount        float64   `gorm:"type:decimal(15,2)" json:"pph21_amount"`
+	CreatedAt          time.Time `gorm:"default:now()" json:"created_at"`
 
-	PayrollRun *PayrollRun   `gorm:"foreignKey:PayrollRunID"`
-	Employee   *Employee     `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
-	Items      []PayslipItem `gorm:"foreignKey:PayslipID"`
+	PayrollRun *PayrollRun   `gorm:"foreignKey:PayrollRunID" json:"payroll_run,omitempty"`
+	Employee   *Employee     `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;" json:"employee,omitempty"`
+	Items      []PayslipItem `gorm:"foreignKey:PayslipID" json:"items,omitempty"`
 }
 
 func (p *Payslip) BeforeCreate(tx *gorm.DB) (err error) {
@@ -107,14 +107,14 @@ func (p *Payslip) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 type PayslipItem struct {
-	ID            uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	PayslipID     uuid.UUID `gorm:"type:uuid;not null"`
-	ComponentName string    `gorm:"type:varchar(100);not null"`
-	Amount        float64   `gorm:"type:decimal(15,2);not null"`
-	Type          string    `gorm:"type:varchar(20);not null"` // EARNING, DEDUCTION
-	CreatedAt     time.Time `gorm:"default:now()"`
+	ID            uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	PayslipID     uuid.UUID `gorm:"type:uuid;not null" json:"payslip_id"`
+	ComponentName string    `gorm:"type:varchar(100);not null" json:"component_name"`
+	Amount        float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
+	Type          string    `gorm:"type:varchar(20);not null" json:"type"` // EARNING, DEDUCTION
+	CreatedAt     time.Time `gorm:"default:now()" json:"created_at"`
 
-	Payslip *Payslip `gorm:"foreignKey:PayslipID"`
+	Payslip *Payslip `gorm:"foreignKey:PayslipID" json:"payslip,omitempty"`
 }
 
 func (pi *PayslipItem) BeforeCreate(tx *gorm.DB) (err error) {

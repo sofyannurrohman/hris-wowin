@@ -118,10 +118,10 @@ const columns = [
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue())
   },
   {
-    accessorFn: (row: any) => `${row.periodStart} - ${row.periodEnd}`,
+    accessorKey: 'periodStart',
     id: 'period',
     header: 'RENTANG WAKTU GAJI',
-    cell: (info: any) => h('span', { class: 'text-gray-600' }, info.getValue())
+    cell: ({ row }: any) => h('span', { class: 'text-gray-600' }, `${row.original.periodStart} - ${row.original.periodEnd}`)
   },
   {
     accessorKey: 'paymentSchedule',
@@ -167,7 +167,6 @@ const columns = [
         ]))
       }
 
-      // Selalu bisa dihapus selama dalam scope admin role
       actions.push(h(Button, { 
             onClick: () => deletePayrollRun(run.id),
             variant: 'ghost',
@@ -176,7 +175,8 @@ const columns = [
         }, () => h(Trash2, { class: 'w-4 h-4' })))
 
       return h('div', { class: 'flex items-center gap-2' }, actions)
-    }
+    },
+    enableSorting: false
   }
 ]
 </script>

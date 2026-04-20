@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { watchDebounced } from '@vueuse/core'
 import {
   FlexRender,
   getCoreRowModel,
@@ -29,7 +30,15 @@ const props = defineProps({
 })
 
 const sorting = ref<SortingState>([])
+const filterText = ref('')
 const globalFilter = ref('')
+
+// Performance: Debounce search to prevent laggy typing and redundant re-renders
+watchDebounced(
+  filterText,
+  (val) => { globalFilter.value = val },
+  { debounce: 300 }
+)
 
 const table = useVueTable({
   get data() { return props.data },
@@ -50,7 +59,7 @@ const table = useVueTable({
   getFilteredRowModel: getFilteredRowModel(),
   initialState: {
     pagination: {
-      pageSize: 5
+      pageSize: 10
     }
   }
 })
@@ -69,10 +78,10 @@ const table = useVueTable({
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <Input 
-            v-model="globalFilter"
+            v-model="filterText"
             type="text" 
             placeholder="Cari data..." 
-            class="pl-9 bg-gray-50 focus-visible:ring-primary"
+            class="pl-9 bg-gray-50 focus-visible:ring-primary h-10 rounded-xl"
           />
         </div>
         <slot name="headerActions" />
@@ -80,22 +89,22 @@ const table = useVueTable({
     </div>
     
     <!-- Table -->
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto min-h-[400px]">
       <Table>
         <TableHeader class="bg-[#fafbfc] uppercase text-[11px] font-bold text-gray-500 tracking-wider">
-          <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
+          <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id" class="hover:bg-transparent border-b border-gray-100">
             <TableHead 
               v-for="header in headerGroup.headers" 
               :key="header.id" 
-              class="cursor-pointer select-none group"
+              class="cursor-pointer select-none group h-12"
               @click="header.column.getToggleSortingHandler()?.($event)"
             >
               <div class="flex items-center gap-1">
                 <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
                 <!-- Sorting Indicator -->
                 <span v-if="header.column.getCanSort()">
-                  <svg v-if="header.column.getIsSorted() === 'asc'" class="w-3 h-3 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
-                  <svg v-else-if="header.column.getIsSorted() === 'desc'" class="w-3 h-3 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                  <svg v-if="header.column.getIsSorted() === 'asc'" class="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+                  <svg v-else-if="header.column.getIsSorted() === 'desc'" class="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                   <svg v-else class="w-3 h-3 text-gray-300 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
                 </span>
               </div>
@@ -103,17 +112,35 @@ const table = useVueTable({
           </TableRow>
         </TableHeader>
         <TableBody class="relative text-[14px]">
-          <TableRow v-if="isLoading" class="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
-             <TableCell :colspan="columns.length" class="py-12 text-center text-gray-500 font-medium animate-pulse">Memuat data...</TableCell>
-          </TableRow>
-          <TableRow v-if="!isLoading && table.getRowModel().rows.length === 0">
-             <TableCell :colspan="columns.length" class="py-12 text-center text-gray-500 text-[13px] font-medium">Tidak ada data ditemukan</TableCell>
-          </TableRow>
-          <TableRow v-for="row in table.getRowModel().rows" :key="row.id" class="hover:bg-gray-50/50 transition-colors">
-            <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
-              <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
-            </TableCell>
-          </TableRow>
+          <!-- Performance: Skeleton Loading Blocks -->
+          <template v-if="isLoading">
+            <TableRow v-for="i in 5" :key="'skeleton-'+i" class="border-b border-gray-50">
+              <TableCell v-for="col in columns" :key="'col-'+i">
+                <div class="h-4 bg-gray-100 rounded-full animate-pulse w-full"></div>
+              </TableCell>
+            </TableRow>
+          </template>
+
+          <template v-else-if="table.getRowModel().rows.length === 0">
+            <TableRow>
+              <TableCell :colspan="columns.length" class="py-20 text-center">
+                <div class="flex flex-col items-center gap-2">
+                  <div class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-gray-300">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                  </div>
+                  <p class="text-gray-500 font-medium">Tidak ada data ditemukan</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          </template>
+
+          <template v-else>
+            <TableRow v-for="row in table.getRowModel().rows" :key="row.id" class="hover:bg-gray-50/50 transition-all border-b border-gray-50">
+              <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id" class="py-4">
+                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
+              </TableCell>
+            </TableRow>
+          </template>
         </TableBody>
       </Table>
     </div>

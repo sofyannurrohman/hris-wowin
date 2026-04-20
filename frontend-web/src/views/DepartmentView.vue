@@ -34,9 +34,9 @@ const openAddModal = () => {
 const openEditModal = (department: any) => {
   isEditMode.value = true
   newDepartment.value = {
-    id: department.ID,
-    name: department.Name || '',
-    parentId: department.ParentID || 'none'
+    id: department.id,
+    name: department.name || '',
+    parentId: department.parent_id || 'none'
   }
   isModalOpen.value = true
 }
@@ -60,7 +60,7 @@ const fetchDepartments = async () => {
 // Ensure the dropdown doesn't show the current edited department as its own parent option
 const validParentOptions = computed(() => {
   if (!isEditMode.value) return departments.value
-  return departments.value.filter((d: any) => d.ID !== newDepartment.value.id)
+  return departments.value.filter((d: any) => d.id !== newDepartment.value.id)
 })
 
 const saveDepartment = async () => {
@@ -105,7 +105,7 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorKey: 'Name',
+    accessorKey: 'name',
     header: 'NAMA DEPARTEMEN',
     cell: (info: any) => h('span', { class: 'font-bold text-gray-900' }, info.getValue() || '-')
   },
@@ -113,15 +113,15 @@ const columns = [
     id: 'parentDepartment',
     header: 'DEPARTEMEN INDUK',
     cell: ({ row }: any) => {
-      const parent = row.original.ParentDepartment
-      if (parent && parent.Name) {
-         return h('span', { class: 'inline-block bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-medium' }, parent.Name)
+      const parent = row.original.parent_department
+      if (parent && parent.name) {
+         return h('span', { class: 'inline-block bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-medium' }, parent.name)
       }
       return h('span', { class: 'text-gray-400 italic' }, 'Utama (Tidak Ada)')
     }
   },
   {
-    accessorFn: (row: any) => row.CreatedAt ? new Date(row.CreatedAt).toLocaleDateString() : '-',
+    accessorFn: (row: any) => row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
     id: 'createdAt',
     header: 'TANGGAL DIBUAT',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue())
@@ -142,7 +142,7 @@ const columns = [
             variant: 'ghost', 
             size: 'sm', 
             class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
-            onClick: () => deleteDepartment(department.ID)
+            onClick: () => deleteDepartment(department.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }
@@ -194,8 +194,8 @@ const columns = [
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="none">-- Tidak Ada (Tingkat Utama) --</SelectItem>
-                  <SelectItem v-for="dept in validParentOptions" :key="dept.ID" :value="dept.ID">
-                    {{ dept.Name }}
+                  <SelectItem v-for="dept in validParentOptions" :key="dept.id" :value="dept.id">
+                    {{ dept.name }}
                   </SelectItem>
                 </SelectGroup>
               </SelectContent>

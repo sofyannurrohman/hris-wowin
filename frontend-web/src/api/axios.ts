@@ -9,12 +9,45 @@ const apiClient = axios.create({
   }
 })
 
+let activeRequests = 0
+
+const updateLoadingBar = () => {
+  const bar = document.getElementById('loading-bar')
+  if (!bar) return
+
+  if (activeRequests > 0) {
+    bar.classList.remove('done')
+    bar.classList.add('loading')
+  } else {
+    bar.classList.remove('loading')
+    bar.classList.add('done')
+    setTimeout(() => {
+      if (activeRequests === 0) bar.classList.remove('done')
+    }, 500)
+  }
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  activeRequests++
+  updateLoadingBar()
   return config
 })
+
+apiClient.interceptors.response.use(
+  (response) => {
+    activeRequests--
+    updateLoadingBar()
+    return response
+  },
+  (error) => {
+    activeRequests--
+    updateLoadingBar()
+    return Promise.reject(error)
+  }
+)
 
 export default apiClient
