@@ -32,11 +32,14 @@ class AttendanceFailure extends AttendanceState {
 
 class AttendanceHistoryLoaded extends AttendanceState {
   final List<Attendance> history;
+  final Map<String, dynamic>? profile;
+  final AttendanceStats? stats;
+  final Map<String, dynamic>? statistics;
 
-  const AttendanceHistoryLoaded(this.history);
+  const AttendanceHistoryLoaded(this.history, {this.profile, this.stats, this.statistics});
 
   @override
-  List<Object?> get props => [history];
+  List<Object?> get props => [history, profile, stats, statistics];
 }
 
 class AttendanceHistoryFailure extends AttendanceState {

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -442,7 +443,8 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 	currentYear := time.Now().Year()
 
 	if employee.CompanyID == nil {
-		return nil, errors.New("employee company not found")
+		log.Printf("Warning: Employee %s has no company assigned", employee.ID)
+		return []LeaveBalanceResponse{}, nil
 	}
 	leaveTypes, err := u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
 	if err != nil {
@@ -458,19 +460,29 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 	}
 	
 	for _, it := range izinTypes {
+		tempIT := it // Create a copy for the iteration
 		// FirstOrCreate will find existing or create new. Either way, we force the correct attributes.
-		u.db.Where("company_id = ? AND name = ?", it.CompanyID, it.Name).FirstOrCreate(&it)
+		if err := u.db.Where("company_id = ? AND name = ?", tempIT.CompanyID, tempIT.Name).FirstOrCreate(&tempIT).Error; err != nil {
+			log.Printf("Warning: Failed to seed/find leave type %s: %v", tempIT.Name, err)
+			continue
+		}
 		
 		// Ensure zero-values (false, 0) are correctly saved to DB overriding GORM defaults if tampered
-		u.db.Model(&it).Updates(map[string]interface{}{
-			"is_paid":        it.IsPaid,
-			"requires_quota": it.RequiresQuota,
-			"default_quota":  it.DefaultQuota,
-		})
+		if err := u.db.Model(&tempIT).Updates(map[string]interface{}{
+			"is_paid":        tempIT.IsPaid,
+			"requires_quota": tempIT.RequiresQuota,
+			"default_quota":  tempIT.DefaultQuota,
+		}).Error; err != nil {
+			log.Printf("Warning: Failed to update leave type %s attributes: %v", tempIT.Name, err)
+		}
 	}
 	
 	// ALWAYS RE-FETCH after seeding to include the new types and updated parameters
-	leaveTypes, _ = u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
+	leaveTypes, err = u.repo.GetLeaveTypesByCompany(*employee.CompanyID)
+	if err != nil {
+		log.Printf("Error: Failed to re-fetch leave types after seeding: %v", err)
+		return nil, err
+	}
 
 
 	// 2. Get existing balances
@@ -495,10 +507,13 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 				BalanceTotal: lt.DefaultQuota,
 				BalanceUsed:  0,
 			}
-			if err := u.repo.SaveBalance(newBalance); err == nil {
-				// Relink leave type for response consistency
-				newBalance.LeaveType = &lt
-				balances = append(balances, newBalance)
+			err := u.repo.SaveBalance(newBalance)
+			// Always append to balances so the UI can construct requests.
+			// Non-quota leave types (Izin) must be available even if the balance row creation had a DB issue.
+			newBalance.LeaveType = &lt
+			balances = append(balances, newBalance)
+			if err != nil {
+				// Log the error silently
 			}
 		}
 	}

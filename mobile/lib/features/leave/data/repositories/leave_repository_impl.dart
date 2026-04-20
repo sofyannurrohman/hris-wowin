@@ -6,13 +6,15 @@ import 'package:hris_app/features/leave/domain/entities/leave.dart';
 import 'package:hris_app/features/leave/domain/entities/leave_balance.dart';
 import 'package:hris_app/features/leave/domain/repositories/leave_repository.dart';
 
+import 'dart:typed_data';
+
 class LeaveRepositoryImpl implements LeaveRepository {
   final ApiClient apiClient;
 
   LeaveRepositoryImpl({required this.apiClient});
 
   @override
-  Future<Either<Failure, void>> submitLeave(String leaveTypeId, String startDate, String endDate, String reason, {String? attachmentPath}) async {
+  Future<Either<Failure, void>> submitLeave(String leaveTypeId, String startDate, String endDate, String reason, {Uint8List? attachmentBytes, String? attachmentName}) async {
     try {
       final Map<String, dynamic> data = {
         'leave_type_id': leaveTypeId,
@@ -21,15 +23,14 @@ class LeaveRepositoryImpl implements LeaveRepository {
         'reason': reason,
       };
 
-      dynamic body;
-      if (attachmentPath != null) {
-        body = FormData.fromMap({
-          ...data,
-          'attachment': await MultipartFile.fromFile(attachmentPath),
-        });
-      } else {
-        body = data;
+      Map<String, dynamic> formDataMap = {...data};
+      if (attachmentBytes != null && attachmentName != null) {
+        formDataMap['attachment'] = MultipartFile.fromBytes(
+          attachmentBytes,
+          filename: attachmentName,
+        );
       }
+      final body = FormData.fromMap(formDataMap);
 
       final response = await apiClient.client.post('time-off/request', data: body);
 
@@ -144,7 +145,7 @@ class LeaveRepositoryImpl implements LeaveRepository {
     }
   }
   @override
-  Future<Either<Failure, void>> updateLeave(String leaveId, String leaveTypeId, String startDate, String endDate, String reason, {String? attachmentPath}) async {
+  Future<Either<Failure, void>> updateLeave(String leaveId, String leaveTypeId, String startDate, String endDate, String reason, {Uint8List? attachmentBytes, String? attachmentName}) async {
     try {
       final Map<String, dynamic> data = {
         'leave_type_id': leaveTypeId,
@@ -153,15 +154,14 @@ class LeaveRepositoryImpl implements LeaveRepository {
         'reason': reason,
       };
 
-      dynamic body;
-      if (attachmentPath != null && !attachmentPath.startsWith('http')) {
-        body = FormData.fromMap({
-          ...data,
-          'attachment': await MultipartFile.fromFile(attachmentPath),
-        });
-      } else {
-        body = data;
+      Map<String, dynamic> formDataMap = {...data};
+      if (attachmentBytes != null && attachmentName != null) {
+        formDataMap['attachment'] = MultipartFile.fromBytes(
+          attachmentBytes,
+          filename: attachmentName,
+        );
       }
+      final body = FormData.fromMap(formDataMap);
 
       final response = await apiClient.client.put('time-off/$leaveId', data: body);
 

@@ -16,7 +16,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       try {
         final profileResult = await authRepository.getProfile();
         final statsResult = await repository.fetchStats();
-        final historyResult = await repository.getHistory(1, 10);
+        final historyResult = await repository.getHistory();
         final queueCount = await repository.getQueueCount();
         
         profileResult.fold(
@@ -81,11 +81,23 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     });
 
     on<FetchHistoryRequested>((event, emit) async {
+      final currentProfile = (state is HomeDataLoaded) ? (state as HomeDataLoaded).profile : (state is AttendanceHistoryLoaded ? (state as AttendanceHistoryLoaded).profile : null);
+      final currentStats = (state is HomeDataLoaded) ? (state as HomeDataLoaded).stats : (state is AttendanceHistoryLoaded ? (state as AttendanceHistoryLoaded).stats : null);
+      final currentStatistics = (state is HomeDataLoaded) ? (state as HomeDataLoaded).statistics : (state is AttendanceHistoryLoaded ? (state as AttendanceHistoryLoaded).statistics : null);
+
       emit(AttendanceLoading());
-      final result = await repository.getHistory(event.page, event.limit);
+      final result = await repository.getHistory(
+        startDate: event.startDate, 
+        endDate: event.endDate
+      );
       result.fold(
         (failure) => emit(AttendanceHistoryFailure(failure.message)),
-        (history) => emit(AttendanceHistoryLoaded(history)),
+        (history) => emit(AttendanceHistoryLoaded(
+          history,
+          profile: currentProfile,
+          stats: currentStats,
+          statistics: currentStatistics,
+        )),
       );
     });
 

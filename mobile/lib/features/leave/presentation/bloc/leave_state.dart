@@ -25,13 +25,15 @@ class LeaveState extends Equatable {
     List<Leave>? leaves,
     String? message,
     String? actionMessage,
+    bool clearActionMessage = false,
+    bool clearMessage = false,
   }) {
     return LeaveState(
       status: status ?? this.status,
       balances: balances ?? this.balances,
       leaves: leaves ?? this.leaves,
-      message: message ?? this.message,
-      actionMessage: actionMessage ?? this.actionMessage,
+      message: clearMessage ? null : (message ?? this.message),
+      actionMessage: clearActionMessage ? null : (actionMessage ?? this.actionMessage),
     );
   }
 

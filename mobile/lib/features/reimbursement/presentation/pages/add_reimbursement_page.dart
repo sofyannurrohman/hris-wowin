@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/reimbursement/domain/entities/reimbursement.dart';
@@ -23,6 +24,8 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   XFile? _attachment;
+  Uint8List? _attachmentBytes;
+  String? _attachmentName;
   String? _existingAttachmentUrl;
   final ImagePicker _picker = ImagePicker();
 
@@ -43,8 +46,11 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
   void _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
+      final bytes = await image.readAsBytes();
       setState(() {
         _attachment = image;
+        _attachmentBytes = bytes;
+        _attachmentName = image.name;
       });
     }
   }
@@ -113,7 +119,7 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                         borderRadius: BorderRadius.circular(8),
                         color: Colors.grey[50],
                       ),
-                      child: (_attachment == null && _existingAttachmentUrl == null)
+                      child: (_attachmentBytes == null && _existingAttachmentUrl == null)
                           ? const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -127,8 +133,8 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: _attachment != null
-                                      ? Image.file(File(_attachment!.path), fit: BoxFit.cover)
+                                  child: _attachmentBytes != null
+                                      ? Image.memory(_attachmentBytes!, fit: BoxFit.cover)
                                       : Image.network(
                                           _existingAttachmentUrl!.startsWith('http')
                                               ? _existingAttachmentUrl!
@@ -146,6 +152,8 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                                       icon: const Icon(Icons.close, size: 12, color: Colors.white),
                                       onPressed: () => setState(() {
                                         _attachment = null;
+                                        _attachmentBytes = null;
+                                        _attachmentName = null;
                                         _existingAttachmentUrl = null;
                                       }),
                                       padding: EdgeInsets.zero,
@@ -165,7 +173,7 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                               SnackBarUtils.showError(context, 'Mohon lengkapi judul dan nominal.');
                               return;
                             }
-                            if (_attachment == null && _existingAttachmentUrl == null) {
+                            if (_attachmentBytes == null && _existingAttachmentUrl == null) {
                               SnackBarUtils.showError(context, 'Mohon lampirkan nota.');
                               return;
                             }
@@ -178,14 +186,16 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                                     title: _titleController.text,
                                     description: _descriptionController.text,
                                     amount: amount,
-                                    attachmentPath: _attachment?.path,
+                                    attachmentBytes: _attachmentBytes,
+                                    attachmentName: _attachmentName,
                                   ));
                             } else {
                               context.read<ReimbursementBloc>().add(SubmitReimbursementRequested(
                                     title: _titleController.text,
                                     description: _descriptionController.text,
                                     amount: amount,
-                                    attachmentPath: _attachment?.path,
+                                    attachmentBytes: _attachmentBytes,
+                                    attachmentName: _attachmentName,
                                   ));
                             }
                           },

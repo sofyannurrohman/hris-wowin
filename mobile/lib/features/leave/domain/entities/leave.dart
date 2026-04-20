@@ -27,16 +27,23 @@ class Leave extends Equatable {
 
   factory Leave.fromJson(Map<String, dynamic> json) {
     return Leave(
-      id: json['ID'] ?? '',
-      userId: json['EmployeeID'] ?? json['UserID'] ?? '',
-      leaveTypeId: json['LeaveTypeID'] ?? (json['LeaveType'] != null ? json['LeaveType']['ID'] : null),
-      startDate: json['StartDate'] != null ? DateTime.parse(json['StartDate']).toLocal() : DateTime.now(),
-      endDate: json['EndDate'] != null ? DateTime.parse(json['EndDate']).toLocal() : DateTime.now(),
-      reason: json['Reason'] ?? '',
-      status: json['Status'] ?? 'PENDING',
-      leaveTypeName: json['LeaveTypeName'] ?? (json['LeaveType'] != null ? json['LeaveType']['Name'] : null),
-      employeeName: json['EmployeeName'],
-      createdAt: json['CreatedAt'] != null ? DateTime.parse(json['CreatedAt']).toLocal() : null,
+      id: json['id']?.toString() ?? json['ID']?.toString() ?? '',
+      userId: json['employee_id']?.toString() ?? json['EmployeeID']?.toString() ?? json['UserID']?.toString() ?? '',
+      leaveTypeId: json['leave_type_id']?.toString() ?? json['LeaveTypeID']?.toString() ?? 
+                  (json['leave_type'] != null ? json['leave_type']['id']?.toString() : 
+                  (json['LeaveType'] != null ? json['LeaveType']['ID']?.toString() : null)),
+      startDate: json['start_date'] != null ? DateTime.parse(json['start_date']).toLocal() : 
+                 (json['StartDate'] != null ? DateTime.parse(json['StartDate']).toLocal() : DateTime.now()),
+      endDate: json['end_date'] != null ? DateTime.parse(json['end_date']).toLocal() : 
+               (json['EndDate'] != null ? DateTime.parse(json['EndDate']).toLocal() : DateTime.now()),
+      reason: json['reason'] ?? json['Reason'] ?? '',
+      status: json['status'] ?? json['Status'] ?? 'PENDING',
+      leaveTypeName: json['leave_type_name'] ?? 
+                    (json['leave_type'] != null ? json['leave_type']['name'] : 
+                    (json['LeaveType'] != null ? json['LeaveType']['Name'] : null)),
+      employeeName: json['employee_name'] ?? json['EmployeeName'],
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']).toLocal() : 
+                 (json['CreatedAt'] != null ? DateTime.parse(json['CreatedAt']).toLocal() : null),
     );
   }
 

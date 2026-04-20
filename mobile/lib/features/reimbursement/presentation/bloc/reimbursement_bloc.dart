@@ -19,7 +19,8 @@ class ReimbursementBloc extends Bloc<ReimbursementEvent, ReimbursementState> {
       title: event.title,
       description: event.description,
       amount: event.amount,
-      attachmentPath: event.attachmentPath,
+      attachmentBytes: event.attachmentBytes,
+      attachmentName: event.attachmentName,
     );
     result.fold(
       (failure) => emit(ReimbursementFailure(failure.message)),
@@ -43,7 +44,8 @@ class ReimbursementBloc extends Bloc<ReimbursementEvent, ReimbursementState> {
       title: event.title,
       description: event.description,
       amount: event.amount,
-      attachmentPath: event.attachmentPath,
+      attachmentBytes: event.attachmentBytes,
+      attachmentName: event.attachmentName,
     );
     result.fold(
       (failure) => emit(ReimbursementFailure(failure.message)),

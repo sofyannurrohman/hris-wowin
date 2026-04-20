@@ -352,13 +352,18 @@ func (u *attendanceUseCase) GetHistory(userID uuid.UUID, startDate, endDate stri
 		if log.ClockInTime != nil {
 			checkIn = *log.ClockInTime
 		}
+		duration := 0
+		if log.ClockInTime != null && log.ClockOutTime != null {
+			duration = int(log.ClockOutTime.Sub(*log.ClockInTime).Minutes())
+		}
 		history = append(history, AttendanceHistoryResponse{
-			ID:        log.ID.String(),
-			UserID:    log.EmployeeID.String(),
-			CheckIn:   checkIn,
-			CheckOut:  log.ClockOutTime,
-			Status:    log.Status,
-			SelfieURL: log.ClockInPhotoURL,
+			ID:           log.ID.String(),
+			UserID:       log.EmployeeID.String(),
+			CheckIn:      checkIn,
+			CheckOut:     log.ClockOutTime,
+			Status:       log.Status,
+			SelfieURL:    log.ClockInPhotoURL,
+			WorkDuration: duration,
 		})
 	}
 

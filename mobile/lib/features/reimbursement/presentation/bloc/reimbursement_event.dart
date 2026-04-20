@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 
 abstract class ReimbursementEvent extends Equatable {
@@ -11,17 +12,19 @@ class SubmitReimbursementRequested extends ReimbursementEvent {
   final String title;
   final String? description;
   final double amount;
-  final String? attachmentPath;
+  final Uint8List? attachmentBytes;
+  final String? attachmentName;
 
   const SubmitReimbursementRequested({
     required this.title,
     this.description,
     required this.amount,
-    this.attachmentPath,
+    this.attachmentBytes,
+    this.attachmentName,
   });
 
   @override
-  List<Object?> get props => [title, description, amount, attachmentPath];
+  List<Object?> get props => [title, description, amount, attachmentBytes, attachmentName];
 }
 
 class FetchReimbursementHistoryRequested extends ReimbursementEvent {
@@ -41,7 +44,7 @@ class ApproveReimbursementRequested extends ReimbursementEvent {
   const ApproveReimbursementRequested(this.id, this.status);
 
   @override
-  List<Object> get props => [id, status];
+  List<Object?> get props => [id, status];
 }
 
 class UpdateReimbursementRequested extends ReimbursementEvent {
@@ -49,18 +52,20 @@ class UpdateReimbursementRequested extends ReimbursementEvent {
   final String title;
   final String? description;
   final double amount;
-  final String? attachmentPath;
+  final Uint8List? attachmentBytes;
+  final String? attachmentName;
 
   const UpdateReimbursementRequested({
     required this.id,
     required this.title,
     this.description,
     required this.amount,
-    this.attachmentPath,
+    this.attachmentBytes,
+    this.attachmentName,
   });
 
   @override
-  List<Object> get props => [id, title, description ?? '', amount, attachmentPath ?? ''];
+  List<Object?> get props => [id, title, description, amount, attachmentBytes, attachmentName];
 }
 
 class DeleteReimbursementRequested extends ReimbursementEvent {
@@ -69,5 +74,5 @@ class DeleteReimbursementRequested extends ReimbursementEvent {
   const DeleteReimbursementRequested(this.id);
 
   @override
-  List<Object> get props => [id];
+  List<Object?> get props => [id];
 }

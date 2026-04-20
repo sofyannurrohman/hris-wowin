@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 
 abstract class LeaveEvent extends Equatable {
@@ -12,18 +13,20 @@ class SubmitLeaveRequested extends LeaveEvent {
   final String startDate;
   final String endDate;
   final String reason;
-  final String? attachmentPath;
+  final Uint8List? attachmentBytes;
+  final String? attachmentName;
 
   const SubmitLeaveRequested({
     required this.leaveTypeId,
     required this.startDate,
     required this.endDate,
     required this.reason,
-    this.attachmentPath,
+    this.attachmentBytes,
+    this.attachmentName,
   });
 
   @override
-  List<Object?> get props => [leaveTypeId, startDate, endDate, reason, attachmentPath];
+  List<Object?> get props => [leaveTypeId, startDate, endDate, reason, attachmentBytes, attachmentName];
 }
 
 class FetchLeaveBalancesRequested extends LeaveEvent {
@@ -67,7 +70,8 @@ class UpdateLeaveRequested extends LeaveEvent {
   final String startDate;
   final String endDate;
   final String reason;
-  final String? attachmentPath;
+  final Uint8List? attachmentBytes;
+  final String? attachmentName;
 
   const UpdateLeaveRequested({
     required this.leaveId,
@@ -75,11 +79,12 @@ class UpdateLeaveRequested extends LeaveEvent {
     required this.startDate,
     required this.endDate,
     required this.reason,
-    this.attachmentPath,
+    this.attachmentBytes,
+    this.attachmentName,
   });
 
   @override
-  List<Object?> get props => [leaveId, leaveTypeId, startDate, endDate, reason, attachmentPath];
+  List<Object?> get props => [leaveId, leaveTypeId, startDate, endDate, reason, attachmentBytes, attachmentName];
 }
 
 class DeleteLeaveRequested extends LeaveEvent {

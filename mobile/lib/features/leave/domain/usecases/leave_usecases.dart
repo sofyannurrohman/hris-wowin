@@ -4,13 +4,15 @@ import 'package:hris_app/features/leave/domain/entities/leave.dart';
 import 'package:hris_app/features/leave/domain/entities/leave_balance.dart';
 import 'package:hris_app/features/leave/domain/repositories/leave_repository.dart';
 
+import 'dart:typed_data';
+
 class SubmitLeaveUseCase {
   final LeaveRepository repository;
 
   SubmitLeaveUseCase(this.repository);
 
-  Future<Either<Failure, void>> call(String leaveTypeId, String startDate, String endDate, String reason, {String? attachmentPath}) {
-    return repository.submitLeave(leaveTypeId, startDate, endDate, reason, attachmentPath: attachmentPath);
+  Future<Either<Failure, void>> call(String leaveTypeId, String startDate, String endDate, String reason, {Uint8List? attachmentBytes, String? attachmentName}) {
+    return repository.submitLeave(leaveTypeId, startDate, endDate, reason, attachmentBytes: attachmentBytes, attachmentName: attachmentName);
   }
 }
 

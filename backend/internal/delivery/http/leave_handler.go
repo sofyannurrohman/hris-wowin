@@ -120,6 +120,7 @@ func (h *LeaveHandler) GetMyBalances(c *gin.Context) {
 
 	balances, err := h.leaveUseCase.GetMyBalances(userID)
 	if err != nil {
+		log.Printf("Error in GetMyBalances: %v", err)
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get leave balances")
 		return
 	}

@@ -37,13 +37,13 @@ class RegisterFaceRequested extends AttendanceEvent {
 }
 
 class FetchHistoryRequested extends AttendanceEvent {
-  final int page;
-  final int limit;
+  final String? startDate;
+  final String? endDate;
 
-  const FetchHistoryRequested({this.page = 1, this.limit = 10});
+  const FetchHistoryRequested({this.startDate, this.endDate});
 
   @override
-  List<Object?> get props => [page, limit];
+  List<Object?> get props => [startDate, endDate];
 }
 
 class FetchHomeDataRequested extends AttendanceEvent {}

@@ -21,11 +21,12 @@ type AuthUseCase interface {
 }
 
 type authUseCase struct {
-	userRepo repository.UserRepository
+	userRepo    repository.UserRepository
+	companyRepo repository.CompanyRepository
 }
 
-func NewAuthUseCase(userRepo repository.UserRepository) AuthUseCase {
-	return &authUseCase{userRepo}
+func NewAuthUseCase(userRepo repository.UserRepository, companyRepo repository.CompanyRepository) AuthUseCase {
+	return &authUseCase{userRepo, companyRepo}
 }
 
 type RegisterRequest struct {
@@ -74,6 +75,12 @@ func (u *authUseCase) Register(req RegisterRequest) error {
 		IsActive:     true,
 	}
 
+	// Default company to "PT Wowin Purnomo Putera" as requested
+	defaultCompany, err := u.companyRepo.FindByName("PT Wowin Purnomo Putera")
+	if err == nil && defaultCompany != nil {
+		user.CompanyID = &defaultCompany.ID
+	}
+
 	jobPosID, err := uuid.Parse(req.JobPositionID)
 	if err != nil {
 		return errors.New("invalid job position ID format")
@@ -90,6 +97,7 @@ func (u *authUseCase) Register(req RegisterRequest) error {
 		JobPositionID:    &jobPosID,
 		BranchID:         &branchID,
 		JoinDate:         time.Now(),
+		CompanyID:        user.CompanyID, // Inherit from user
 	}
 
 	// Handle Face Data if provided

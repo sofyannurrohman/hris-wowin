@@ -12,6 +12,7 @@ type CompanyRepository interface {
 	FindByID(id uuid.UUID) (*domain.Company, error)
 	Update(company *domain.Company) error
 	Delete(id uuid.UUID) error
+	FindByName(name string) (*domain.Company, error)
 }
 
 type companyRepository struct {
@@ -51,4 +52,15 @@ func (r *companyRepository) Update(company *domain.Company) error {
 
 func (r *companyRepository) Delete(id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&domain.Company{}).Error
+}
+
+func (r *companyRepository) FindByName(name string) (*domain.Company, error) {
+	var company domain.Company
+	if err := r.db.Where("name = ?", name).First(&company).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &company, nil
 }

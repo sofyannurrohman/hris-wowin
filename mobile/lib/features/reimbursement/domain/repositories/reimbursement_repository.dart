@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dartz/dartz.dart';
 import 'package:hris_app/core/error/failures.dart';
 import 'package:hris_app/features/reimbursement/domain/entities/reimbursement.dart';
@@ -7,7 +8,8 @@ abstract class ReimbursementRepository {
     required String title,
     String? description,
     required double amount,
-    String? attachmentPath,
+    Uint8List? attachmentBytes,
+    String? attachmentName,
   });
   Future<Either<Failure, List<Reimbursement>>> getMyHistory({int page = 1, int limit = 10});
   Future<Either<Failure, List<Reimbursement>>> getAllPending({int page = 1, int limit = 20});
@@ -17,7 +19,8 @@ abstract class ReimbursementRepository {
     required String title,
     String? description,
     required double amount,
-    String? attachmentPath,
+    Uint8List? attachmentBytes,
+    String? attachmentName,
   });
   Future<Either<Failure, void>> deleteReimbursement(String id);
 }

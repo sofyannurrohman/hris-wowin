@@ -5,6 +5,8 @@ import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/features/reimbursement/domain/entities/reimbursement.dart';
 import 'package:hris_app/features/reimbursement/domain/repositories/reimbursement_repository.dart';
 
+import 'dart:typed_data';
+
 class ReimbursementRepositoryImpl implements ReimbursementRepository {
   final ApiClient apiClient;
 
@@ -15,7 +17,8 @@ class ReimbursementRepositoryImpl implements ReimbursementRepository {
     required String title,
     String? description,
     required double amount,
-    String? attachmentPath,
+    Uint8List? attachmentBytes,
+    String? attachmentName,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -24,15 +27,14 @@ class ReimbursementRepositoryImpl implements ReimbursementRepository {
         'amount': amount,
       };
 
-      dynamic body;
-      if (attachmentPath != null) {
-        body = FormData.fromMap({
-          ...data,
-          'attachment': await MultipartFile.fromFile(attachmentPath),
-        });
-      } else {
-        body = data;
+      Map<String, dynamic> formDataMap = {...data};
+      if (attachmentBytes != null && attachmentName != null) {
+        formDataMap['attachment'] = MultipartFile.fromBytes(
+          attachmentBytes,
+          filename: attachmentName,
+        );
       }
+      final body = FormData.fromMap(formDataMap);
 
       final response = await apiClient.client.post('reimbursements', data: body);
 
@@ -118,7 +120,8 @@ class ReimbursementRepositoryImpl implements ReimbursementRepository {
     required String title,
     String? description,
     required double amount,
-    String? attachmentPath,
+    Uint8List? attachmentBytes,
+    String? attachmentName,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -127,15 +130,14 @@ class ReimbursementRepositoryImpl implements ReimbursementRepository {
         'amount': amount,
       };
 
-      dynamic body;
-      if (attachmentPath != null) {
-        body = FormData.fromMap({
-          ...data,
-          'attachment': await MultipartFile.fromFile(attachmentPath),
-        });
-      } else {
-        body = data;
+      Map<String, dynamic> formDataMap = {...data};
+      if (attachmentBytes != null && attachmentName != null) {
+        formDataMap['attachment'] = MultipartFile.fromBytes(
+          attachmentBytes,
+          filename: attachmentName,
+        );
       }
+      final body = FormData.fromMap(formDataMap);
 
       final response = await apiClient.client.put('reimbursements/$id', data: body);
 

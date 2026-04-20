@@ -141,11 +141,11 @@ class AttendanceRepository {
     }
   }
 
-  Future<Either<Failure, List<Attendance>>> getHistory(int page, int limit) async {
+  Future<Either<Failure, List<Attendance>>> getHistory({String? startDate, String? endDate}) async {
     try {
       final response = await apiClient.client.get('attendance/history', queryParameters: {
-        'page': page,
-        'limit': limit,
+        if (startDate != null) 'start_date': startDate,
+        if (endDate != null) 'end_date': endDate,
       });
 
       if (response.statusCode == 200) {

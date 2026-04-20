@@ -39,7 +39,7 @@ func main() {
 	announcementRepo := repository.NewAnnouncementRepository(db)
 
 	// Setup UseCases
-	authUseCase := usecase.NewAuthUseCase(userRepo)
+	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo)
 	employeeUseCase := usecase.NewEmployeeUsecase(employeeRepo, userRepo)
 	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo)
 	leaveUseCase := usecase.NewLeaveUseCase(db, leaveRepo, employeeRepo)
@@ -61,9 +61,6 @@ func main() {
 	// Initialize Gin
 	r := gin.Default()
 
-	// Serve Static Files
-	r.Static("/uploads", "./uploads")
-
 	// CORS Middleware
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -72,6 +69,9 @@ func main() {
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
+
+	// Serve Static Files
+	r.Static("/uploads", "./uploads")
 
 	// Initialize Handlers
 	authHandler := http.NewAuthHandler(authUseCase, cfg)

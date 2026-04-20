@@ -39,58 +39,100 @@ class _ShiftPageState extends State<ShiftPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundAlt,
-      appBar: AppBar(
-        title: Text('JADWAL SHIFT', 
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.2)
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
       body: BlocBuilder<ShiftBloc, ShiftState>(
         builder: (context, state) {
-          if (state is ShiftLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
           if (state is ShiftLoaded) {
             _allSchedules = state.schedules;
-            final selectedSchedule = _getScheduleForDay(_selectedDay!);
-
-            return Column(
-              children: [
-                _buildCalendar(),
-                const SizedBox(height: 24),
-                if (selectedSchedule != null)
-                  _buildShiftDetail(selectedSchedule)
-                else
-                  _buildEmptyDetail(),
-              ],
-            );
           }
-          return const SizedBox();
+          final selectedSchedule = _selectedDay != null ? _getScheduleForDay(_selectedDay!) : null;
+          final todaySchedule = _getScheduleForDay(DateTime.now());
+
+          return CustomScrollView(
+            slivers: [
+              _buildSliverAppBar(todaySchedule),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildCalendarContainer(),
+                    const SizedBox(height: 12),
+                    _buildDetailSection(selectedSchedule),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _buildCalendar() {
+  Widget _buildSliverAppBar(ShiftSchedule? todaySchedule) {
+    return SliverAppBar(
+      expandedHeight: 180,
+      pinned: true,
+      backgroundColor: AppColors.primaryRed,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: Text('JADWAL SHIFT', 
+        style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Colors.white)
+      ),
+      centerTitle: true,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppColors.primaryGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              Text(
+                todaySchedule != null ? todaySchedule.shiftName : 'OFF',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                'SHIFT HARI INI',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarContainer() {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: TableCalendar(
         firstDay: DateTime.utc(2020, 1, 1),
         lastDay: DateTime.utc(2030, 12, 31),
         focusedDay: _focusedDay,
         calendarFormat: _calendarFormat,
+        availableCalendarFormats: const {CalendarFormat.month: 'Month'},
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         onDaySelected: (selectedDay, focusedDay) {
           setState(() {
@@ -105,13 +147,23 @@ class _ShiftPageState extends State<ShiftPage> {
         headerStyle: HeaderStyle(
           formatButtonVisible: false,
           titleCentered: true,
-          titleTextStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16),
+          titleTextStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary),
+          leftChevronIcon: const Icon(Icons.chevron_left_rounded, color: AppColors.primaryRed),
+          rightChevronIcon: const Icon(Icons.chevron_right_rounded, color: AppColors.primaryRed),
+        ),
+        daysOfWeekStyle: DaysOfWeekStyle(
+          weekdayStyle: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontWeight: FontWeight.w700, fontSize: 12),
+          weekendStyle: GoogleFonts.plusJakartaSans(color: AppColors.primaryRed, fontWeight: FontWeight.w700, fontSize: 12),
         ),
         calendarStyle: CalendarStyle(
+          defaultTextStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          weekendTextStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: AppColors.primaryRed),
           todayDecoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle),
-          todayTextStyle: const TextStyle(color: AppColors.primaryRed, fontWeight: FontWeight.bold),
+          todayTextStyle: GoogleFonts.plusJakartaSans(color: AppColors.primaryRed, fontWeight: FontWeight.w800),
           selectedDecoration: const BoxDecoration(color: AppColors.primaryRed, shape: BoxShape.circle),
-          markerDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+          selectedTextStyle: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w800),
+          outsideDaysVisible: false,
+          markerDecoration: const BoxDecoration(color: AppColors.info, shape: BoxShape.circle),
         ),
         eventLoader: (day) {
           final s = _getScheduleForDay(day);
@@ -121,60 +173,137 @@ class _ShiftPageState extends State<ShiftPage> {
     );
   }
 
-  Widget _buildShiftDetail(ShiftSchedule s) {
+  Widget _buildDetailSection(ShiftSchedule? s) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: s.isOffDay ? Colors.grey[100] : AppColors.primaryRed.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: s.isOffDay ? Colors.grey[300]! : AppColors.primaryRed.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(DateFormat('EEEE, d MMMM yyyy').format(s.date), style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textTertiary, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(s.shiftName, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w900, color: s.isOffDay ? AppColors.textPrimary : AppColors.primaryRed)),
-                  ],
-                ),
-                Icon(s.isOffDay ? Icons.coffee_rounded : Icons.work_history_rounded, color: s.isOffDay ? Colors.grey : AppColors.primaryRed, size: 40),
-              ],
-            ),
-            if (!s.isOffDay) ...[
-              const Divider(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildTimeInfo('Masuk', s.startTime),
-                  Container(width: 1, height: 40, color: AppColors.grayBorder),
-                  _buildTimeInfo('Pulang', s.endTime),
-                ],
-              ),
-            ],
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          Text(
+            'DETAIL JADWAL',
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1),
+          ),
+          const SizedBox(height: 12),
+          s != null ? _buildShiftDetailCard(s) : _buildEmptyDetail(),
+        ],
       ),
     );
   }
 
-  Widget _buildTimeInfo(String label, String time) {
+  Widget _buildShiftDetailCard(ShiftSchedule s) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: s.isOffDay ? AppColors.grayLight : AppColors.primaryRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  s.isOffDay ? Icons.coffee_rounded : Icons.work_history_rounded, 
+                  color: s.isOffDay ? AppColors.textTertiary : AppColors.primaryRed, 
+                  size: 28
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('EEEE, d MMMM yyyy').format(s.date), 
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w700)
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      s.shiftName, 
+                      style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (!s.isOffDay)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'AKTIF', 
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.w900)
+                  ),
+                ),
+            ],
+          ),
+          if (!s.isOffDay) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Divider(height: 1, color: AppColors.grayBorder),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildTimeInfo('JAM MASUK', s.startTime, Icons.login_rounded, AppColors.info),
+                Container(width: 1, height: 40, color: AppColors.grayBorder),
+                _buildTimeInfo('JAM PULANG', s.endTime, Icons.logout_rounded, AppColors.primaryRed),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeInfo(String label, String time, IconData icon, Color iconColor) {
     return Column(
       children: [
-        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textTertiary, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: iconColor.withOpacity(0.6)),
+            const SizedBox(width: 6),
+            Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+          ],
+        ),
+        const SizedBox(height: 8),
         Text(time, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
       ],
     );
   }
 
   Widget _buildEmptyDetail() {
-    return Center(child: Text('Pilih tanggal untuk melihat detail shift.', style: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary)));
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.grayBorder, width: 1),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.calendar_today_rounded, size: 48, color: AppColors.textTertiary.withOpacity(0.2)),
+          const SizedBox(height: 16),
+          Text(
+            'Pilih tanggal untuk melihat detail shift.', 
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontWeight: FontWeight.w600)
+          ),
+        ],
+      ),
+    );
   }
 }
+

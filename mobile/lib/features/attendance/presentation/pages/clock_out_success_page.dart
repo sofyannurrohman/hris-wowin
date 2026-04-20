@@ -31,7 +31,6 @@ class ClockOutSuccessPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.backgroundAlt,
       body: SafeArea(
-      body: SafeArea(
         child: AnimationLimiter(
           child: SingleChildScrollView(
             child: Padding(

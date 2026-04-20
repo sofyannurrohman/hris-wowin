@@ -280,17 +280,41 @@ class DashboardTab extends StatelessWidget {
     return BlocBuilder<AttendanceBloc, AttendanceState>(
       builder: (context, state) {
         if (state is AttendanceLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: AppColors.primaryRed));
         }
         
         Map<String, dynamic>? profile;
         List<Attendance> recentActivity = [];
         Map<String, dynamic>? statistics;
 
+        // Get profile from AuthBloc for stability
+        final authState = context.read<AuthBloc>().state;
+        if (authState is Authenticated) {
+          profile = authState.userProfile;
+        }
+
         if (state is HomeDataLoaded) {
-          profile = state.profile;
+          // stats/history still come from AttendanceBloc
           recentActivity = state.recentActivity;
           statistics = state.statistics;
+          // If AttendanceBloc also has profile, it can override
+          if (state.profile != null) profile = state.profile;
+        } else if (state is AttendanceHistoryLoaded) {
+          recentActivity = state.history;
+          if (state.profile != null) profile = state.profile;
+          if (state.statistics != null) statistics = state.statistics;
+        }
+
+        String displayName = '';
+        if (profile != null) {
+          final firstName = profile['first_name'] ?? profile['FirstName'] ?? '';
+          final lastName = profile['last_name'] ?? profile['LastName'] ?? '';
+          displayName = '$firstName $lastName'.trim();
+          
+          // Fallback if split first/last not found
+          if (displayName.isEmpty) {
+            displayName = profile['name'] ?? profile['Name'] ?? profile['full_name'] ?? '';
+          }
         }
 
         return RefreshIndicator(
@@ -299,19 +323,19 @@ class DashboardTab extends StatelessWidget {
           },
           child: CustomScrollView(
             slivers: [
-              _buildSliverAppBar(profile),
+              _buildSliverAppBar(profile, displayName),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildStatistics(statistics),
                       const SizedBox(height: 32),
                       _buildQuickActions(context),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 40),
                       _buildAnnouncements(context),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 40),
                       _buildRecentActivity(recentActivity),
                     ],
                   ),
@@ -324,13 +348,14 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildSliverAppBar(Map<String, dynamic>? profile) {
+  Widget _buildSliverAppBar(Map<String, dynamic>? profile, String displayName) {
     return SliverAppBar(
-      expandedHeight: 120,
+      expandedHeight: 60,
       floating: false,
       pinned: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.primaryRed,
       elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: const BoxDecoration(
@@ -344,52 +369,84 @@ class DashboardTab extends StatelessWidget {
       ),
       title: Row(
         children: [
-          const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
-          const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('WOWIN', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
-              Text('HRIS SYSTEM', style: GoogleFonts.plusJakartaSans(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 2)),
+              Text(
+                'Selamat Datang,',
+                style: GoogleFonts.plusJakartaSans(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w700, fontSize: 10, letterSpacing: 1),
+              ),
+              Text(
+                (displayName.isNotEmpty ? displayName : 'User').toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
+              ),
             ],
           ),
         ],
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), onPressed: () {}),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), onPressed: () {}),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.yellow, shape: BoxShape.circle)),
+            ),
+          ],
+        ),
         const SizedBox(width: 8),
       ],
     );
   }
 
   Widget _buildStatistics(Map<String, dynamic>? stats) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildStatCard('HADIR', stats?['PresentCount']?.toString() ?? '0', const Color(0xFF10B981))),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('CUTI', stats?['LeaveCount']?.toString() ?? '0', const Color(0xFF3B82F6))),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('ALFA', stats?['AlphaCount']?.toString() ?? '0', AppColors.primaryRed)),
+        Text('RINGKASAN KEHADIRAN ANDA', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: AppColors.primaryGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryRed.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(child: _buildRedStatItem('HADIR', stats?['PresentCount']?.toString() ?? '0', Icons.check_circle_rounded)),
+              Container(width: 1, height: 40, color: Colors.white24),
+              Expanded(child: _buildRedStatItem('CUTI', stats?['LeaveCount']?.toString() ?? '0', Icons.event_available_rounded)),
+              Container(width: 1, height: 40, color: Colors.white24),
+              Expanded(child: _buildRedStatItem('ALFA', stats?['AlphaCount']?.toString() ?? '0', Icons.error_rounded)),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 10))],
-      ),
-      child: Column(
-        children: [
-          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color)),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1)),
-        ],
-      ),
+  Widget _buildRedStatItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white.withOpacity(0.8), size: 18),
+        const SizedBox(height: 8),
+        Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white70, letterSpacing: 1)),
+      ],
     );
   }
 
@@ -397,15 +454,15 @@ class DashboardTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('AKSES CEPAT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
-        const SizedBox(height: 16),
+        Text('AKSES CEPAT', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+        const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildActionItem(Icons.qr_code_scanner_rounded, 'Masuk', const Color(0xFF10B981), () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: true)))),
-            _buildActionItem(Icons.logout_rounded, 'Keluar', AppColors.primaryRed, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: false)))),
-            _buildActionItem(Icons.history_rounded, 'Riwayat', const Color(0xFFF59E0B), () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityHistoryPage()))),
-            _buildActionItem(Icons.event_available_rounded, 'Cuti', const Color(0xFF8B5CF6), () { /* Go to Leave tab */ }),
+            _buildActionItem(Icons.qr_code_scanner_rounded, 'Absen Masuk', AppColors.success, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: true)))),
+            _buildActionItem(Icons.logout_rounded, 'Absen Keluar', AppColors.primaryRed, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: false)))),
+            _buildActionItem(Icons.history_rounded, 'Riwayat', AppColors.warning, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityHistoryPage()))),
+            _buildActionItem(Icons.event_available_rounded, 'Cuti', const Color(0xFF6366F1), () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeavePage()))),
           ],
         ),
       ],
@@ -415,15 +472,19 @@ class DashboardTab extends StatelessWidget {
   Widget _buildActionItem(IconData icon, String label, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
-            child: Icon(icon, color: color, size: 26),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(icon, color: color, size: 28),
           ),
-          const SizedBox(height: 8),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+          const SizedBox(height: 10),
+          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
         ],
       ),
     );
@@ -440,16 +501,19 @@ class DashboardTab extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('PENGUMUMAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
-                  TextButton(onPressed: () {}, child: const Text('Lihat Semua', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primaryRed))),
+                  Text('PENGUMUMAN', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+                  TextButton(
+                    onPressed: () {}, 
+                    child: Text('Lihat Semua', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primaryRed))
+                  ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               if (state is AnnouncementLoading)
-                const Center(child: CircularProgressIndicator())
+                const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
               else if (state is AnnouncementLoaded && state.announcements.isNotEmpty)
                 SizedBox(
-                  height: 160,
+                  height: 180,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: state.announcements.length,
@@ -457,27 +521,39 @@ class DashboardTab extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final ann = state.announcements[index];
                       return Container(
-                        width: 280,
-                        padding: const EdgeInsets.all(20),
+                        width: 300,
+                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppColors.grayBorder),
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8)),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.08), shape: BoxShape.circle), child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 16)),
+                                Container(
+                                  padding: const EdgeInsets.all(8), 
+                                  decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), 
+                                  child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 18)
+                                ),
                                 const SizedBox(width: 12),
-                                Expanded(child: Text(ann.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                Expanded(child: Text(ann.title.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(ann.content, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 16),
+                            Text(ann.content, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.6), maxLines: 2, overflow: TextOverflow.ellipsis),
                             const Spacer(),
-                            Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: const TextStyle(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+                                Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryRed.withOpacity(0.5)),
+                              ],
+                            ),
                           ],
                         ),
                       );
@@ -485,18 +561,7 @@ class DashboardTab extends StatelessWidget {
                   ),
                 )
               else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
-                  child: const Column(
-                    children: [
-                      Icon(Icons.campaign_outlined, color: AppColors.textTertiary, size: 32),
-                      SizedBox(height: 12),
-                      Text('Belum ada pengumuman hari ini', style: TextStyle(fontSize: 12, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
+                _buildEmptyPlaceholder(Icons.campaign_outlined, 'Belum ada pengumuman hari ini'),
             ],
           );
         },
@@ -508,21 +573,10 @@ class DashboardTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('AKTIVITAS TERBARU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
-        const SizedBox(height: 16),
+        Text('AKTIVITAS TERBARU', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+        const SizedBox(height: 20),
         if (activity.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.grayBorder)),
-            child: const Column(
-              children: [
-                Icon(Icons.history_rounded, color: AppColors.textTertiary, size: 32),
-                SizedBox(height: 12),
-                Text('Belum ada riwayat absensi', style: TextStyle(fontSize: 12, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          )
+          _buildEmptyPlaceholder(Icons.history_rounded, 'Belum ada riwayat absensi')
         else
           ListView.builder(
             shrinkWrap: true,
@@ -530,35 +584,69 @@ class DashboardTab extends StatelessWidget {
             itemCount: activity.length > 5 ? 5 : activity.length,
             itemBuilder: (context, index) {
               final att = activity[index];
+              final isClockIn = att.checkOut == null;
+              final statusColor = isClockIn ? AppColors.success : AppColors.primaryRed;
+
               return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.grayBorder)),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: (att.checkOut == null ? const Color(0xFF10B981) : AppColors.primaryRed).withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
-                      child: Icon(att.checkOut == null ? Icons.login_rounded : Icons.logout_rounded, color: att.checkOut == null ? const Color(0xFF10B981) : AppColors.primaryRed, size: 20),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(left: BorderSide(color: statusColor, width: 5)),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(att.checkOut == null ? 'Absen Masuk' : 'Absen Keluar', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                          const SizedBox(height: 2),
-                          Text(DateFormat('dd MMMM yyyy').format(att.checkIn), style: const TextStyle(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                          child: Icon(isClockIn ? Icons.login_rounded : Icons.logout_rounded, color: statusColor, size: 22),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(isClockIn ? 'Absen Masuk' : 'Absen Keluar', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                              const SizedBox(height: 2),
+                              Text(DateFormat('dd MMMM yyyy').format(att.checkIn), style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                        Text(DateFormat('HH:mm').format(att.checkOut ?? att.checkIn), style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                      ],
                     ),
-                    Text(DateFormat('HH:mm').format(att.checkOut ?? att.checkIn), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                  ],
+                  ),
                 ),
               );
             },
           ),
       ],
+    );
+  }
+
+  Widget _buildEmptyPlaceholder(IconData icon, String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.grayBorder, width: 1),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: AppColors.textTertiary.withOpacity(0.2), size: 40),
+          const SizedBox(height: 16),
+          Text(message, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 }

@@ -27,16 +27,17 @@ class Reimbursement extends Equatable {
 
   factory Reimbursement.fromJson(Map<String, dynamic> json) {
     return Reimbursement(
-      id: json['ID'] ?? '',
-      employeeId: json['EmployeeID'] ?? '',
-      title: json['Title'] ?? '',
-      description: json['Description'],
-      amount: (json['Amount'] as num?)?.toDouble() ?? 0.0,
-      attachmentUrl: json['AttachmentURL'],
-      status: json['Status'] ?? 'PENDING',
-      rejectedReason: json['RejectedReason'],
-      createdAt: DateTime.parse(json['CreatedAt'] ?? DateTime.now().toIso8601String()),
-      employeeName: json['EmployeeName'],
+      id: json['id']?.toString() ?? json['ID']?.toString() ?? '',
+      employeeId: json['employee_id']?.toString() ?? json['EmployeeID']?.toString() ?? '',
+      title: json['title'] ?? json['Title'] ?? '',
+      description: json['description'] ?? json['Description'],
+      amount: (json['amount'] as num?)?.toDouble() ?? (json['Amount'] as num?)?.toDouble() ?? 0.0,
+      attachmentUrl: json['attachment_url'] ?? json['AttachmentURL'],
+      status: json['status'] ?? json['Status'] ?? 'PENDING',
+      rejectedReason: json['rejected_reason'] ?? json['RejectedReason'],
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']).toLocal() : 
+                 (json['CreatedAt'] != null ? DateTime.parse(json['CreatedAt']).toLocal() : DateTime.now()),
+      employeeName: json['employee_name'] ?? json['EmployeeName'],
     );
   }
 

@@ -44,81 +44,127 @@ class _DirectoryPageState extends State<DirectoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Ultra light professional gray
-      appBar: AppBar(
-        title: Text('DIREKTORI KARYAWAN', 
-          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: AppColors.textPrimary)
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        children: [
-          _buildPremiumSearchField(),
-          Expanded(
-            child: BlocBuilder<DirectoryBloc, DirectoryState>(
-              builder: (context, state) {
-                if (state is DirectoryLoading) {
-                  return const Center(child: CircularProgressIndicator(color: AppColors.primaryRed));
-                }
-                if (state is DirectoryLoaded) {
-                  if (state.directory.isEmpty) {
-                    return _buildEmptyState();
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: state.directory.length,
-                    itemBuilder: (context, index) => _buildProfessionalCard(state.directory[index]),
-                  );
-                }
-                if (state is DirectoryFailure) {
-                  return Center(child: Text(state.message, style: GoogleFonts.plusJakartaSans(color: Colors.red)));
-                }
-                return const SizedBox();
-              },
-            ),
-          ),
-        ],
+      backgroundColor: AppColors.backgroundAlt,
+      body: BlocBuilder<DirectoryBloc, DirectoryState>(
+        builder: (context, state) {
+          int count = 0;
+          List<EmployeeDirectory> employees = [];
+          if (state is DirectoryLoaded) {
+            employees = state.directory;
+            count = employees.length;
+          }
+
+          return NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                _buildSliverAppBar(count),
+                _buildSearchHeader(),
+              ];
+            },
+            body: _buildBody(state, employees),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildPremiumSearchField() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
-        ],
+  Widget _buildSliverAppBar(int count) {
+    return SliverAppBar(
+      expandedHeight: 180,
+      pinned: true,
+      backgroundColor: AppColors.primaryRed,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+        onPressed: () => Navigator.pop(context),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: TextField(
-          controller: _searchController,
-          onChanged: (val) {
-            context.read<DirectoryBloc>().add(FetchDirectoryRequested(query: val));
-          },
-          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
-          decoration: InputDecoration(
-            hintText: 'Cari Nama atau Departemen...',
-            hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w500),
-            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 22),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+      title: Text('DIREKTORI', 
+        style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: Colors.white)
+      ),
+      centerTitle: true,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppColors.primaryGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              Text(
+                '$count',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                'TOTAL KARYAWAN',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchHeader() {
+    return SliverToBoxAdapter(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (val) {
+              context.read<DirectoryBloc>().add(FetchDirectoryRequested(query: val));
+            },
+            style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Cari Nama atau Departemen...',
+              hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontSize: 13, fontWeight: FontWeight.w500),
+              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primaryRed, size: 22),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(DirectoryState state, List<EmployeeDirectory> employees) {
+    if (state is DirectoryLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primaryRed));
+    }
+    
+    if (state is DirectoryLoaded && employees.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    if (state is DirectoryFailure) {
+      return Center(child: Text(state.message, style: GoogleFonts.plusJakartaSans(color: AppColors.error)));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+      itemCount: employees.length,
+      itemBuilder: (context, index) => _buildProfessionalCard(employees[index]),
     );
   }
 
@@ -127,7 +173,7 @@ class _DirectoryPageState extends State<DirectoryPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_search_rounded, size: 80, color: Colors.grey.withOpacity(0.3)),
+          Icon(Icons.person_search_rounded, size: 80, color: AppColors.textTertiary.withOpacity(0.3)),
           const SizedBox(height: 16),
           Text('Karyawan tidak ditemukan', 
             style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
@@ -152,42 +198,36 @@ class _DirectoryPageState extends State<DirectoryPage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {}, // Future: Detail Page
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _buildAvatar(employee),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              _buildAvatar(employee),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(employee.name, 
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 15, color: AppColors.textPrimary)),
+                    const SizedBox(height: 4),
+                    _buildPositionBadge(employee.position),
+                    const SizedBox(height: 10),
+                    Row(
                       children: [
-                        Text(employee.name, 
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF1E293B))),
-                        const SizedBox(height: 4),
-                        _buildPositionBadge(employee.position),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(Icons.business_rounded, size: 12, color: Color(0xFF64748B)),
-                            const SizedBox(width: 4),
-                            Text(employee.department, 
-                              style: GoogleFonts.plusJakartaSans(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
+                        const Icon(Icons.business_rounded, size: 14, color: AppColors.textTertiary),
+                        const SizedBox(width: 6),
+                        Text(employee.department, 
+                          style: GoogleFonts.plusJakartaSans(color: AppColors.textTertiary, fontSize: 11, fontWeight: FontWeight.w700)),
                       ],
                     ),
-                  ),
-                  _buildActionButtons(employee),
-                ],
+                  ],
+                ),
               ),
-            ),
+              _buildActionButtons(employee),
+            ],
           ),
         ),
       ),
@@ -199,18 +239,18 @@ class _DirectoryPageState extends State<DirectoryPage> {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primaryRed.withOpacity(0.2), width: 2),
+        border: Border.all(color: AppColors.primaryRed.withOpacity(0.1), width: 2),
       ),
       child: CircleAvatar(
-        radius: 30,
-        backgroundColor: const Color(0xFFF1F5F9),
+        radius: 32,
+        backgroundColor: AppColors.grayLight,
         backgroundImage: (employee.profileUrl != null && employee.profileUrl!.isNotEmpty) 
             ? NetworkImage(employee.profileUrl!.startsWith('http') 
                 ? employee.profileUrl! 
                 : '${Uri.parse(AppConstants.baseUrl).origin}${employee.profileUrl!.startsWith('/') ? employee.profileUrl : '/${employee.profileUrl}'}') 
             : null,
         child: (employee.profileUrl == null || employee.profileUrl!.isEmpty) 
-            ? const Icon(Icons.person_rounded, color: Color(0xFF94A3B8), size: 30) 
+            ? const Icon(Icons.person_rounded, color: AppColors.textTertiary, size: 32) 
             : null,
       ),
     );
@@ -218,17 +258,17 @@ class _DirectoryPageState extends State<DirectoryPage> {
 
   Widget _buildPositionBadge(String position) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.primaryRed.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         position.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
           color: AppColors.primaryRed,
           fontSize: 9,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
           letterSpacing: 0.5,
         ),
       ),
@@ -243,10 +283,10 @@ class _DirectoryPageState extends State<DirectoryPage> {
           const Color(0xFF3B82F6), // Professional Blue
           () => _callNumber(employee.phoneNumber)
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _buildCircularAction(
            Icons.chat_bubble_rounded,
-           const Color(0xFF22C55E), // WhatsApp Brand Green
+           const Color(0xFF10B981), // Success Green
            () => _whatsappNumber(employee.phoneNumber)
         ),
       ],
@@ -257,15 +297,15 @@ class _DirectoryPageState extends State<DirectoryPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 38,
-        width: 38,
+        height: 40,
+        width: 40,
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           shape: BoxShape.circle,
-          border: Border.all(color: color.withOpacity(0.2), width: 1),
         ),
         child: Icon(icon, color: color, size: 18),
       ),
     );
   }
 }
+

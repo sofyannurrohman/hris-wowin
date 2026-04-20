@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -36,38 +37,47 @@ class _LeavePageState extends State<LeavePage> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundAlt,
-        body: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              _buildSliverAppBar(),
-              SliverOverlapAbsorber(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-                sliver: SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _SliverTabDelegate(
-                    TabBar(
-                      labelColor: AppColors.primaryRed,
-                      unselectedLabelColor: AppColors.textTertiary,
-                      indicatorColor: AppColors.primaryRed,
-                      indicatorWeight: 3,
-                      labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1),
-                      tabs: const [
-                        Tab(text: 'PENGAJUAN'),
-                        Tab(text: 'RIWAYAT'),
-                      ],
+      child: BlocListener<LeaveBloc, LeaveState>(
+        listener: (context, state) {
+          if (state.status == LeaveStatus.success && state.actionMessage != null) {
+            SnackBarUtils.showSuccess(context, state.actionMessage!);
+          } else if (state.status == LeaveStatus.failure && state.actionMessage != null) {
+            SnackBarUtils.showError(context, state.actionMessage!);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.backgroundAlt,
+          body: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                _buildSliverAppBar(),
+                SliverOverlapAbsorber(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                  sliver: SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverTabDelegate(
+                      TabBar(
+                        labelColor: AppColors.primaryRed,
+                        unselectedLabelColor: AppColors.textTertiary,
+                        indicatorColor: AppColors.primaryRed,
+                        indicatorWeight: 3,
+                        labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1),
+                        tabs: const [
+                          Tab(text: 'PENGAJUAN'),
+                          Tab(text: 'RIWAYAT'),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ];
-          },
-          body: const TabBarView(
-            children: [
-              LeaveFormTab(),
-              LeaveHistoryTab(),
-            ],
+              ];
+            },
+            body: const TabBarView(
+              children: [
+                LeaveFormTab(),
+                LeaveHistoryTab(),
+              ],
+            ),
           ),
         ),
       ),
@@ -76,56 +86,9 @@ class _LeavePageState extends State<LeavePage> {
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 180,
       pinned: true,
       backgroundColor: AppColors.primaryRed,
       elevation: 0,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: AppColors.primaryGradient,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: BlocBuilder<LeaveBloc, LeaveState>(
-            builder: (context, state) {
-              LeaveBalance? annualLeave;
-              if (state.balances.isNotEmpty) {
-                annualLeave = state.balances.firstWhere(
-                  (b) => b.leaveTypeName.toLowerCase().contains('cuti tahunan'),
-                  orElse: () => state.balances.first,
-                );
-              }
-
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 40),
-                  Text(
-                    annualLeave != null ? annualLeave.remaining.toString() : '0',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'SISA JATAH CUTI TAHUNAN',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
       title: const Text('KELOLA CUTI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 1)),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
@@ -242,7 +205,7 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
     }
   }
 
-  void _submit() {
+  void _submit() async {
     if (_startDate == null) {
       SnackBarUtils.showError(context, 'Pilih tanggal mulai.');
       return;
@@ -260,6 +223,13 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
       return;
     }
 
+    Uint8List? attachmentBytes;
+    String? attachmentName;
+    if (_attachment != null) {
+      attachmentBytes = await _attachment!.readAsBytes();
+      attachmentName = _attachment!.name;
+    }
+
     if (widget.leave != null) {
       context.read<LeaveBloc>().add(UpdateLeaveRequested(
         leaveId: widget.leave!.id,
@@ -267,7 +237,8 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
         startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
         endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
         reason: _reasonController.text,
-        attachmentPath: _attachment?.path,
+        attachmentBytes: attachmentBytes,
+        attachmentName: attachmentName,
       ));
     } else {
       context.read<LeaveBloc>().add(SubmitLeaveRequested(
@@ -275,7 +246,8 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
         startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
         endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
         reason: _reasonController.text,
-        attachmentPath: _attachment?.path,
+        attachmentBytes: attachmentBytes,
+        attachmentName: attachmentName,
       ));
     }
   }
@@ -285,7 +257,6 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
     return BlocListener<LeaveBloc, LeaveState>(
       listener: (context, state) {
         if (state.status == LeaveStatus.success && state.actionMessage != null) {
-          SnackBarUtils.showSuccess(context, state.actionMessage!);
           _reasonController.clear();
           setState(() {
             _startDate = null;
@@ -293,10 +264,6 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
             _selectedLeaveTypeId = null;
             _attachment = null;
           });
-          context.read<LeaveBloc>().add(const FetchMyLeavesRequested());
-          context.read<LeaveBloc>().add(const FetchLeaveBalancesRequested());
-        } else if (state.status == LeaveStatus.failure && state.actionMessage != null) {
-          SnackBarUtils.showError(context, state.actionMessage!);
         }
       },
       child: Builder(
@@ -406,6 +373,8 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
     );
   }
 
+
+
   Widget _buildBalanceHeader() {
     return BlocBuilder<LeaveBloc, LeaveState>(
       builder: (context, state) {
@@ -469,7 +438,14 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
       builder: (context, state) {
         // Filter balances based on mode
         List<LeaveBalance> allBalances = state.balances;
-        List<LeaveBalance> filteredBalances = allBalances.where((b) => b.requiresQuota == !_isIzinMode).toList();
+        List<LeaveBalance> filteredBalances = allBalances.where((b) {
+          final isIzinType = !b.requiresQuota || 
+                             b.leaveTypeName.toLowerCase().contains('izin') || 
+                             b.leaveTypeName.toLowerCase().contains('sakit') || 
+                             b.leaveTypeName.toLowerCase().contains('musibah') ||
+                             b.leaveTypeName.toLowerCase().contains('unpaid');
+          return _isIzinMode ? isIzinType : !isIzinType;
+        }).toList();
 
         // Ensure uniqueness to prevent Flutter Dropdown duplicate value crashes
         final uniqueMap = <String, LeaveBalance>{};
