@@ -43,6 +43,7 @@ func (u *payrollConfigUseCase) GetConfig(companyID uuid.UUID) (*domain.PayrollCo
 			BPJSKesEmployeePercentage: 1.00,
 			BPJSKesMaxWageBase:        12000000,
 			PtkpBaseTK0:               54000000,
+			AbsentDeduction:           100000.0,
 		}
 		return defaultConfig, nil
 	}

@@ -287,7 +287,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
                                 fit: BoxFit.cover,
                                 child: SizedBox(
                                   width: constraints.maxWidth,
-                                  height: constraints.maxWidth / _cameraController!.value.aspectRatio,
+                                  height: constraints.maxWidth * _cameraController!.value.aspectRatio,
                                   child: CameraPreview(_cameraController!),
                                 ),
                               ),

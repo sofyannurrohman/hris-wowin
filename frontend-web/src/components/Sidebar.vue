@@ -25,6 +25,7 @@ import {
   Banknote,
   Receipt,
   Target,
+  Megaphone,
   LogOut 
 } from 'lucide-vue-next'
 
@@ -47,23 +48,24 @@ const menuGroups = [
       { to: '/', name: 'Dashboard', icon: LayoutDashboard },
       { to: '/employees', name: 'Karyawan', icon: Users },
       { to: '/attendance', name: 'Kehadiran', icon: Clock },
-      { to: '/payroll', name: 'Payroll', icon: Wallet },
-      { to: '/performance-kpi', name: 'Performa & KPI', icon: Target },
       { to: '/leaves', name: 'Cuti & Izin', icon: FileText },
-      { to: '/payroll-settings', name: 'Pengaturan Payroll', icon: Settings },
+      { to: '/performance-kpi', name: 'Performa & KPI', icon: Target },
+      { to: '/reimbursements', name: 'Reimbursement', icon: Receipt },
+      { to: '/payroll', name: 'Penggajian', icon: Wallet },
+      { to: '/payroll-settings', name: 'Pengaturan Gaji', icon: Settings },
     ]
   },
   {
     title: 'Master Data',
     items: [
+    { to: '/users', name: 'Pengguna Akun', icon: UserCircle },
+    { to: '/leave-types', name: 'Tipe Cuti', icon: Calendar },
+    { to: '/branches', name: 'Kantor Cabang', icon: MapPin },
+    { to: '/companies', name: 'Perusahaan Utama', icon: Globe },
+    { to: '/departments', name: 'Departemen', icon: Building2 },
       { to: '/job-positions', name: 'Jabatan', icon: Briefcase },
-      { to: '/payroll-components', name: 'Komponen Gaji', icon: Calculator },
-      { to: '/leave-types', name: 'Tipe Cuti', icon: Calendar },
       { to: '/shifts', name: 'Shift Kerja', icon: Clock },
-      { to: '/users', name: 'Pengguna Akun', icon: UserCircle },
-      { to: '/departments', name: 'Departemen', icon: Building2 },
-      { to: '/companies', name: 'Perusahaan Utama', icon: Globe },
-      { to: '/branches', name: 'Kantor Cabang', icon: MapPin },
+      { to: '/announcements', name: 'Pengumuman', icon: Megaphone },
     ]
   },
   {
@@ -72,8 +74,6 @@ const menuGroups = [
       { to: '/employee-shifts', name: 'Penugasan Shift', icon: ClipboardList },
       { to: '/leave-balances', name: 'Saldo Cuti', icon: Scale },
       { to: '/attendance-logs', name: 'Log Absensi', icon: History },
-      { to: '/payroll-runs', name: 'Penggajian', icon: Banknote },
-      { to: '/reimbursements', name: 'Reimbursement', icon: Receipt },
     ]
   }
 ]

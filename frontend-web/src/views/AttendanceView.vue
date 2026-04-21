@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, h, computed, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { Pencil, Trash2 } from 'lucide-vue-next'
 import apiClient from '@/api/axios'
@@ -76,6 +76,15 @@ const dummyData = [
   { id: 5, date: '24/10/2026', name: 'Courtney Henry', role: 'Desainer', checkIn: '09:05', checkOut: '18:10', total: '9j 05m', status: 'Tepat Waktu', avatar: 'https://i.pravatar.cc/150?u=courtney' },
 ]
 
+// Photo Preview State
+const isPreviewOpen = ref(false)
+const previewImage = ref('')
+const openPreview = (url: string) => {
+  if (!url) return
+  previewImage.value = `${apiClient.defaults.baseURL}${url}`
+  isPreviewOpen.value = true
+}
+
 // Define Columns for TanStack Table
 const columns = [
   {
@@ -132,6 +141,10 @@ const columns = [
     accessorKey: 'notes',
     header: 'CATATAN',
     cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
+  },
+  {
+    id: 'photo',
+    header: 'FOTO BUKTI'
   },
   {
     id: 'actions',
@@ -281,6 +294,8 @@ const fetchAttendance = async () => {
           branch: item.employee?.branch?.name || '-',
           notes: item.notes || '-',
           avatar: `https://i.pravatar.cc/150?u=${item.employee_id}`,
+          clockInPhoto: item.clock_in_photo_url,
+          clockOutPhoto: item.clock_out_photo_url,
           _raw: item
         }
       })
@@ -472,7 +487,50 @@ onMounted(() => {
       <template #headerTitle>
         <h2 class="text-[16px] font-bold text-gray-900">Catatan Harian</h2>
       </template>
+      
+      <template #cell-photo="{ row }">
+        <div class="flex items-center gap-2">
+            <template v-if="row.clockInPhoto">
+                <div 
+                    @click="openPreview(row.clockInPhoto)"
+                    class="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all bg-gray-50 flex items-center justify-center group relative"
+                >
+                    <img :src="`${apiClient.defaults.baseURL}${row.clockInPhoto}`" class="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                    <div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="absolute bottom-0 right-0 bg-emerald-500 text-[8px] text-white px-1 font-bold">IN</div>
+                </div>
+            </template>
+            <template v-if="row.clockOutPhoto">
+                <div 
+                    @click="openPreview(row.clockOutPhoto)"
+                    class="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all bg-gray-50 flex items-center justify-center group relative"
+                >
+                    <img :src="`${apiClient.defaults.baseURL}${row.clockOutPhoto}`" class="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                    <div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="absolute bottom-0 right-0 bg-indigo-500 text-[8px] text-white px-1 font-bold">OUT</div>
+                </div>
+            </template>
+            <span v-if="!row.clockInPhoto && !row.clockOutPhoto" class="text-[11px] text-gray-400 font-medium italic">Tanpa Foto</span>
+        </div>
+      </template>
     </DataTable>
+
+    <!-- Photo Preview Dialog -->
+    <Dialog v-model:open="isPreviewOpen">
+        <DialogContent class="sm:max-w-3xl p-0 bg-transparent border-none">
+            <div class="relative group">
+                <img :src="previewImage" class="w-full h-auto rounded-2xl shadow-2xl border-4 border-white" />
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    @click="isPreviewOpen = false"
+                    class="absolute -top-12 right-0 text-white hover:bg-white/10"
+                >
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </Button>
+            </div>
+        </DialogContent>
+    </Dialog>
 
     <!-- UI Dialog (Manual Overrides) -->
     <Dialog v-model:open="isModalOpen">

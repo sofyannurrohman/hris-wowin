@@ -41,7 +41,6 @@ func (h *AttendanceHandler) SetupRoutes(router *gin.RouterGroup) {
 			admin.DELETE("/:id", h.DeleteAttendance)
 		}
 	}
-	router.Static("/uploads", "./uploads")
 }
 
 func (h *AttendanceHandler) CheckIn(c *gin.Context) {

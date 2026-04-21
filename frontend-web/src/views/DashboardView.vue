@@ -148,7 +148,7 @@ const fetchTodayAttendance = async () => {
       recentAttendance.value = todayRecords.slice(0, 5).map((item: any) => {
         const name = item.employee?.first_name || 'Karyawan'
         const role = item.employee?.job_position?.title || '-'
-        const dept = item.employee?.department?.Name || '-'
+        const dept = item.employee?.department?.name || '-'
         const checkInTime = item.clock_in_time
           ? new Date(item.clock_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
           : '-'
@@ -172,13 +172,13 @@ const fetchTodayAttendance = async () => {
 
 const fetchPendingLeaves = async () => {
   try {
-    const res = await apiClient.get('/time-off?status=PENDING&limit=10')
+    const res = await apiClient.get('/time-off/manage?status=PENDING&limit=10')
     if (res.data?.data) {
       pendingLeavesCount.value = res.data.data.length
       pendingLeaves.value = res.data.data.slice(0, 3).map((item: any) => ({
         id: item.id,
         name: item.employee?.first_name || 'Karyawan',
-        type: item.leave_type?.Name || 'Cuti',
+        type: item.leave_type?.name || 'Cuti',
         days: (() => {
           const start = new Date(item.start_date)
           const end = new Date(item.end_date)
@@ -202,7 +202,7 @@ const approveLeave = async (id: string) => {
   if (!confirm('Yakin ingin menyetujui cuti ini?')) return
   isSubmittingLeave.value = true
   try {
-    await apiClient.put(`/time-off/${id}/approve`, { status: 'APPROVED' })
+    await apiClient.put(`/time-off/manage/${id}/approve`, { status: 'APPROVED' })
     toast.success('Permohonan cuti disetujui!')
     await fetchPendingLeaves()
   } catch (e: any) {
@@ -217,7 +217,7 @@ const rejectLeave = async (id: string) => {
   if (!reason) return
   isSubmittingLeave.value = true
   try {
-    await apiClient.put(`/time-off/${id}/approve`, { status: 'REJECTED', reject_reason: reason })
+    await apiClient.put(`/time-off/manage/${id}/approve`, { status: 'REJECTED', reject_reason: reason })
     toast.success('Permohonan cuti ditolak!')
     await fetchPendingLeaves()
   } catch (e: any) {

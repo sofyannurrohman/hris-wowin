@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
-import { Pencil, Trash2 } from 'lucide-vue-next'
+import { Pencil, Trash2, Wallet, Plus, X, Landmark, TrendingUp, ShieldAlert, Banknote } from 'lucide-vue-next'
 import apiClient from '@/api/axios'
 import DataTable from '@/components/DataTable.vue'
 import { Button } from '@/components/ui/button'
@@ -32,10 +32,20 @@ const newEmployee = ref({
 })
 
 const isEditMode = ref(false)
-
 const isSubmitting = ref(false)
 const employees = ref<any[]>([])
 const isLoading = ref(true)
+
+// Salary Settings State
+const isSalaryModalOpen = ref(false)
+const currentEmployee = ref<any>(null)
+const salarySettings = ref<any[]>([])
+const payrollComponents = ref<any[]>([])
+const isSalarySubmitting = ref(false)
+const newSalarySetting = ref({
+  component_id: '',
+  amount: 0
+})
 
 const openAddModal = () => {
   isEditMode.value = false
@@ -79,6 +89,50 @@ const openEditModal = (user: any) => {
   isModalOpen.value = true
 }
 
+const openSalaryModal = async (user: any) => {
+    currentEmployee.value = user
+    isSalaryModalOpen.value = true
+    fetchSalarySettings(user.id)
+}
+
+const fetchSalarySettings = async (empID: string) => {
+    try {
+        const res = await apiClient.get(`/payroll/settings/${empID}`)
+        salarySettings.value = res.data.data || []
+    } catch (e) {
+        toast.error('Gagal memuat rincian gaji.')
+    }
+}
+
+const deleteSalarySetting = async (id: string) => {
+    try {
+        await apiClient.delete(`/payroll/settings/${id}`)
+        toast.success('Komponen dihapus.')
+        fetchSalarySettings(currentEmployee.value.id)
+    } catch (e) {
+        toast.error('Gagal menghapus komponen.')
+    }
+}
+
+const addSalarySetting = async () => {
+    if (!newSalarySetting.value.component_id) return
+    isSalarySubmitting.value = true
+    try {
+        await apiClient.post(`/payroll/settings`, {
+            employee_id: currentEmployee.value.id,
+            component_id: newSalarySetting.value.component_id,
+            amount: Number(newSalarySetting.value.amount)
+        })
+        toast.success('Komponen gaji ditambahkan.')
+        newSalarySetting.value = { component_id: '', amount: 0 }
+        fetchSalarySettings(currentEmployee.value.id)
+    } catch (e) {
+        toast.error('Gagal menambahkan komponen.')
+    } finally {
+        isSalarySubmitting.value = false
+    }
+}
+
 const closeAddModal = () => {
   isModalOpen.value = false
 }
@@ -95,10 +149,15 @@ const fetchEmployees = async () => {
   }
 }
 
+const fetchPayrollComponents = async () => {
+    try {
+        const res = await apiClient.get('/payroll-components')
+        payrollComponents.value = res.data.data || []
+    } catch (e) {}
+}
+
 const saveEmployee = async () => {
   isSubmitting.value = true
-  
-  // Sanitize data: convert empty strings to null for UUID fields
   const payload = { 
     ...newEmployee.value, 
     salary: Number(newEmployee.value.salary),
@@ -110,41 +169,38 @@ const saveEmployee = async () => {
   try {
     if (isEditMode.value) {
       await apiClient.put(`/employees/${newEmployee.value.id}`, payload)
-      toast.success('Data Karyawan berhasil diperbarui!')
+      toast.success('Data Karyawan diperbarui.')
     } else {
       await apiClient.post('/employees', payload)
-      toast.success('Karyawan berhasil ditambahkan!')
+      toast.success('Karyawan ditambahkan.')
     }
     closeAddModal()
-    fetchEmployees() // Refresh data
+    fetchEmployees()
   } catch (error: any) {
-    toast.error(`Gagal ${isEditMode.value ? 'memperbarui' : 'menambahkan'} karyawan: ` + (error.response?.data?.message || error.message))
+    toast.error('Gagal menyimpan.')
   } finally {
     isSubmitting.value = false
   }
 }
 
 const deleteEmployee = async (id: string) => {
-  if (!confirm('Apakah Anda yakin ingin menghapus karyawan ini? Operasi ini tidak dapat dibatalkan.')) return
-  
+  if (!confirm('Hapus karyawan ini?')) return
   try {
     await apiClient.delete(`/employees/${id}`)
-    toast.success('Karyawan berhasil dihapus!')
+    toast.success('Berhasil dihapus.')
     fetchEmployees()
   } catch (error: any) {
-    toast.error('Gagal menghapus karyawan: ' + (error.response?.data?.message || error.message))
+    toast.error('Gagal menghapus.')
   }
 }
 
 onMounted(() => {
   fetchEmployees()
+  fetchPayrollComponents()
   masterData.fetchDepartments()
   masterData.fetchJobPositions()
   masterData.fetchBranches()
 })
-const getInitials = (name: string) =>
-  name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-
 
 const columns = [
   {
@@ -153,96 +209,45 @@ const columns = [
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
        const user = row.original
-       const name = user.first_name || 'Unnamed'
-       const email = user.user?.email || ''
-       const initials = getInitials(name)
-
-       return h('div', { class: 'flex flex-col' }, [
-         h('p', { class: 'font-bold text-gray-900 leading-tight' }, name),
-         h('p', { class: 'text-[12px] text-gray-500' }, email)
+       return h('div', { class: 'flex flex-col py-1' }, [
+         h('p', { class: 'font-black text-slate-900 leading-tight' }, user.first_name || 'Unnamed'),
+         h('p', { class: 'text-[11px] font-bold text-slate-400' }, user.user?.email || '-')
        ])
     }
   },
   {
     accessorKey: 'employee_id_number',
-    header: 'ID',
-    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px] font-medium' }, info.getValue() || '-')
+    header: 'ID #',
+    cell: (info: any) => h('span', { class: 'text-slate-500 text-[12px] font-black tracking-tighter' }, info.getValue() || '-')
   },
   {
     accessorKey: 'phone_number',
-    header: 'NOMOR WA',
-    cell: (info: any) => {
-      const val = info.getValue() || '-'
-      if (val === '-') return h('span', { class: 'text-gray-400' }, '-')
-      return h('a', { 
-        href: `https://wa.me/${val.replace(/[^0-9]/g, '')}`, 
-        target: '_blank',
-        class: 'text-emerald-600 font-medium hover:underline flex items-center gap-1'
-      }, [
-        h('span', {}, val)
-      ])
-    }
+    header: 'KONTAK',
+    cell: (info: any) => h('span', { class: 'text-slate-600 text-[12px] font-bold' }, info.getValue() || '-')
   },
   {
     accessorFn: (row: any) => row.job_position?.title || '-',
     id: 'jobPosition',
     header: 'JABATAN',
-    cell: (info: any) => h('span', { class: 'font-bold text-gray-700' }, info.getValue())
-  },
-  {
-    accessorFn: (row: any) => row.department?.Name || '-',
-    id: 'department',
-    header: 'DEPARTEMEN',
-    cell: (info: any) => h('span', { class: 'text-gray-500' }, info.getValue())
-  },
-  {
-    accessorFn: (row: any) => row.branch?.name || '-',
-    id: 'branch',
-    header: 'CABANG',
-    cell: (info: any) => h('span', { class: 'text-gray-500 font-medium' }, info.getValue())
-  },
-  {
-    accessorKey: 'employment_status',
-    header: 'STATUS',
-    cell: ({ getValue }: any) => {
-        const val = getValue() as string || 'Unknown'
-        let classes = 'border border-[#fecaca] text-[#dc2626]' 
-        if (val === 'Aktif' || val === 'Active') classes = 'border border-[#bbf7d0] text-[#16a34a]'
-        else if (val === 'Masa Percobaan' || val === 'Probation') classes = 'border border-[#fef08a] text-[#ca8a04]'
-        return h('span', { class: `${classes} px-3 py-1 rounded-full text-[11px] font-bold inline-block` }, val)
-    }
-  },
-  {
-    accessorKey: 'join_date',
-    id: 'joinDate',
-    header: 'TANGGAL MASUK',
-    cell: (info: any) => {
-      const val = info.getValue()
-      return h('span', { class: 'text-gray-500 text-[13px]' }, val ? new Date(val).toLocaleDateString() : '-')
-    }
+    cell: (info: any) => h('span', { class: 'font-black text-indigo-600 text-[12px]' }, info.getValue())
   },
   {
     accessorKey: 'salary',
     header: 'GAJI POKOK',
     cell: (info: any) => {
       const val = info.getValue() || 0
-      return h('span', { class: 'font-semibold text-gray-700 text-[13px]' }, 'Rp ' + val.toLocaleString('id-ID'))
+      return h('span', { class: 'font-black text-slate-900 text-[13px]' }, 'Rp ' + val.toLocaleString('id-ID'))
     }
   },
   {
-    accessorKey: 'bank_name',
-    header: 'NAMA BANK',
-    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
-  },
-  {
-    accessorKey: 'bank_account_number',
-    header: 'NOMOR REKENING',
-    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
-  },
-  {
-    accessorKey: 'account_holder_name',
-    header: 'PEMILIK REKENING',
-    cell: (info: any) => h('span', { class: 'text-gray-500 text-[13px]' }, info.getValue() || '-')
+    accessorKey: 'employment_status',
+    header: 'STATUS',
+    cell: ({ getValue }: any) => {
+        const val = getValue() as string || 'Active'
+        let cls = 'bg-emerald-50 text-emerald-700 border-emerald-100'
+        if (val !== 'Active' && val !== 'Aktif') cls = 'bg-slate-50 text-slate-500 border-slate-100'
+        return h('span', { class: `${cls} px-3 py-1 rounded-full text-[10px] font-black uppercase border` }, val)
+    }
   },
   {
     id: 'actions',
@@ -251,15 +256,15 @@ const columns = [
       const user = row.original
       return h('div', { class: 'flex items-center gap-2' }, [
         h(Button, { 
-            variant: 'ghost', 
-            size: 'sm', 
-            class: 'h-8 px-2 text-primary hover:text-primary hover:bg-primary/5',
+            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-indigo-600 hover:bg-indigo-50 rounded-xl',
+            onClick: () => openSalaryModal(user)
+        }, () => h(Wallet, { class: 'w-4.5 h-4.5' })),
+        h(Button, { 
+            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl',
             onClick: () => openEditModal(user)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
-            variant: 'ghost', 
-            size: 'sm', 
-            class: 'h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50',
+            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl',
             onClick: () => deleteEmployee(user.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
@@ -269,181 +274,200 @@ const columns = [
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Header Page -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <div class="space-y-8 pb-12 animate-in fade-in duration-700">
+    <!-- Premium Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div>
-        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Direktori Karyawan</h1>
-        <p class="text-[14px] text-gray-500 mt-1">Kelola catatan dan status personel organisasi Anda.</p>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <Plus class="w-8 h-8 text-indigo-600 bg-indigo-50 p-1.5 rounded-xl border border-indigo-100" />
+            Direktori Karyawan
+        </h1>
+        <p class="text-[14px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Manajemen Personel & Payroll Profile</p>
       </div>
       
-      <div class="flex items-center gap-3">
-        <Button @click="openAddModal" class="gap-2 shadow-sm rounded-lg" size="sm">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Tambah Karyawan
-        </Button>
-      </div>
+      <Button @click="openAddModal" class="gap-2 shadow-xl shadow-indigo-100 rounded-2xl h-12 px-6 font-black bg-indigo-600 hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95">
+        <Plus class="w-5 h-5" /> TAMBAH KARYAWAN
+      </Button>
     </div>
 
-    <!-- DataTable Instance -->
-    <DataTable :data="employees" :columns="columns" :isLoading="isLoading">
-      <template #headerActions>
-        <div class="flex items-center gap-3 w-full sm:w-auto">
-          <Select default-value="Semua Departemen">
-            <SelectTrigger class="w-[180px] bg-white h-9 text-[13px]">
-              <SelectValue placeholder="Pilih Departemen" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="Semua Departemen">Semua Departemen</SelectItem>
-                <SelectItem value="Produk">Produk</SelectItem>
-                <SelectItem value="Teknik">Teknik</SelectItem>
-                <SelectItem value="Pemasaran">Pemasaran</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" class="gap-2 h-9 text-[13px] rounded-lg">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            Filter
-          </Button>
-        </div>
-      </template>
-    </DataTable>
+    <!-- DataTable Area -->
+    <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-100/50 overflow-hidden">
+        <DataTable :data="employees" :columns="columns" :isLoading="isLoading" />
+    </div>
 
-    <!-- Add/Edit Employee Modal -->
-    <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle class="text-xl">{{ isEditMode ? 'Edit Karyawan & Rekening' : 'Tambah Karyawan & Rekening' }}</DialogTitle>
-          <DialogDescription>
-            Lengkapi data personal dan rekening pembayaran bank karyawan ini.
-          </DialogDescription>
-        </DialogHeader>
+    <!-- Salary Management Modal -->
+    <Dialog v-model:open="isSalaryModalOpen">
+      <DialogContent class="sm:max-w-2xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl">
+        <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 p-10 text-white relative">
+            <DialogHeader class="relative z-10">
+                <div class="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-6 border border-white/20">
+                    <Banknote class="w-8 h-8 text-white" />
+                </div>
+                <DialogTitle class="text-2xl font-black">Atur Struktur Gaji</DialogTitle>
+                <DialogDescription class="text-indigo-100 font-bold opacity-80 mt-2 uppercase text-[11px] tracking-[0.2em] border-l-4 border-white/30 pl-4">
+                    {{ currentEmployee?.first_name }} • {{ currentEmployee?.job_position?.title }}
+                </DialogDescription>
+            </DialogHeader>
+            <Wallet class="absolute -right-10 -bottom-10 w-48 h-48 opacity-10" />
+        </div>
+
+        <div class="p-10 bg-white grid grid-cols-1 md:grid-cols-12 gap-10">
+            <!-- Left: Add New Component -->
+            <div class="md:col-span-12 lg:col-span-5 space-y-6">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Tambah Komponen</h3>
+                
+                <div class="space-y-4">
+                    <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Komponen Gaji</label>
+                    <Select v-model="newSalarySetting.component_id">
+                        <SelectTrigger class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-bold focus:ring-0 focus:border-indigo-600 transition-all px-6">
+                            <SelectValue placeholder="Pilih..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem v-for="c in payrollComponents" :key="c.id" :value="c.id">
+                                {{ c.name }} ({{ c.type }})
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Nominal (Rp)</label>
+                    <Input type="number" v-model="newSalarySetting.amount" class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-black text-lg focus:ring-0 focus:border-indigo-600 transition-all px-6" />
+                </div>
+
+                <Button @click="addSalarySetting" :disabled="isSalarySubmitting" class="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black tracking-wide shadow-lg">
+                    {{ isSalarySubmitting ? 'MENYIMPAN...' : 'TAMBAHKAN' }}
+                </Button>
+            </div>
+
+            <!-- Right: List Components -->
+            <div class="md:col-span-12 lg:col-span-7">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Rincian Pendapatan & Potongan</h3>
+                
+                <div class="space-y-3 max-h-[350px] overflow-y-auto pr-2 no-scrollbar">
+                    <div v-if="salarySettings.length === 0" class="py-12 text-center text-slate-300 font-bold flex flex-col items-center">
+                        <Plus class="w-10 h-10 mb-2 opacity-20" />
+                        BELUM ADA KOMPONEN
+                    </div>
+                    <div v-for="s in salarySettings" :key="s.id" class="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100/50 hover:border-indigo-100 transition-all group">
+                        <div class="flex items-center gap-4">
+                            <div :class="[
+                                'w-10 h-10 rounded-xl flex items-center justify-center border',
+                                s.component?.type === 'EARNING' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                            ]">
+                                <TrendingUp v-if="s.component?.type === 'EARNING'" class="w-5 h-5" />
+                                <ShieldAlert v-else class="w-5 h-5" />
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-[13px] font-black text-slate-900 uppercase tracking-tight">{{ s.component?.name }}</span>
+                                <span class="text-[13px] font-bold text-slate-500">Rp {{ s.amount.toLocaleString('id-ID') }}</span>
+                            </div>
+                        </div>
+                        <button @click="deleteSalarySetting(s.id)" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-600 transition-all">
+                            <X class="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 bg-slate-900 p-6 rounded-[2rem] text-white">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Estimasi THP Bersih</span>
+                        <span class="text-lg font-black text-indigo-400">Rp {{ (currentEmployee?.salary + salarySettings.reduce((a, b) => b.component?.type === 'EARNING' ? a + b.amount : a - b.amount, 0)).toLocaleString('id-ID') }}</span>
+                    </div>
+                    <p class="text-[9px] font-bold text-slate-500">* Belum termasuk BPJS & Pajak PPh21.</p>
+                </div>
+            </div>
+        </div>
         
-        <div class="grid gap-4 py-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Nama Lengkap</label>
-              <Input v-model="newEmployee.name" placeholder="e.g. John Doe" />
-            </div>
-            <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">ID Karyawan (Opsional)</label>
-              <Input v-model="newEmployee.employeeIDNumber" placeholder="e.g. EMP-001" />
-            </div>
-          </div>
+        <div class="p-8 pt-0 bg-white border-t border-slate-50 flex justify-end">
+            <Button variant="ghost" @click="isSalaryModalOpen = false" class="rounded-2xl h-12 px-10 font-black text-slate-400">SELESAI</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
 
-          <div class="grid gap-2">
-            <label class="text-[13px] font-medium text-gray-700">Nomor WhatsApp (Aktif)</label>
-            <Input v-model="newEmployee.phoneNumber" placeholder="e.g. 08123456789" />
-          </div>
-          
-          <div class="grid gap-2">
-            <label class="text-[13px] font-medium text-gray-700">Email Karyawan</label>
-            <Input v-model="newEmployee.email" type="email" placeholder="contoh. john@wowin.com" :disabled="isEditMode" />
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-[13px] font-medium text-gray-700">Penempatan Cabang</label>
-            <Select v-model="newEmployee.branchId">
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Cabang" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="b in masterData.branches" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Departemen</label>
-              <Select v-model="newEmployee.departmentId">
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih Departemen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="d in masterData.departments" :key="d.id" :value="d.id">{{ d.name }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Jabatan</label>
-              <Select v-model="newEmployee.jobPositionId">
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih Jabatan" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.name }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Status Karyawan</label>
-              <Select v-model="newEmployee.employmentStatus">
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">Aktif</SelectItem>
-                  <SelectItem value="Probation">Masa Percobaan</SelectItem>
-                  <SelectItem value="Inactive">Non-Aktif</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Tanggal Masuk</label>
-              <Input v-model="newEmployee.joinDate" type="date" />
-            </div>
-          </div>
-
-          <div class="h-px bg-gray-100 my-2"></div>
-          <h3 class="text-[13px] font-bold text-gray-900 uppercase tracking-wider">Informasi Payout Bank</h3>
-          
-          <div class="grid gap-2">
-             <label class="text-[13px] font-medium text-gray-700">Nama Bank</label>
-             <Select v-model="newEmployee.bankName">
-               <SelectTrigger>
-                 <SelectValue placeholder="Pilih Bank" />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectGroup>
-                   <SelectItem value="BCA">BCA</SelectItem>
-                   <SelectItem value="MANDIRI">MANDIRI</SelectItem>
-                   <SelectItem value="BNI">BNI</SelectItem>
-                   <SelectItem value="BRI">BRI</SelectItem>
-                   <SelectItem value="BANK JAGO">BANK JAGO</SelectItem>
-                 </SelectGroup>
-               </SelectContent>
-             </Select>
-          </div>
-          <div class="grid gap-2">
-             <label class="text-[13px] font-medium text-gray-700">Nomor Rekening</label>
-             <Input v-model="newEmployee.bankAccountNumber" placeholder="e.g. 129381203" />
-          </div>
-          <div class="grid gap-2">
-             <label class="text-[13px] font-medium text-gray-700">Nama Pemilik Rekening</label>
-             <Input v-model="newEmployee.accountHolderName" placeholder="e.g. JOHN DOE" />
-          </div>
-
-          <div class="h-px bg-gray-100 my-2"></div>
-          <h3 class="text-[13px] font-bold text-gray-900 uppercase tracking-wider">Kompensasi</h3>
-          <div class="grid gap-2">
-             <label class="text-[13px] font-medium text-gray-700">Gaji Pokok (Salary)</label>
-             <Input v-model="newEmployee.salary" type="number" placeholder="Rp 0" />
-          </div>
+    <!-- Employee Form Modal (Basic Data) -->
+    <Dialog v-model:open="isModalOpen">
+      <DialogContent class="sm:max-w-3xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl">
+        <div class="bg-slate-900 p-10 text-white relative">
+            <DialogHeader>
+                <DialogTitle class="text-2xl font-black">{{ isEditMode ? 'Edit Data Personal' : 'Tambah Karyawan Baru' }}</DialogTitle>
+                <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[11px] tracking-widest border-l-4 border-indigo-600 pl-4">
+                    Pusat Informasi Personel & Administrasi
+                </DialogDescription>
+            </DialogHeader>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" @click="closeAddModal">Batal</Button>
-          <Button @click="saveEmployee" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Data' }}
+        <div class="p-10 bg-white space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div class="space-y-3">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                <Input v-model="newEmployee.name" placeholder="John Doe" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-indigo-600" />
+              </div>
+              <div class="space-y-3">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Corporate</label>
+                <Input v-model="newEmployee.email" type="email" placeholder="john@company.com" :disabled="isEditMode" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-indigo-600 disabled:opacity-50" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div class="space-y-3">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Departemen</label>
+                <Select v-model="newEmployee.departmentId">
+                  <SelectTrigger class="h-14 rounded-2xl bg-slate-50 border-none font-bold">
+                    <SelectValue placeholder="Pilih..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="d in masterData.departments" :key="d.id" :value="d.id">{{ d.name }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div class="space-y-3">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Jabatan</label>
+                <Select v-model="newEmployee.jobPositionId">
+                  <SelectTrigger class="h-14 rounded-2xl bg-slate-50 border-none font-bold">
+                    <SelectValue placeholder="Pilih..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.name }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div class="space-y-3">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Gaji Pokok (Salary)</label>
+                <Input v-model="newEmployee.salary" type="number" class="h-14 rounded-2xl bg-indigo-50/50 border-none font-black text-indigo-700" />
+              </div>
+            </div>
+
+            <div class="h-px bg-slate-100"></div>
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-indigo-600 pl-4">Data Rekening Bank</h4>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div class="space-y-3">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Bank</label>
+                <Select v-model="newEmployee.bankName">
+                  <SelectTrigger class="h-14 rounded-2xl bg-slate-50 border-none font-bold">
+                    <SelectValue placeholder="Pilih Bank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BCA">BCA</SelectItem>
+                    <SelectItem value="MANDIRI">MANDIRI</SelectItem>
+                    <SelectItem value="BNI">BNI</SelectItem>
+                    <SelectItem value="BRI">BRI</SelectItem>
+                    <SelectItem value="BANK JAGO">BANK JAGO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div class="space-y-3 md:col-span-2">
+                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nomor Rekening</label>
+                <Input v-model="newEmployee.bankAccountNumber" class="h-14 rounded-2xl bg-slate-50 border-none font-bold" />
+              </div>
+            </div>
+        </div>
+
+        <DialogFooter class="p-10 pt-0 bg-white grid grid-cols-2 gap-4">
+          <Button variant="ghost" @click="closeAddModal" :disabled="isSubmitting" class="rounded-2xl h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50">BATAL</Button>
+          <Button @click="saveEmployee" :disabled="isSubmitting" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl h-14 font-black shadow-xl shadow-indigo-100 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN' }}
           </Button>
         </DialogFooter>
       </DialogContent>

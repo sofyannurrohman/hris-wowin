@@ -31,17 +31,24 @@ func (s *SalesKPI) BeforeCreate(tx *gorm.DB) (err error) {
 
 // EmployeeKPI tracks Attendance, Productivity, and general metrics for regular employees
 type EmployeeKPI struct {
-	ID                 uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	EmployeeID         uuid.UUID `gorm:"type:uuid;not null"`
-	AttendanceScore    float64   `gorm:"type:decimal(5,2);default:0"` // 0-100 scale
-	ProductivityScore  float64   `gorm:"type:decimal(5,2);default:0"` // System generated 0-100 scale
-	FinalScore         float64   `gorm:"type:decimal(5,2);default:0"` // Aggregate score
-	PeriodMonth        int       `gorm:"type:int;not null"`
-	PeriodYear         int       `gorm:"type:int;not null"`
-	CreatedAt          time.Time `gorm:"default:now()"`
-	UpdatedAt          time.Time `gorm:"default:now()"`
+	ID                 uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	EmployeeID         uuid.UUID `gorm:"type:uuid;not null" json:"employee_id"`
+	AttendanceScore    float64   `gorm:"type:decimal(5,2);default:0" json:"attendance_score"`    // 0-100 scale
+	ProductivityScore  float64   `gorm:"type:decimal(5,2);default:0" json:"productivity_score"`  // System generated 0-100 scale
+	FinalScore         float64   `gorm:"type:decimal(5,2);default:0" json:"final_score"`         // Aggregate score
+	
+	OnTimeCount        int       `gorm:"default:0" json:"on_time_count"`
+	LateCount          int       `gorm:"default:0" json:"late_count"`
+	AlphaCount         int       `gorm:"default:0" json:"alpha_count"`
+	PermitCount        int       `gorm:"default:0" json:"permit_count"`
 
-	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;"`
+	Status             string    `gorm:"type:varchar(20);default:'DRAFT'" json:"status"`         // DRAFT, FINALIZED
+	PeriodMonth        int       `gorm:"type:int;not null" json:"period_month"`
+	PeriodYear         int       `gorm:"type:int;not null" json:"period_year"`
+	CreatedAt          time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"default:now()" json:"updated_at"`
+
+	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;" json:"employee,omitempty"`
 }
 
 func (e *EmployeeKPI) BeforeCreate(tx *gorm.DB) (err error) {

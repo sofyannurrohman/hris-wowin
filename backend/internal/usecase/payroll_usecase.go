@@ -18,16 +18,25 @@ type PayrollUseCase interface {
 	ExportPayrollRunCSV(payrollRunID uuid.UUID) ([]byte, error)
 	GetAllPayrollRuns(page, limit int) ([]domain.PayrollRun, error)
 	DeletePayrollRun(id uuid.UUID) error
+
+	// Salary Settings
+	ListEmployeeSalarySettings(employeeID uuid.UUID) ([]domain.EmployeeSalarySetting, error)
+	SaveEmployeeSalarySetting(setting *domain.EmployeeSalarySetting) error
+	DeleteEmployeeSalarySetting(id uuid.UUID) error
+
+	// Run Details
+	GetPayrollRunDetails(runID uuid.UUID) ([]domain.Payslip, error)
 }
 
 type payrollUseCase struct {
-	repo         repository.PayrollRepository
-	employeeRepo repository.EmployeeRepository
-	configRepo   repository.PayrollConfigRepository
+	repo            repository.PayrollRepository
+	employeeRepo    repository.EmployeeRepository
+	configRepo      repository.PayrollConfigRepository
+	performanceRepo repository.PerformanceRepository
 }
 
-func NewPayrollUseCase(repo repository.PayrollRepository, employeeRepo repository.EmployeeRepository, configRepo repository.PayrollConfigRepository) PayrollUseCase {
-	return &payrollUseCase{repo, employeeRepo, configRepo}
+func NewPayrollUseCase(repo repository.PayrollRepository, employeeRepo repository.EmployeeRepository, configRepo repository.PayrollConfigRepository, performanceRepo repository.PerformanceRepository) PayrollUseCase {
+	return &payrollUseCase{repo, employeeRepo, configRepo, performanceRepo}
 }
 
 type GeneratePayrollRequest struct {
@@ -55,6 +64,15 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 		return nil, errors.New("period_end cannot be before period_start")
 	}
 
+	// Fetch global payroll config for this company
+	config, err := u.configRepo.GetByCompanyID(companyID)
+	if err != nil || config == nil {
+		// Fallback to defaults if not found
+		config = &domain.PayrollConfig{
+			AbsentDeduction: 100000.0,
+		}
+	}
+
 	payrollRunID := uuid.New()
 	var grandTotalPayout float64
 	var allPayslips []domain.Payslip
@@ -65,8 +83,8 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 	}
 
 	// Fetch Payroll Config for the company
-	config, _ := u.configRepo.GetByCompanyID(companyID)
-	if config == nil {
+	config, err = u.configRepo.GetByCompanyID(companyID)
+	if err != nil || config == nil {
 		// Default config if not found
 		config = &domain.PayrollConfig{
 			BPJSKesEmployeePercentage: 1.0,
@@ -74,6 +92,7 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 			JHTEmployeePercentage:     2.0,
 			JPEmployeePercentage:      1.0,
 			JPMaxWageBase:             10042300,
+			AbsentDeduction:           100000.0,
 		}
 	}
 
@@ -187,7 +206,7 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 
 		absentDays, err := u.repo.GetEmployeeAbsentDays(empID, start, end)
 		if err == nil && absentDays > 0 {
-			absentDeduction := float64(absentDays) * 100000.0
+			absentDeduction := float64(absentDays) * config.AbsentDeduction
 			totalDeduction += absentDeduction
 
 			payslipItems = append(payslipItems, domain.PayslipItem{
@@ -197,6 +216,25 @@ func (u *payrollUseCase) GeneratePayroll(companyID uuid.UUID, req GeneratePayrol
 				Amount:        absentDeduction,
 				Type:          "DEDUCTION",
 			})
+		}
+
+		// 8. Performance Bonus (KPI) - Only for FINALIZED regular KPIs
+		periodMonth := int(start.Month())
+		periodYear := start.Year()
+		kpi, _ := u.performanceRepo.GetEmployeeKPIByEmployeeAndPeriod(empID, periodMonth, periodYear)
+		if kpi != nil && kpi.Status == "FINALIZED" {
+			// Calculation: Configurable KPI Bonus * (Score / 100)
+			kpiBonus := (kpi.FinalScore / 100.0) * config.KPIBonusAmount
+			if kpiBonus > 0 {
+				totalAllowance += kpiBonus
+				payslipItems = append(payslipItems, domain.PayslipItem{
+					ID:            uuid.New(),
+					PayslipID:     uuid.Nil,
+					ComponentName: "Bonus Performa (KPI)",
+					Amount:        kpiBonus,
+					Type:          "EARNING",
+				})
+			}
 		}
 
 		takeHomePay := (basicSalary + totalAllowance) - totalDeduction
@@ -388,4 +426,20 @@ func (u *payrollUseCase) GetAllPayrollRuns(page, limit int) ([]domain.PayrollRun
 
 func (u *payrollUseCase) DeletePayrollRun(id uuid.UUID) error {
 	return u.repo.DeletePayrollRun(id)
+}
+
+func (u *payrollUseCase) ListEmployeeSalarySettings(employeeID uuid.UUID) ([]domain.EmployeeSalarySetting, error) {
+	return u.repo.GetEmployeeSalarySettings(employeeID)
+}
+
+func (u *payrollUseCase) SaveEmployeeSalarySetting(setting *domain.EmployeeSalarySetting) error {
+	return u.repo.SaveEmployeeSalarySetting(setting)
+}
+
+func (u *payrollUseCase) DeleteEmployeeSalarySetting(id uuid.UUID) error {
+	return u.repo.DeleteEmployeeSalarySetting(id)
+}
+
+func (u *payrollUseCase) GetPayrollRunDetails(runID uuid.UUID) ([]domain.Payslip, error) {
+	return u.repo.GetPayslipsByRunID(runID)
 }

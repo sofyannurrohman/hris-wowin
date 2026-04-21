@@ -39,6 +39,7 @@ func (h *PerformanceHandler) SetupRoutes(router *gin.RouterGroup) {
 	{
 		admin.GET("/regular", h.GetRegularKPIs)
 		admin.PUT("/regular/:id", h.UpdateRegularKPI)
+		admin.POST("/regular/:id/finalize", h.FinalizeKPI)
 		admin.POST("/appraise", h.CreateAppraisal)
 		admin.GET("/appraisals/:employee_id", h.GetAppraisals)
 	}
@@ -97,6 +98,23 @@ func (h *PerformanceHandler) UpdateRegularKPI(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "KPI updated successfully", nil)
+}
+
+func (h *PerformanceHandler) FinalizeKPI(c *gin.Context) {
+	idParam := c.Param("id")
+	kpiID, err := uuid.Parse(idParam)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid KPI ID")
+		return
+	}
+
+	err = h.performanceUseCase.FinalizeKPI(kpiID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to finalize KPI: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "KPI finalized successfully", nil)
 }
 
 func (h *PerformanceHandler) CreateAppraisal(c *gin.Context) {

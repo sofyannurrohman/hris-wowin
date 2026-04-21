@@ -18,6 +18,10 @@ type PayrollRepository interface {
 	SavePayrollBatch(run *domain.PayrollRun, payslips []domain.Payslip) error
 	GetAllPayrollRuns(limit, offset int) ([]domain.PayrollRun, error)
 	DeletePayrollRun(id uuid.UUID) error
+
+	// Salary Settings management
+	SaveEmployeeSalarySetting(setting *domain.EmployeeSalarySetting) error
+	DeleteEmployeeSalarySetting(id uuid.UUID) error
 }
 
 type payrollRepository struct {
@@ -81,6 +85,7 @@ func (r *payrollRepository) GetPayslipsByRunID(runID uuid.UUID) ([]domain.Paysli
 	var payslips []domain.Payslip
 	err := r.db.
 		Preload("Items").
+		Preload("Employee").
 		Where("payroll_run_id = ?", runID).
 		Find(&payslips).Error
 	return payslips, err
@@ -144,4 +149,12 @@ func (r *payrollRepository) DeletePayrollRun(id uuid.UUID) error {
 	}
 
 	return tx.Commit().Error
+}
+
+func (r *payrollRepository) SaveEmployeeSalarySetting(setting *domain.EmployeeSalarySetting) error {
+	return r.db.Save(setting).Error
+}
+
+func (r *payrollRepository) DeleteEmployeeSalarySetting(id uuid.UUID) error {
+	return r.db.Delete(&domain.EmployeeSalarySetting{}, id).Error
 }

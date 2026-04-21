@@ -100,7 +100,9 @@ const table = useVueTable({
               @click="header.column.getToggleSortingHandler()?.($event)"
             >
               <div class="flex items-center gap-1">
-                <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+                <slot :name="`header-${header.column.id}`" :header="header">
+                  <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+                </slot>
                 <!-- Sorting Indicator -->
                 <span v-if="header.column.getCanSort()">
                   <svg v-if="header.column.getIsSorted() === 'asc'" class="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
@@ -137,7 +139,9 @@ const table = useVueTable({
           <template v-else>
             <TableRow v-for="row in table.getRowModel().rows" :key="row.id" class="hover:bg-gray-50/50 transition-all border-b border-gray-50">
               <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id" class="py-4">
-                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
+                <slot :name="`cell-${cell.column.id}`" :row="row.original" :cell="cell">
+                  <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
+                </slot>
               </TableCell>
             </TableRow>
           </template>

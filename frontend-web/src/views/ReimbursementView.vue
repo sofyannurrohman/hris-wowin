@@ -22,6 +22,7 @@ const reimbursements = ref<any[]>([])
 const employees = ref<any[]>([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace('/api', '')
 
 // Review Modal State
 const isModalOpen = ref(false)
@@ -232,9 +233,8 @@ const columns = [
     cell: ({ row }: any) => {
       const url = row.original.attachment_url
       if (!url) return h('span', { class: 'text-gray-400 italic text-[12px]' }, 'Tidak ada')
-      const baseUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '')
       return h('a', { 
-        href: url.startsWith('http') ? url : `${baseUrl}${url}`, 
+        href: url.startsWith('http') ? url : `${API_BASE}${url}`, 
         target: '_blank',
         class: 'text-primary hover:underline flex items-center gap-1.5 font-bold text-[12px]'
       }, [
@@ -439,7 +439,7 @@ const columns = [
               <Input type="file" @change="onFileChange" accept="image/*,.pdf" class="h-12 rounded-2xl border-slate-200 pt-2.5" />
               <div v-if="form.attachment_url && !form.attachment_file" class="flex items-center gap-2 mt-1 px-2">
                 <span class="text-[11px] text-slate-500 font-bold">Nota terunggah:</span>
-                <a :href="form.attachment_url.startsWith('http') ? form.attachment_url : `${import.meta.env.VITE_API_BASE_URL.replace('/api', '')}${form.attachment_url}`" target="_blank" class="text-[11px] text-primary font-black hover:underline flex items-center gap-1">
+                <a :href="form.attachment_url.startsWith('http') ? form.attachment_url : `${API_BASE}${form.attachment_url}`" target="_blank" class="text-[11px] text-primary font-black hover:underline flex items-center gap-1">
                   <Eye class="w-3 h-3" /> Lihat Nota
                 </a>
               </div>

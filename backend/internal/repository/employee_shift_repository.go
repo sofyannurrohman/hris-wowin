@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -10,6 +12,7 @@ type EmployeeShiftRepository interface {
 	Create(es *domain.EmployeeShift) error
 	FindAll() ([]domain.EmployeeShift, error)
 	FindByEmployeeID(employeeID uuid.UUID) ([]domain.EmployeeShift, error)
+	FindByEmployeeIDAndDateRange(employeeID uuid.UUID, startDate, endDate time.Time) ([]domain.EmployeeShift, error)
 	FindByID(id uuid.UUID) (*domain.EmployeeShift, error)
 	Update(es *domain.EmployeeShift) error
 	Delete(id uuid.UUID) error
@@ -38,6 +41,17 @@ func (r *employeeShiftRepository) FindAll() ([]domain.EmployeeShift, error) {
 func (r *employeeShiftRepository) FindByEmployeeID(employeeID uuid.UUID) ([]domain.EmployeeShift, error) {
 	var list []domain.EmployeeShift
 	if err := r.db.Preload("Shift").Where("employee_id = ?", employeeID).Order("date desc").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *employeeShiftRepository) FindByEmployeeIDAndDateRange(employeeID uuid.UUID, startDate, endDate time.Time) ([]domain.EmployeeShift, error) {
+	var list []domain.EmployeeShift
+	if err := r.db.Preload("Shift").
+		Where("employee_id = ? AND date >= ? AND date <= ?", employeeID, startDate, endDate).
+		Order("date asc").
+		Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil

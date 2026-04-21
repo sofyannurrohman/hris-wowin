@@ -164,7 +164,10 @@ class _ReusableCameraWidgetState extends State<ReusableCameraWidget>
             Transform.scale(
               scale: scale,
               child: Center(
-                child: CameraPreview(_controller!),
+                child: AspectRatio(
+                  aspectRatio: _controller!.value.aspectRatio,
+                  child: CameraPreview(_controller!),
+                ),
               ),
             ),
 

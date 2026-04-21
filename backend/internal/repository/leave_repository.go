@@ -25,6 +25,7 @@ type LeaveRepository interface {
 	SaveBalance(balance *domain.LeaveBalance) error
 	DeleteLeaveBalance(employeeID, leaveTypeID uuid.UUID, year int) error
 	CountMonthlyLeaveDays(employeeID, leaveTypeID uuid.UUID, month, year int, excludeID uuid.UUID) (int, error)
+	FindApprovedByEmployeeAndDateRange(employeeID uuid.UUID, start, end time.Time) ([]domain.LeaveRequest, error)
 }
 
 type leaveRepository struct {
@@ -196,4 +197,11 @@ func (r *leaveRepository) CountMonthlyLeaveDays(employeeID, leaveTypeID uuid.UUI
 	}
 
 	return totalDays, nil
+}
+func (r *leaveRepository) FindApprovedByEmployeeAndDateRange(employeeID uuid.UUID, start, end time.Time) ([]domain.LeaveRequest, error) {
+	var results []domain.LeaveRequest
+	err := r.db.Where("employee_id = ? AND status = 'APPROVED'", employeeID).
+		Where("((start_date <= ? AND end_date >= ?) OR (start_date >= ? AND start_date <= ?))", end, start, start, end).
+		Find(&results).Error
+	return results, err
 }

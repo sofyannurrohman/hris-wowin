@@ -23,17 +23,27 @@ type AttendanceUseCase interface {
 	CreateManual(req ManualAttendanceRequest) (*domain.AttendanceLog, error)
 	UpdateAttendance(id uuid.UUID, req UpdateAttendanceRequest) error
 	DeleteAttendance(id uuid.UUID) error
+	ProcessDailyAlpha(date time.Time) error
 }
 
 type attendanceUseCase struct {
-	repo         repository.AttendanceRepository
-	employeeRepo repository.EmployeeRepository
+	repo              repository.AttendanceRepository
+	employeeRepo      repository.EmployeeRepository
+	employeeShiftRepo repository.EmployeeShiftRepository
+	leaveRepo         repository.LeaveRepository
 }
 
-func NewAttendanceUseCase(repo repository.AttendanceRepository, employeeRepo repository.EmployeeRepository) AttendanceUseCase {
+func NewAttendanceUseCase(
+	repo repository.AttendanceRepository, 
+	employeeRepo repository.EmployeeRepository,
+	employeeShiftRepo repository.EmployeeShiftRepository,
+	leaveRepo repository.LeaveRepository,
+) AttendanceUseCase {
 	return &attendanceUseCase{
-		repo:         repo,
-		employeeRepo: employeeRepo,
+		repo:              repo,
+		employeeRepo:      employeeRepo,
+		employeeShiftRepo: employeeShiftRepo,
+		leaveRepo:         leaveRepo,
 	}
 }
 
@@ -134,7 +144,7 @@ func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*Atte
 		return nil, err
 	}
 	if existing != nil {
-		return nil, errors.New("already checked in today")
+		return nil, errors.New("hari ini sudah absen masuk")
 	}
 
 	// 4. Handle Selfie Upload if provided
@@ -149,7 +159,7 @@ func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*Atte
 		// Decode base64
 		imageData, err := base64.StdEncoding.DecodeString(req.Selfie)
 		if err != nil {
-			return nil, errors.New("invalid selfie image data")
+			return nil, errors.New("data gambar selfi tidak valid ")
 		}
 
 		// Compress image
@@ -353,7 +363,7 @@ func (u *attendanceUseCase) GetHistory(userID uuid.UUID, startDate, endDate stri
 			checkIn = *log.ClockInTime
 		}
 		duration := 0
-		if log.ClockInTime != null && log.ClockOutTime != null {
+		if log.ClockInTime != nil && log.ClockOutTime != nil {
 			duration = int(log.ClockOutTime.Sub(*log.ClockInTime).Minutes())
 		}
 		history = append(history, AttendanceHistoryResponse{
@@ -498,4 +508,55 @@ func (u *attendanceUseCase) UpdateAttendance(id uuid.UUID, req UpdateAttendanceR
 
 func (u *attendanceUseCase) DeleteAttendance(id uuid.UUID) error {
 	return u.repo.Delete(id)
+}
+
+func (u *attendanceUseCase) ProcessDailyAlpha(date time.Time) error {
+	// Normalize date to start of day
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Second)
+
+	// 1. Fetch all active employees
+	employees, err := u.employeeRepo.FindAll(0) // Getting all
+	if err != nil {
+		return err
+	}
+
+	for _, emp := range employees {
+		// 2. Check if employee has a scheduled shift for this date
+		shifts, err := u.employeeShiftRepo.FindByEmployeeIDAndDateRange(emp.ID, startOfDay, endOfDay)
+		if err != nil || len(shifts) == 0 || shifts[0].IsOffDay {
+			continue // No shift or off day, skip
+		}
+
+		// 3. Check if employee already has an attendance log for this date
+		logs, err := u.repo.FindHistoryByDateRange(emp.ID, startOfDay, endOfDay)
+		if err != nil {
+			continue
+		}
+		if len(logs) > 0 {
+			continue // Already has attendance (Poin Present/Late)
+		}
+
+		// 4. Check if employee has an approved leave for this date
+		leaves, err := u.leaveRepo.FindApprovedByEmployeeAndDateRange(emp.ID, startOfDay, endOfDay)
+		if err != nil {
+			continue
+		}
+		if len(leaves) > 0 {
+			continue // Has approved leave (Poin Permit)
+		}
+
+		// 5. No log and no leave -> Create ALFA log
+		alfaLog := &domain.AttendanceLog{
+			ID:          uuid.New(),
+			EmployeeID:  emp.ID,
+			ClockInTime: &startOfDay, // Use start of day as reference
+			Status:      "ALFA",
+			Notes:       "Sistem generated: Tidak absen masuk",
+		}
+
+		_ = u.repo.Create(alfaLog)
+	}
+
+	return nil
 }

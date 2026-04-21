@@ -32,6 +32,12 @@ func (h *PayrollHandler) SetupRoutes(router *gin.RouterGroup) {
 		adminPayroll.POST("/generate", h.RunPayrollBatch)
 		adminPayroll.GET("/:id/export", h.ExportPayrollRunCSV)
 		adminPayroll.DELETE("/:id", h.DeletePayrollRun)
+		adminPayroll.GET("/:id/details", h.GetPayrollRunDetails)
+
+		// Salary Settings
+		adminPayroll.GET("/settings/:employee_id", h.ListEmployeeSalarySettings)
+		adminPayroll.POST("/settings", h.SaveEmployeeSalarySetting)
+		adminPayroll.DELETE("/settings/:id", h.DeleteEmployeeSalarySetting)
 	}
 }
 
@@ -141,4 +147,69 @@ func (h *PayrollHandler) DeletePayrollRun(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Payroll run deleted successfully", nil)
+}
+
+func (h *PayrollHandler) ListEmployeeSalarySettings(c *gin.Context) {
+	empIDStr := c.Param("employee_id")
+	empID, err := uuid.Parse(empIDStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid Employee ID")
+		return
+	}
+
+	settings, err := h.payrollUseCase.ListEmployeeSalarySettings(empID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Success", settings)
+}
+
+func (h *PayrollHandler) SaveEmployeeSalarySetting(c *gin.Context) {
+	var req domain.EmployeeSalarySetting
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.payrollUseCase.SaveEmployeeSalarySetting(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Salary setting saved", req)
+}
+
+func (h *PayrollHandler) DeleteEmployeeSalarySetting(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if err := h.payrollUseCase.DeleteEmployeeSalarySetting(id); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Salary setting deleted", nil)
+}
+
+func (h *PayrollHandler) GetPayrollRunDetails(c *gin.Context) {
+	runIDStr := c.Param("id")
+	runID, err := uuid.Parse(runIDStr)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid Run ID")
+		return
+	}
+
+	payslips, err := h.payrollUseCase.GetPayrollRunDetails(runID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Success", payslips)
 }

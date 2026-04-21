@@ -19,10 +19,11 @@ class ClockInFailedPage extends StatelessWidget {
       backgroundColor: AppColors.backgroundAlt,
       body: SafeArea(
         child: AnimationLimiter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
               children: AnimationConfiguration.toStaggeredList(
                 duration: const Duration(milliseconds: 600),
                 childAnimationBuilder: (widget) => SlideAnimation(
@@ -150,7 +151,7 @@ class ClockInFailedPage extends StatelessWidget {
                     ),
                   ),
 
-                  const Spacer(),
+                  const SizedBox(height: 40),
 
                   // Action Buttons
                   ElevatedButton(
@@ -194,8 +195,9 @@ class ClockInFailedPage extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildInstructionRow(IconData icon, String text) {
     return Row(

@@ -41,10 +41,10 @@ func main() {
 	// Setup UseCases
 	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo)
 	employeeUseCase := usecase.NewEmployeeUsecase(employeeRepo, userRepo)
-	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo)
+	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo, employeeShiftRepo, leaveRepo)
 	leaveUseCase := usecase.NewLeaveUseCase(db, leaveRepo, employeeRepo)
 	overtimeUseCase := usecase.NewOvertimeUseCase(overtimeRepo, employeeRepo)
-	payrollUseCase := usecase.NewPayrollUseCase(payrollRepo, employeeRepo, payrollConfigRepo)
+	payrollUseCase := usecase.NewPayrollUseCase(payrollRepo, employeeRepo, payrollConfigRepo, performanceRepo)
 	jobPositionUseCase := usecase.NewJobPositionUseCase(jobPositionRepo)
 	payrollComponentUseCase := usecase.NewPayrollComponentUseCase(payrollComponentRepo)
 	leaveTypeUseCase := usecase.NewLeaveTypeUseCase(leaveTypeRepo)
@@ -54,7 +54,7 @@ func main() {
 	branchUseCase := usecase.NewBranchUseCase(branchRepo)
 	employeeShiftUseCase := usecase.NewEmployeeShiftUseCase(employeeShiftRepo, employeeRepo, shiftRepo)
 	reimbursementUseCase := usecase.NewReimbursementUseCase(reimbursementRepo, employeeRepo)
-	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo)
+	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
 
@@ -101,6 +101,7 @@ func main() {
 		authHandler.SetupRoutes(v1)
 		branchHandler.SetupPublicRoutes(v1)
 		jobPositionHandler.SetupPublicRoutes(v1)
+		v1.Static("/uploads", "./uploads")
 
 		// Protected Routes
 		protected := v1.Group("")

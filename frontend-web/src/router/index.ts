@@ -52,11 +52,6 @@ const router = createRouter({
           component: () => import('@/views/JobPositionView.vue'),
         },
         {
-          path: 'payroll-components',
-          name: 'payrollComponents',
-          component: () => import('@/views/PayrollComponentView.vue'),
-        },
-        {
           path: 'leave-types',
           name: 'leaveTypes',
           component: () => import('@/views/LeaveTypeView.vue'),
@@ -107,11 +102,6 @@ const router = createRouter({
           component: () => import('@/views/AttendanceLogView.vue'),
         },
         {
-          path: 'payroll-runs',
-          name: 'payrollRuns',
-          component: () => import('@/views/PayrollRunView.vue'),
-        },
-        {
           path: 'reimbursements',
           name: 'reimbursements',
           component: () => import('@/views/ReimbursementView.vue'),
@@ -135,6 +125,11 @@ const router = createRouter({
           path: 'payroll-settings',
           name: 'payrollSettings',
           component: () => import('@/views/PayrollSettingsView.vue'),
+        },
+        {
+          path: 'announcements',
+          name: 'announcements',
+          component: () => import('@/views/AnnouncementView.vue'),
         }
       ]
     }

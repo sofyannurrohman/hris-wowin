@@ -34,6 +34,10 @@ type PayrollConfig struct {
 	// Tax (PPh21 TER)
 	PtkpBaseTK0 float64 `gorm:"type:decimal(15,2);default:54000000" json:"ptkp_base_tk0"`
 
+	// Deductions
+	AbsentDeduction  float64 `gorm:"type:decimal(15,2);default:100000" json:"absent_deduction"`
+	KPIBonusAmount   float64 `gorm:"type:decimal(15,2);default:500000" json:"kpi_bonus_amount"`
+
 	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`
 	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
 

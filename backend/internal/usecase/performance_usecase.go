@@ -12,6 +12,7 @@ import (
 type PerformanceUseCase interface {
 	GetEmployeeKPIs(month, year int) ([]domain.EmployeeKPI, error)
 	UpdateEmployeeKPI(id uuid.UUID, productivityScore float64) error
+	FinalizeKPI(id uuid.UUID) error
 	EvaluateAndAppraise(req EvaluateAppraisalRequest) error
 	GetAppraisals(employeeID uuid.UUID) ([]domain.ManagerialAppraisal, error)
 
@@ -21,11 +22,21 @@ type PerformanceUseCase interface {
 }
 
 type performanceUseCase struct {
-	repo repository.PerformanceRepository
+	repo              repository.PerformanceRepository
+	attendanceRepo    repository.AttendanceRepository
+	employeeShiftRepo repository.EmployeeShiftRepository
+	leaveRepo         repository.LeaveRepository
+	attendanceUC      AttendanceUseCase
 }
 
-func NewPerformanceUseCase(repo repository.PerformanceRepository) PerformanceUseCase {
-	return &performanceUseCase{repo}
+func NewPerformanceUseCase(
+	repo repository.PerformanceRepository, 
+	attendanceRepo repository.AttendanceRepository,
+	employeeShiftRepo repository.EmployeeShiftRepository,
+	leaveRepo repository.LeaveRepository,
+	attendanceUC AttendanceUseCase,
+) PerformanceUseCase {
+	return &performanceUseCase{repo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUC}
 }
 
 func (u *performanceUseCase) GetEmployeeKPIs(month, year int) ([]domain.EmployeeKPI, error) {
@@ -52,14 +63,92 @@ func (u *performanceUseCase) GetEmployeeKPIs(month, year int) ([]domain.Employee
 	finalKPIs = append(finalKPIs, existingKPIs...)
 
 	for _, emp := range employees {
+		// 1. Ensure ALFA logs exist for current month up to yesterday
+		now := time.Now()
+		start := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0).Add(-time.Second)
+		
+		// If we are in the same month, only process up to yesterday
+		processEnd := end
+		if now.Year() == year && int(now.Month()) == month {
+			yesterday := now.AddDate(0, 0, -1)
+			processEnd = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 23, 59, 59, 0, time.UTC)
+		}
+
+		// Sync ALFAs for the employee (optimizable by doing batch, but this is safe for MVP)
+		for d := start; d.Before(processEnd); d = d.AddDate(0, 0, 1) {
+			// Small optimization: we only really need to check days that have passed
+			_ = u.attendanceUC.ProcessDailyAlpha(d)
+		}
+
+		// 2. Fetch all logs and shifts for the month
+		logs, _ := u.attendanceRepo.FindHistoryByDateRange(emp.ID, start, end)
+		shifts, _ := u.employeeShiftRepo.FindByEmployeeIDAndDateRange(emp.ID, start, end)
+		
+		onTimeCount := 0
+		lateCount := 0
+		alphaCount := 0
+		permitCount := 0
+
+		// Use shifts as the base for "scheduled days"
+		for _, shift := range shifts {
+			if shift.IsOffDay {
+				continue
+			}
+
+			// Find log for this specific date
+			var dayLog *domain.AttendanceLog
+			for _, log := range logs {
+				if log.ClockInTime != nil && log.ClockInTime.Format("2006-01-02") == shift.Date.Format("2006-01-02") {
+					dayLog = &log
+					break
+				}
+			}
+
+			if dayLog != nil {
+				switch dayLog.Status {
+				case "ON_TIME":
+					onTimeCount++
+				case "LATE":
+					lateCount++
+				case "ALFA":
+					alphaCount++
+				default:
+					onTimeCount++ // Fallback
+				}
+			} else {
+				// If no log, check for approved leave
+				leaves, _ := u.leaveRepo.FindApprovedByEmployeeAndDateRange(emp.ID, shift.Date, shift.Date.Add(24*time.Hour))
+				if len(leaves) > 0 {
+					permitCount++
+				} else {
+					alphaCount++ // Should have been caught by ProcessDailyAlpha, but safeguard
+				}
+			}
+		}
+
+		// 3. Calculate Score
+		// Weights: ON_TIME = 1.0, LATE = 0.8, ALPHA = 0.0, PERMIT = 1.0
+		totalScheduledDays := onTimeCount + lateCount + alphaCount + permitCount
+		var attnScore float64 = 0
+		if totalScheduledDays > 0 {
+			points := (float64(onTimeCount) * 1.0) + (float64(lateCount) * 0.8) + (float64(permitCount) * 1.0)
+			attnScore = (points / float64(totalScheduledDays)) * 100
+		}
+
 		if !kpiMap[emp.ID] {
-			// Create dummy entry
+			// Create new entry
 			newKPI := domain.EmployeeKPI{
 				ID:                uuid.New(),
 				EmployeeID:        emp.ID,
-				AttendanceScore:   100, // Default optimistic
+				AttendanceScore:   attnScore,
+				OnTimeCount:       onTimeCount,
+				LateCount:         lateCount,
+				AlphaCount:        alphaCount,
+				PermitCount:       permitCount,
 				ProductivityScore: 0,
-				FinalScore:        0,
+				FinalScore:        attnScore * 0.5,
+				Status:            "DRAFT",
 				PeriodMonth:       month,
 				PeriodYear:        year,
 				Employee:          &emp,
@@ -67,6 +156,19 @@ func (u *performanceUseCase) GetEmployeeKPIs(month, year int) ([]domain.Employee
 			err = u.repo.SaveEmployeeKPI(&newKPI)
 			if err == nil {
 				finalKPIs = append(finalKPIs, newKPI)
+			}
+		} else {
+			// Update existing DRAFT KPI
+			for i := range finalKPIs {
+				if finalKPIs[i].EmployeeID == emp.ID && finalKPIs[i].Status == "DRAFT" {
+					finalKPIs[i].AttendanceScore = attnScore
+					finalKPIs[i].OnTimeCount = onTimeCount
+					finalKPIs[i].LateCount = lateCount
+					finalKPIs[i].AlphaCount = alphaCount
+					finalKPIs[i].PermitCount = permitCount
+					finalKPIs[i].FinalScore = (attnScore * 0.5) + (finalKPIs[i].ProductivityScore * 0.5)
+					u.repo.SaveEmployeeKPI(&finalKPIs[i])
+				}
 			}
 		}
 	}
@@ -80,13 +182,29 @@ func (u *performanceUseCase) UpdateEmployeeKPI(id uuid.UUID, productivityScore f
 		return err
 	}
 	if kpi == nil {
-		return nil // Or return a "Not Found" error
+		return fmt.Errorf("KPI not found")
+	}
+
+	if kpi.Status == "FINALIZED" {
+		return fmt.Errorf("cannot update finalized KPI")
 	}
 
 	kpi.ProductivityScore = productivityScore
-	// Example calculation logic: 40% Attendance, 60% Productivity
-	kpi.FinalScore = (kpi.AttendanceScore * 0.4) + (productivityScore * 0.6)
+	kpi.FinalScore = (kpi.AttendanceScore * 0.5) + (productivityScore * 0.5)
 
+	return u.repo.SaveEmployeeKPI(kpi)
+}
+
+func (u *performanceUseCase) FinalizeKPI(id uuid.UUID) error {
+	kpi, err := u.repo.GetEmployeeKPIByID(id)
+	if err != nil {
+		return err
+	}
+	if kpi == nil {
+		return fmt.Errorf("KPI not found")
+	}
+
+	kpi.Status = "FINALIZED"
 	return u.repo.SaveEmployeeKPI(kpi)
 }
 
@@ -140,8 +258,8 @@ func (u *performanceUseCase) GetMyPerformance(employeeID uuid.UUID, month, year 
 		res["type"] = "INTERNAL"
 		res["final_score"] = regKPI.FinalScore
 		res["items"] = []map[string]interface{}{
-			{"label": "Kehadiran", "score": regKPI.AttendanceScore, "weight": "40%"},
-			{"label": "Produktivitas", "score": regKPI.ProductivityScore, "weight": "60%"},
+			{"label": "Kehadiran", "score": regKPI.AttendanceScore, "weight": "50%"},
+			{"label": "Produktivitas", "score": regKPI.ProductivityScore, "weight": "50%"},
 		}
 	}
 

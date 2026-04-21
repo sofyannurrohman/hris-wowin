@@ -17,8 +17,8 @@ const layoutStore = useLayoutStore()
       <main class="flex-1 overflow-x-hidden overflow-y-auto">
         <div class="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
           <RouterView v-slot="{ Component }">
-            <Transition name="page-fade" mode="out-in">
-              <component :is="Component" />
+            <Transition name="page-fade" mode="out-in" appear>
+              <component :is="Component" :key="$route.path" />
             </Transition>
           </RouterView>
         </div>

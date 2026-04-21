@@ -33,6 +33,7 @@ import 'package:hris_app/features/directory/presentation/bloc/directory_bloc.dar
 import 'package:hris_app/features/approval/presentation/bloc/approval_bloc.dart';
 import 'package:hris_app/features/approval/presentation/pages/approval_page.dart';
 import 'package:hris_app/features/announcement/presentation/bloc/announcement_bloc.dart';
+import 'package:hris_app/features/announcement/presentation/pages/announcement_detail_page.dart';
 import 'package:hris_app/features/reimbursement/presentation/pages/reimbursement_list_page.dart';
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
@@ -520,41 +521,48 @@ class DashboardTab extends StatelessWidget {
                     separatorBuilder: (_, __) => const SizedBox(width: 16),
                     itemBuilder: (context, index) {
                       final ann = state.announcements[index];
-                      return Container(
-                        width: 300,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8)),
-                          ],
+                      return GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => AnnouncementDetailPage(announcement: ann),
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8), 
-                                  decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), 
-                                  child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 18)
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text(ann.title.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(ann.content, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.6), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            const Spacer(),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
-                                Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryRed.withOpacity(0.5)),
-                              ],
-                            ),
-                          ],
+                        child: Container(
+                          width: 300,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8)),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8), 
+                                    decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), 
+                                    child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 18)
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: Text(ann.title.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(ann.content, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.6), maxLines: 2, overflow: TextOverflow.ellipsis),
+                              const Spacer(),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+                                  Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryRed.withOpacity(0.5)),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
