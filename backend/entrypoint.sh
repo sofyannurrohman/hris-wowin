@@ -7,8 +7,12 @@ echo "Initializing Upload Directories..."
 mkdir -p uploads/attachments uploads/faces uploads/selfies uploads/files
 chmod -R 777 uploads
 
-echo "Running Database Seeding..."
-./seeder
+if [ "$SKIP_SEED" != "true" ]; then
+    echo "Running Database Seeding..."
+    ./seeder
+else
+    echo "Skipping Database Seeding..."
+fi
 
 echo "Starting API Server..."
 exec ./api

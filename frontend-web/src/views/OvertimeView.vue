@@ -224,23 +224,25 @@ onMounted(() => {
 
     <!-- Reject Reason Dialog -->
     <Dialog v-model:open="isRejectModalOpen">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle class="text-xl text-red-600">Alasan Penolakan</DialogTitle>
-          <DialogDescription>
-            Pengajuan lembur akan ditolak dan karyawan akan menerima notifikasi alasan penolakan.
-          </DialogDescription>
-        </DialogHeader>
-        <div class="grid gap-4 py-4">
+      <DialogContent class="sm:max-w-md rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-rose-900 p-8 md:p-10 text-white relative shrink-0">
+          <DialogHeader>
+            <DialogTitle class="text-xl md:text-2xl font-black">Alasan Penolakan</DialogTitle>
+            <DialogDescription class="text-rose-200 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-white pl-4">
+              Pengajuan lembur akan ditolak dan karyawan akan menerima notifikasi.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <div class="grid gap-2">
-            <label class="text-[13px] font-medium text-gray-700">Pesan ke Karyawan</label>
-            <Input v-model="rejectReason" placeholder="e.g. Tidak ada kebutuhan lembur di periode ini..." />
+            <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Pesan ke Karyawan</label>
+            <Input v-model="rejectReason" placeholder="e.g. Tidak ada kebutuhan lembur di periode ini..." class="h-12 rounded-2xl border-slate-200" />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" @click="cancelReject">Batalkan</Button>
-          <Button variant="destructive" @click="confirmReject" :disabled="isSubmitting || !rejectReason.trim()">
-            {{ isSubmitting ? 'Memproses...' : 'Konfirmasi Penolakan' }}
+        <DialogFooter class="p-6 md:p-8 bg-white grid grid-cols-2 gap-4 shrink-0 border-t">
+          <Button variant="ghost" @click="cancelReject" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all">BATALKAN</Button>
+          <Button variant="destructive" @click="confirmReject" :disabled="isSubmitting || !rejectReason.trim()" class="rounded-2xl h-12 md:h-14 font-black transition-all">
+            {{ isSubmitting ? 'MEMPROSES...' : 'KONFIRMASI' }}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -248,14 +250,16 @@ onMounted(() => {
 
     <!-- Request Overtime Dialog -->
     <Dialog v-model:open="isRequestModalOpen">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle class="text-xl">Ajukan Lembur</DialogTitle>
-          <DialogDescription>
-            Isi detail pengajuan lembur. Durasi dihitung otomatis dari jam mulai dan selesai.
-          </DialogDescription>
-        </DialogHeader>
-        <div class="grid gap-4 py-4">
+      <DialogContent class="sm:max-w-md rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
+          <DialogHeader>
+            <DialogTitle class="text-xl md:text-2xl font-black tracking-tight">Ajukan Lembur</DialogTitle>
+            <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4 leading-relaxed">
+              Isi detail pengajuan lembur. Durasi dihitung otomatis oleh sistem.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <div class="grid gap-2">
             <label class="text-[13px] font-medium text-gray-700">Tanggal</label>
             <Input v-model="requestForm.date" type="date" />
@@ -279,10 +283,10 @@ onMounted(() => {
             <Input v-model="requestForm.reason" placeholder="e.g. Deadline proyek klien, server maintenance..." />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" @click="isRequestModalOpen = false">Batal</Button>
-          <Button @click="submitOvertimeRequest" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Mengirim...' : 'Kirim Pengajuan' }}
+        <DialogFooter class="p-6 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="isRequestModalOpen = false" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all">BATAL</Button>
+          <Button @click="submitOvertimeRequest" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENGIRIM...' : 'KIRIM PENGAJUAN' }}
           </Button>
         </DialogFooter>
       </DialogContent>

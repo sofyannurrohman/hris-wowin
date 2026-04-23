@@ -12,20 +12,27 @@ import (
 func AuthMiddleware(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			utils.ErrorResponse(c, http.StatusUnauthorized, "Authorization header required")
+		token := ""
+
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		// Fallback to query parameter for window.open/exports
+		if token == "" {
+			token = c.Query("token")
+		}
+
+		if token == "" {
+			utils.ErrorResponse(c, http.StatusUnauthorized, "Authorization token required")
 			c.Abort()
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			utils.ErrorResponse(c, http.StatusUnauthorized, "Authorization header format must be Bearer {token}")
-			c.Abort()
-			return
-		}
-
-		claims, err := utils.ValidateToken(parts[1], secret)
+		claims, err := utils.ValidateToken(token, secret)
 		if err != nil {
 			// Log the actual error internally for debugging
 			log.Printf("Token validation failed: %v", err)

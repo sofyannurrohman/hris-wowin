@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
-import { Pencil, Trash2, Wallet, Plus, X, Landmark, TrendingUp, ShieldAlert, Banknote } from 'lucide-vue-next'
+import { Pencil, Trash2, Wallet, Plus, X, Landmark, TrendingUp, ShieldAlert, Banknote, Download } from 'lucide-vue-next'
 import apiClient from '@/api/axios'
 import DataTable from '@/components/DataTable.vue'
 import { Button } from '@/components/ui/button'
@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from 'vue-sonner'
 
 import { useMasterDataStore } from '@/stores/masterData'
+import { useAuthStore } from '@/stores/auth'
 
 const masterData = useMasterDataStore()
+const authStore = useAuthStore()
 
 const isModalOpen = ref(false)
 const newEmployee = ref({
@@ -35,6 +37,7 @@ const isEditMode = ref(false)
 const isSubmitting = ref(false)
 const employees = ref<any[]>([])
 const isLoading = ref(true)
+const selectedBranch = ref<string>('all')
 
 // Salary Settings State
 const isSalaryModalOpen = ref(false)
@@ -140,12 +143,39 @@ const closeAddModal = () => {
 const fetchEmployees = async () => {
   isLoading.value = true
   try {
-    const response = await apiClient.get('/employees?limit=50')
+    let url = '/employees?limit=50'
+    if (selectedBranch.value !== 'all') {
+      url += `&branch_id=${selectedBranch.value}`
+    }
+    const response = await apiClient.get(url)
     employees.value = response.data.data
   } catch (error) {
     console.error('Failed to fetch employees:', error)
   } finally {
     isLoading.value = false
+  }
+}
+
+const exportCSV = async () => {
+  try {
+    let url = '/employees/export-csv?'
+    if (selectedBranch.value !== 'all') {
+      const branch = masterData.branches.find(b => b.id === selectedBranch.value)
+      url += `branch_id=${selectedBranch.value}&branch_name=${branch?.name || ''}`
+    }
+    
+    const response = await apiClient.get(url, { responseType: 'blob' })
+    const blob = new Blob([response.data], { type: 'text/csv' })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.setAttribute('download', `data_karyawan_${new Date().getTime()}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(downloadUrl)
+  } catch (error) {
+    toast.error('Gagal mengunduh data karyawan.')
   }
 }
 
@@ -210,7 +240,7 @@ const columns = [
     cell: ({ row }: any) => {
        const user = row.original
        return h('div', { class: 'flex flex-col py-1' }, [
-         h('p', { class: 'font-black text-slate-900 leading-tight' }, user.first_name || 'Unnamed'),
+         h('p', { class: 'font-extrabold text-slate-900 leading-tight group-hover:text-primary transition-colors' }, user.first_name || 'Unnamed'),
          h('p', { class: 'text-[11px] font-bold text-slate-400' }, user.user?.email || '-')
        ])
     }
@@ -218,18 +248,18 @@ const columns = [
   {
     accessorKey: 'employee_id_number',
     header: 'ID #',
-    cell: (info: any) => h('span', { class: 'text-slate-500 text-[12px] font-black tracking-tighter' }, info.getValue() || '-')
+    cell: (info: any) => h('span', { class: 'text-slate-500 text-md font-black tracking-tighter' }, info.getValue() || '-')
   },
   {
     accessorKey: 'phone_number',
     header: 'KONTAK',
-    cell: (info: any) => h('span', { class: 'text-slate-600 text-[12px] font-bold' }, info.getValue() || '-')
+    cell: (info: any) => h('span', { class: 'text-slate-600 text-md font-bold' }, info.getValue() || '-')
   },
   {
     accessorFn: (row: any) => row.job_position?.title || '-',
     id: 'jobPosition',
     header: 'JABATAN',
-    cell: (info: any) => h('span', { class: 'font-black text-indigo-600 text-[12px]' }, info.getValue())
+    cell: (info: any) => h('span', { class: 'font-black text-black text-md' }, info.getValue())
   },
   {
     accessorKey: 'salary',
@@ -256,15 +286,15 @@ const columns = [
       const user = row.original
       return h('div', { class: 'flex items-center gap-2' }, [
         h(Button, { 
-            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-indigo-600 hover:bg-indigo-50 rounded-xl',
+            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-primary hover:bg-primary/5 rounded-xl transition-all',
             onClick: () => openSalaryModal(user)
         }, () => h(Wallet, { class: 'w-4.5 h-4.5' })),
         h(Button, { 
-            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl',
+            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all',
             onClick: () => openEditModal(user)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
-            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl',
+            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all',
             onClick: () => deleteEmployee(user.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
@@ -278,16 +308,35 @@ const columns = [
     <!-- Premium Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div>
-        <h1 class="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <Plus class="w-8 h-8 text-indigo-600 bg-indigo-50 p-1.5 rounded-xl border border-indigo-100" />
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
             Direktori Karyawan
         </h1>
-        <p class="text-[14px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Manajemen Personel & Payroll Profile</p>
+        <p class="text-[14px] font-medium text-slate-500 mt-1.5 uppercase tracking-widest flex items-center gap-2">
+          Manajemen Data Karyawan
+        </p>
       </div>
       
-      <Button @click="openAddModal" class="gap-2 shadow-xl shadow-indigo-100 rounded-2xl h-12 px-6 font-black bg-indigo-600 hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95">
-        <Plus class="w-5 h-5" /> TAMBAH KARYAWAN
-      </Button>
+      <div class="flex items-center gap-3">
+        <Select v-model="selectedBranch" @update:modelValue="fetchEmployees">
+          <SelectTrigger class="w-[200px] h-12 rounded-2xl border-none bg-white shadow-xl shadow-slate-100/50 font-bold px-6 text-slate-600 focus:ring-2 focus:ring-primary/20 transition-all">
+            <SelectValue placeholder="Semua Cabang" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Cabang</SelectItem>
+            <SelectItem v-for="b in masterData.branches" :key="b.id" :value="b.id">
+              {{ b.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button variant="outline" @click="exportCSV" class="h-12 px-5 rounded-2xl font-bold border-2 border-slate-50 bg-white shadow-xl shadow-slate-100/50 text-slate-600 gap-2 hover:bg-slate-50 transition-all active:scale-95">
+          <Download class="w-5 h-5" /> EXPORT
+        </Button>
+
+        <Button @click="openAddModal" class="gap-2 shadow-xl shadow-primary/20 rounded-2xl h-12 px-6 font-black bg-primary hover:bg-primary/90 transition-all hover:scale-105 active:scale-95">
+          <Plus class="w-5 h-5" /> TAMBAH KARYAWAN
+        </Button>
+      </div>
     </div>
 
     <!-- DataTable Area -->
@@ -297,21 +346,21 @@ const columns = [
 
     <!-- Salary Management Modal -->
     <Dialog v-model:open="isSalaryModalOpen">
-      <DialogContent class="sm:max-w-2xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl">
-        <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 p-10 text-white relative">
+      <DialogContent class="sm:max-w-2xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-gradient-to-br from-primary to-primary/80 p-8 md:p-10 text-white relative shrink-0">
             <DialogHeader class="relative z-10">
-                <div class="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-6 border border-white/20">
-                    <Banknote class="w-8 h-8 text-white" />
+                <div class="w-12 h-12 md:w-14 md:h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-4 md:mb-6 border border-white/20">
+                    <Banknote class="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <DialogTitle class="text-2xl font-black">Atur Struktur Gaji</DialogTitle>
-                <DialogDescription class="text-indigo-100 font-bold opacity-80 mt-2 uppercase text-[11px] tracking-[0.2em] border-l-4 border-white/30 pl-4">
+                <DialogTitle class="text-xl md:text-2xl font-black">Atur Struktur Gaji</DialogTitle>
+                <DialogDescription class="text-white/70 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-[0.2em] border-l-4 border-white/30 pl-4">
                     {{ currentEmployee?.first_name }} • {{ currentEmployee?.job_position?.title }}
                 </DialogDescription>
             </DialogHeader>
-            <Wallet class="absolute -right-10 -bottom-10 w-48 h-48 opacity-10" />
+            <Wallet class="absolute -right-10 -bottom-10 w-32 md:w-48 h-32 md:h-48 opacity-10" />
         </div>
 
-        <div class="p-10 bg-white grid grid-cols-1 md:grid-cols-12 gap-10">
+        <div class="p-6 md:p-10 bg-white grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 overflow-y-auto custom-scrollbar">
             <!-- Left: Add New Component -->
             <div class="md:col-span-12 lg:col-span-5 space-y-6">
                 <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Tambah Komponen</h3>
@@ -319,7 +368,7 @@ const columns = [
                 <div class="space-y-4">
                     <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Komponen Gaji</label>
                     <Select v-model="newSalarySetting.component_id">
-                        <SelectTrigger class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-bold focus:ring-0 focus:border-indigo-600 transition-all px-6">
+                        <SelectTrigger class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-bold focus:ring-0 focus:border-primary transition-all px-6">
                             <SelectValue placeholder="Pilih..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -332,10 +381,10 @@ const columns = [
 
                 <div class="space-y-4">
                     <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Nominal (Rp)</label>
-                    <Input type="number" v-model="newSalarySetting.amount" class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-black text-lg focus:ring-0 focus:border-indigo-600 transition-all px-6" />
+                    <Input type="number" v-model="newSalarySetting.amount" class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-black text-lg focus:ring-0 focus:border-primary transition-all px-6" />
                 </div>
 
-                <Button @click="addSalarySetting" :disabled="isSalarySubmitting" class="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black tracking-wide shadow-lg">
+                <Button @click="addSalarySetting" :disabled="isSalarySubmitting" class="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black tracking-wide shadow-lg transform active:scale-95 transition-all">
                     {{ isSalarySubmitting ? 'MENYIMPAN...' : 'TAMBAHKAN' }}
                 </Button>
             </div>
@@ -349,7 +398,7 @@ const columns = [
                         <Plus class="w-10 h-10 mb-2 opacity-20" />
                         BELUM ADA KOMPONEN
                     </div>
-                    <div v-for="s in salarySettings" :key="s.id" class="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100/50 hover:border-indigo-100 transition-all group">
+                    <div v-for="s in salarySettings" :key="s.id" class="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100/50 hover:border-primary/20 transition-all group">
                         <div class="flex items-center gap-4">
                             <div :class="[
                                 'w-10 h-10 rounded-xl flex items-center justify-center border',
@@ -372,7 +421,7 @@ const columns = [
                 <div class="mt-8 bg-slate-900 p-6 rounded-[2rem] text-white">
                     <div class="flex justify-between items-center mb-1">
                         <span class="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Estimasi THP Bersih</span>
-                        <span class="text-lg font-black text-indigo-400">Rp {{ (currentEmployee?.salary + salarySettings.reduce((a, b) => b.component?.type === 'EARNING' ? a + b.amount : a - b.amount, 0)).toLocaleString('id-ID') }}</span>
+                        <span class="text-lg font-black text-primary">Rp {{ (currentEmployee?.salary + salarySettings.reduce((a, b) => b.component?.type === 'EARNING' ? a + b.amount : a - b.amount, 0)).toLocaleString('id-ID') }}</span>
                     </div>
                     <p class="text-[9px] font-bold text-slate-500">* Belum termasuk BPJS & Pajak PPh21.</p>
                 </div>
@@ -387,25 +436,25 @@ const columns = [
 
     <!-- Employee Form Modal (Basic Data) -->
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-3xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl">
-        <div class="bg-slate-900 p-10 text-white relative">
+      <DialogContent class="sm:max-w-3xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
             <DialogHeader>
-                <DialogTitle class="text-2xl font-black">{{ isEditMode ? 'Edit Data Personal' : 'Tambah Karyawan Baru' }}</DialogTitle>
-                <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[11px] tracking-widest border-l-4 border-indigo-600 pl-4">
+                <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Edit Data Personal' : 'Tambah Karyawan Baru' }}</DialogTitle>
+                <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4">
                     Pusat Informasi Personel & Administrasi
                 </DialogDescription>
             </DialogHeader>
         </div>
 
-        <div class="p-10 bg-white space-y-8">
+        <div class="p-6 md:p-10 bg-white space-y-8 overflow-y-auto custom-scrollbar">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="space-y-3">
                 <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                <Input v-model="newEmployee.name" placeholder="John Doe" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-indigo-600" />
+                <Input v-model="newEmployee.name" placeholder="John Doe" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-primary" />
               </div>
               <div class="space-y-3">
                 <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Corporate</label>
-                <Input v-model="newEmployee.email" type="email" placeholder="john@company.com" :disabled="isEditMode" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-indigo-600 disabled:opacity-50" />
+                <Input v-model="newEmployee.email" type="email" placeholder="john@company.com" :disabled="isEditMode" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-primary disabled:opacity-50" />
               </div>
             </div>
 
@@ -434,12 +483,12 @@ const columns = [
               </div>
               <div class="space-y-3">
                 <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Gaji Pokok (Salary)</label>
-                <Input v-model="newEmployee.salary" type="number" class="h-14 rounded-2xl bg-indigo-50/50 border-none font-black text-indigo-700" />
+                <Input v-model="newEmployee.salary" type="number" class="h-14 rounded-2xl bg-primary/5 border-none font-black text-primary" />
               </div>
             </div>
 
             <div class="h-px bg-slate-100"></div>
-            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-indigo-600 pl-4">Data Rekening Bank</h4>
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Data Rekening Bank</h4>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div class="space-y-3">
@@ -464,9 +513,9 @@ const columns = [
             </div>
         </div>
 
-        <DialogFooter class="p-10 pt-0 bg-white grid grid-cols-2 gap-4">
-          <Button variant="ghost" @click="closeAddModal" :disabled="isSubmitting" class="rounded-2xl h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50">BATAL</Button>
-          <Button @click="saveEmployee" :disabled="isSubmitting" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl h-14 font-black shadow-xl shadow-indigo-100 transform active:scale-95 transition-all">
+        <DialogFooter class="p-8 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="closeAddModal" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50">BATAL</Button>
+          <Button @click="saveEmployee" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
             {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN' }}
           </Button>
         </DialogFooter>

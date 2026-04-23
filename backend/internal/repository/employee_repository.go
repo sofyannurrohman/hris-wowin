@@ -8,7 +8,7 @@ import (
 
 type EmployeeRepository interface {
 	Create(employee *domain.Employee) error
-	FindAll(limit int) ([]domain.Employee, error)
+	FindAll(limit int, branchID *uuid.UUID) ([]domain.Employee, error)
 	FindByID(id uuid.UUID) (*domain.Employee, error)
 	FindByUserID(userID uuid.UUID) (*domain.Employee, error)
 	Update(employee *domain.Employee) error
@@ -28,11 +28,14 @@ func (r *employeeRepository) Create(employee *domain.Employee) error {
 	return r.db.Create(employee).Error
 }
 
-func (r *employeeRepository) FindAll(limit int) ([]domain.Employee, error) {
+func (r *employeeRepository) FindAll(limit int, branchID *uuid.UUID) ([]domain.Employee, error) {
 	var employees []domain.Employee
 	query := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition")
 	if limit > 0 {
 		query = query.Limit(limit)
+	}
+	if branchID != nil {
+		query = query.Where("branch_id = ?", branchID)
 	}
 	if err := query.Find(&employees).Error; err != nil {
 		return nil, err

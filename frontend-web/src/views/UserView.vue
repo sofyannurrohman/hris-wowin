@@ -131,7 +131,7 @@ const columns = [
     cell: (info: any) => {
       const active = info.getValue()
       return h('span', { 
-        class: active ? 'text-green-600 font-bold' : 'text-red-500 font-bold' 
+        class: active ? 'text-black font-bold' : 'text-red-500 font-bold' 
       }, active ? 'Aktif' : 'Non-Aktif')
     }
   },
@@ -169,7 +169,7 @@ const columns = [
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Manajemen Pengguna</h1>
+        <h1 class="text-[22px] font-bold text-gray-900 leading-tight">Manajemen Akun Pengguna</h1>
         <p class="text-[14px] text-gray-500 mt-1">Atur kredensial dan hak akses aplikasi (Admin, Karyawan).</p>
       </div>
       
@@ -186,15 +186,17 @@ const columns = [
     <DataTable :data="users" :columns="columns" :isLoading="isLoading" />
 
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle class="text-xl">{{ isEditMode ? 'Edit Pengguna' : 'Tambah Pengguna' }}</DialogTitle>
-          <DialogDescription>
-            Tentukan email akses dan role sistem untuk akun ini.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div class="grid gap-4 py-4">
+      <DialogContent class="sm:max-w-xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
+          <DialogHeader>
+            <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Edit Pengguna' : 'Tambah Pengguna' }}</DialogTitle>
+            <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4">
+                Kelola hak akses dan kredensial akun sistem.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <div class="grid gap-2">
             <label class="text-[13px] font-medium text-gray-700">Email Login</label>
             <Input v-model="newUser.email" type="email" placeholder="e.g. jdoe@company.com" />
@@ -229,10 +231,10 @@ const columns = [
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" @click="closeAddModal">Batal</Button>
-          <Button @click="saveUser" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Data' }}
+        <DialogFooter class="p-6 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="isModalOpen = false" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all">BATAL</Button>
+          <Button @click="saveUser" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN DATA' }}
           </Button>
         </DialogFooter>
       </DialogContent>

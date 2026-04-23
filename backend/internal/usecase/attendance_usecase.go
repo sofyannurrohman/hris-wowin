@@ -516,7 +516,7 @@ func (u *attendanceUseCase) ProcessDailyAlpha(date time.Time) error {
 	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Second)
 
 	// 1. Fetch all active employees
-	employees, err := u.employeeRepo.FindAll(0) // Getting all
+	employees, err := u.employeeRepo.FindAll(0, nil) // Getting all
 	if err != nil {
 		return err
 	}

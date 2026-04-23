@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, h, computed, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import { Pencil, Trash2 } from 'lucide-vue-next'
+import { Pencil, Trash2, Download, CalendarClock, Plus, Filter, FileSpreadsheet } from 'lucide-vue-next'
 import apiClient from '@/api/axios'
 import DataTable from '@/components/DataTable.vue'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useMasterDataStore } from '@/stores/masterData'
+import { useAuthStore } from '@/stores/auth'
 
 const masterData = useMasterDataStore()
+const authStore = useAuthStore()
 
 const isLoading = ref(true)
 const displayData = ref<any[]>([])
@@ -67,14 +69,6 @@ const currentForm = ref({
   status: 'PRESENT',
   notes: ''
 })
-
-const dummyData = [
-  { id: 1, date: '24/10/2026', name: 'Sarah Jenkins', role: 'UX Designer', checkIn: '09:15', checkOut: '18:00', total: '8j 45m', status: 'Terlambat (15m)', avatar: 'https://i.pravatar.cc/150?u=sarah' },
-  { id: 2, date: '24/10/2026', name: 'Michael Foster', role: 'Front-end Dev', checkIn: '08:55', checkOut: '17:30', total: '8j 35m', status: 'Tepat Waktu', avatar: 'https://i.pravatar.cc/150?u=michael' },
-  { id: 3, date: '24/10/2026', name: 'Dries Vincent', role: 'Manajer Proyek', checkIn: '08:30', checkOut: '16:45', total: '8j 15m', status: 'Pulang Cepat', avatar: 'https://i.pravatar.cc/150?u=dries' },
-  { id: 4, date: '24/10/2026', name: 'Lindsay Walton', role: 'Marketing Lead', checkIn: '09:00', checkOut: '18:00', total: '9j 00m', status: 'Tepat Waktu', avatar: 'https://i.pravatar.cc/150?u=lindsay' },
-  { id: 5, date: '24/10/2026', name: 'Courtney Henry', role: 'Desainer', checkIn: '09:05', checkOut: '18:10', total: '9j 05m', status: 'Tepat Waktu', avatar: 'https://i.pravatar.cc/150?u=courtney' },
-]
 
 // Photo Preview State
 const isPreviewOpen = ref(false)
@@ -144,7 +138,29 @@ const columns = [
   },
   {
     id: 'photo',
-    header: 'FOTO BUKTI'
+    header: 'FOTO BUKTI',
+    cell: ({ row }: any) => {
+        const item = row.original
+        return h('div', { class: 'flex items-center gap-2' }, [
+            item.clockInPhoto ? h('div', {
+                onClick: () => openPreview(item.clockInPhoto),
+                class: 'w-10 h-10 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all bg-gray-50 flex items-center justify-center group relative'
+            }, [
+                h('img', { src: `${apiClient.defaults.baseURL}${item.clockInPhoto}`, class: 'w-full h-full object-cover group-hover:scale-110 transition-transform' }),
+                h('div', { class: 'absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity' }),
+                h('div', { class: 'absolute bottom-0 right-0 bg-emerald-500 text-[8px] text-white px-1 font-bold' }, 'IN')
+            ]) : null,
+            item.clockOutPhoto ? h('div', {
+                onClick: () => openPreview(item.clockOutPhoto),
+                class: 'w-10 h-10 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all bg-gray-50 flex items-center justify-center group relative'
+            }, [
+                h('img', { src: `${apiClient.defaults.baseURL}${item.clockOutPhoto}`, class: 'w-full h-full object-cover group-hover:scale-110 transition-transform' }),
+                h('div', { class: 'absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity' }),
+                h('div', { class: 'absolute bottom-0 right-0 bg-primary text-[8px] text-white px-1 font-bold' }, 'OUT')
+            ]) : null,
+            (!item.clockInPhoto && !item.clockOutPhoto) ? h('span', { class: 'text-[11px] text-gray-400 font-medium italic' }, 'Tanpa Foto') : null
+        ])
+    }
   },
   {
     id: 'actions',
@@ -321,17 +337,31 @@ const fetchEmployeesForFilter = async () => {
   }
 }
 
-const exportCSV = () => {
-  let url = `${apiClient.defaults.baseURL}/attendance/export-csv?`
-  if (selectedBranch.value && selectedBranch.value !== 'all') {
-    url += `&branch_id=${selectedBranch.value}`
+const exportCSV = async () => {
+  try {
+    let url = '/attendance/export-csv?'
+    if (selectedBranch.value && selectedBranch.value !== 'all') {
+      url += `&branch_id=${selectedBranch.value}`
+    }
+    if (filterType.value === 'month' && selectedMonth.value) {
+      url += `&month=${selectedMonth.value}`
+    } else if (filterType.value === 'year' && selectedYear.value) {
+      url += `&month=${selectedYear.value}`
+    }
+    
+    const response = await apiClient.get(url, { responseType: 'blob' })
+    const blob = new Blob([response.data], { type: 'text/csv' })
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.setAttribute('download', `laporan_kehadiran_${new Date().getTime()}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(downloadUrl)
+  } catch (error) {
+    toast.error('Gagal mengunduh laporan kehadiran.')
   }
-  if (filterType.value === 'month' && selectedMonth.value) {
-    url += `&month=${selectedMonth.value}`
-  } else if (filterType.value === 'year' && selectedYear.value) {
-    url += `&month=${selectedYear.value}`
-  }
-  window.open(url, '_blank')
 }
 
 onMounted(() => {
@@ -343,17 +373,21 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <!-- Header Page -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <!-- Premium Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div>
-        <h1 class="text-[22px] font-bold text-gray-900">Laporan Kehadiran</h1>
-        <p class="text-[14px] text-gray-500 mt-1">Lacak jam kerja karyawan, check-in, dan status kehadiran.</p>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+            Laporan Kehadiran
+        </h1>
+        <p class="text-[14px] font-medium text-slate-500 mt-1.5 uppercase tracking-widest flex items-center gap-2">
+          Monitoring Presensi & Jam Kerja
+        </p>
       </div>
       
       <div class="flex items-center gap-3 flex-wrap">
         <!-- Branch Filter -->
         <Select v-model="selectedBranch" @update:modelValue="fetchAttendance">
-          <SelectTrigger class="w-[160px] h-9 text-[13px] bg-white text-gray-700">
+          <SelectTrigger class="w-[160px] h-10 rounded-xl border-none bg-white shadow-lg shadow-slate-100/50 font-bold px-4 text-slate-600 focus:ring-2 focus:ring-primary/20 transition-all">
             <SelectValue placeholder="Semua Cabang" />
           </SelectTrigger>
           <SelectContent>
@@ -364,7 +398,7 @@ onMounted(() => {
 
         <!-- Type Filter -->
         <Select v-model="filterType" @update:modelValue="fetchAttendance">
-          <SelectTrigger class="w-[100px] h-9 text-[13px] bg-white text-gray-700">
+          <SelectTrigger class="w-[110px] h-10 rounded-xl border-none bg-white shadow-lg shadow-slate-100/50 font-bold px-4 text-slate-600 focus:ring-2 focus:ring-primary/20 transition-all">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -380,7 +414,7 @@ onMounted(() => {
             type="month"
             v-model="selectedMonth"
             @change="fetchAttendance"
-            class="h-9 border border-gray-300 bg-white text-gray-700 rounded-lg text-[13px] px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary shadow-sm"
+            class="h-10 border-none bg-white shadow-lg shadow-slate-100/50 text-slate-600 rounded-xl text-[13px] font-bold px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           />
           <input
             v-if="filterType === 'year'"
@@ -390,130 +424,92 @@ onMounted(() => {
             step="1"
             v-model="selectedYear"
             @change="fetchAttendance"
-            class="h-9 w-24 border border-gray-300 bg-white text-gray-700 rounded-lg text-[13px] px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary shadow-sm"
+            class="h-10 w-24 border-none bg-white shadow-lg shadow-slate-100/50 text-slate-600 rounded-xl text-[13px] font-bold px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           />
         </div>
 
         <!-- Export CSV -->
-        <Button variant="outline" class="flex items-center gap-2 h-9 px-3" @click="exportCSV">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-          <span class="hidden sm:inline">Ekspor CSV</span>
+        <Button variant="outline" @click="exportCSV" class="h-10 px-4 rounded-xl font-bold border-2 border-slate-50 bg-white shadow-lg shadow-slate-100/50 text-slate-600 gap-2 hover:bg-slate-50 transition-all active:scale-95">
+          <Download class="w-4 h-4" /> EXPORT
         </Button>
-        <Button @click="openAddModal" class="h-9 px-4">
-          Tambah Data Manual
+
+        <Button @click="openAddModal" class="gap-2 shadow-xl shadow-primary/20 rounded-xl h-10 px-5 font-bold bg-primary hover:bg-primary/90 transition-all hover:scale-105 active:scale-95">
+          <Plus class="w-4 h-4" /> INPUT MANUAL
         </Button>
       </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
       <!-- Card 1 -->
-      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+      <div class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_30px_rgba(153,0,0,0.05)] transition-all duration-500">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight w-20">Total Data</p>
-          <div class="w-8 h-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Total Data</p>
+          <div class="p-2 bg-primary/5 rounded-xl text-primary transition-transform group-hover:scale-110">
+            <FileSpreadsheet class="w-4 h-4" />
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.total }}</h3>
-          <div class="flex items-center gap-2 text-[12px]">
-            <span class="text-gray-500">Record kehadiran dari filter</span>
-          </div>
+          <h3 class="text-2xl font-black text-slate-900 mt-3">{{ attendanceStats.total }}</h3>
+          <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase">Records</p>
         </div>
       </div>
       
       <!-- Card 2 -->
-      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+      <div class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_30px_rgba(16,185,129,0.05)] transition-all duration-500">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight w-24">Tepat Waktu</p>
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Tepat Waktu</p>
+          <div class="p-2 bg-emerald-50 text-emerald-500 rounded-xl transition-transform group-hover:scale-110">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.onTime }}</h3>
-          <div class="flex items-center gap-2 text-[12px]">
-            <span class="text-gray-500">Bekerja Sesuai Jadwal</span>
-          </div>
+          <h3 class="text-2xl font-black text-slate-900 mt-3">{{ attendanceStats.onTime }}</h3>
+          <p class="text-[10px] font-bold text-emerald-500 mt-1 uppercase tracking-tighter">On Schedule</p>
         </div>
       </div>
       
       <!-- Card 3 -->
-      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+      <div class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_30px_rgba(245,158,11,0.05)] transition-all duration-500">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight w-20">Terlambat</p>
-          <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Terlambat</p>
+          <div class="p-2 bg-orange-50 text-orange-500 rounded-xl transition-transform group-hover:scale-110">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3" />
             </svg>
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.late }}</h3>
-          <div class="flex items-center gap-2 text-[12px]">
-            <span class="text-gray-500">Datang melewati jadwal</span>
-          </div>
+          <h3 class="text-2xl font-black text-slate-900 mt-3">{{ attendanceStats.late }}</h3>
+          <p class="text-[10px] font-bold text-orange-500 mt-1 uppercase tracking-tighter">Delayed</p>
         </div>
       </div>
       
       <!-- Card 4 -->
-      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+      <div class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_30px_rgba(239,68,68,0.05)] transition-all duration-500">
         <div class="flex items-start justify-between">
-          <p class="text-[13px] font-medium text-gray-600 leading-tight">Mangkir & Cuti</p>
-          <div class="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Absen/Cuti</p>
+          <div class="p-2 bg-red-50 text-red-500 rounded-xl transition-transform group-hover:scale-110">
+            <Plus class="w-4 h-4 rotate-45" />
           </div>
         </div>
         <div>
-          <h3 class="text-2xl font-bold text-gray-900 mt-2 mb-3">{{ attendanceStats.absent + attendanceStats.permitted }}</h3>
-          <div class="flex items-center gap-2 text-[12px]">
-            <span class="text-gray-500">Mangkir: {{ attendanceStats.absent }}, Lainnya: {{ attendanceStats.permitted }}</span>
-          </div>
+          <h3 class="text-2xl font-black text-slate-900 mt-3">{{ attendanceStats.absent + attendanceStats.permitted }}</h3>
+          <p class="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-tighter">Off Work</p>
         </div>
       </div>
     </div>
 
     <!-- DataTable Instance -->
-    <DataTable :data="displayData" :columns="columns" :isLoading="isLoading">
-      <template #headerTitle>
-        <h2 class="text-[16px] font-bold text-gray-900">Catatan Harian</h2>
-      </template>
-      
-      <template #cell-photo="{ row }">
-        <div class="flex items-center gap-2">
-            <template v-if="row.clockInPhoto">
-                <div 
-                    @click="openPreview(row.clockInPhoto)"
-                    class="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all bg-gray-50 flex items-center justify-center group relative"
-                >
-                    <img :src="`${apiClient.defaults.baseURL}${row.clockInPhoto}`" class="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                    <div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div class="absolute bottom-0 right-0 bg-emerald-500 text-[8px] text-white px-1 font-bold">IN</div>
-                </div>
-            </template>
-            <template v-if="row.clockOutPhoto">
-                <div 
-                    @click="openPreview(row.clockOutPhoto)"
-                    class="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all bg-gray-50 flex items-center justify-center group relative"
-                >
-                    <img :src="`${apiClient.defaults.baseURL}${row.clockOutPhoto}`" class="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                    <div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div class="absolute bottom-0 right-0 bg-indigo-500 text-[8px] text-white px-1 font-bold">OUT</div>
-                </div>
-            </template>
-            <span v-if="!row.clockInPhoto && !row.clockOutPhoto" class="text-[11px] text-gray-400 font-medium italic">Tanpa Foto</span>
-        </div>
-      </template>
-    </DataTable>
+    <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-slate-100/50 overflow-hidden">
+      <DataTable :data="displayData" :columns="columns" :isLoading="isLoading">
+        <template #headerTitle>
+          <h2 class="text-[16px] font-black text-slate-900 uppercase tracking-tighter ml-2">Catatan Harian Log Presensi</h2>
+        </template>
+      </DataTable>
+    </div>
 
     <!-- Photo Preview Dialog -->
     <Dialog v-model:open="isPreviewOpen">
@@ -534,15 +530,17 @@ onMounted(() => {
 
     <!-- UI Dialog (Manual Overrides) -->
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle class="text-xl">{{ isEditMode ? 'Edit Log Kehadiran' : 'Input Kehadiran Manual' }}</DialogTitle>
-          <DialogDescription>
-            Bypass Face-ID untuk memperbaiki data presensi karyawan secara administratif.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent class="sm:max-w-xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
+            <DialogHeader>
+              <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Edit Log Kehadiran' : 'Input Kehadiran Manual' }}</DialogTitle>
+              <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4">
+                Bypass Face-ID untuk memperbaiki data presensi karyawan secara administratif.
+              </DialogDescription>
+            </DialogHeader>
+        </div>
 
-        <div class="grid gap-4 py-4">
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar">
           <div class="grid gap-2">
             <label class="text-[13px] font-medium text-gray-700">Pilih Karyawan</label>
             <Select v-model="currentForm.employee_id" :disabled="isEditMode">
@@ -597,10 +595,10 @@ onMounted(() => {
 
         </div>
         
-        <DialogFooter>
-          <Button variant="outline" @click="closeAddModal">Batal</Button>
-          <Button @click="saveManualData" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Override' }}
+        <DialogFooter class="p-8 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="closeAddModal" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50">BATAL</Button>
+          <Button @click="saveManualData" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN OVERRIDE' }}
           </Button>
         </DialogFooter>
       </DialogContent>

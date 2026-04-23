@@ -27,10 +27,10 @@ const setModule = (moduleId: string) => {
       <Button 
         variant="ghost" 
         size="icon" 
-        class="h-10 w-10 text-slate-500 hover:bg-slate-100/80 hover:text-primary transition-all duration-300"
+        class="h-10 w-10 text-slate-500 hover:bg-slate-100/80 hover:text-primary transition-all duration-300 rounded-xl"
         @click="layoutStore.toggleSidebar"
       >
-        <Menu class="h-5.5 w-5.5" />
+        <Menu class="h-5.5 w-5.5 transition-transform duration-500" :class="{ 'rotate-180': layoutStore.isSidebarCollapsed }" />
         <span class="sr-only">Toggle Sidebar</span>
       </Button>
 
@@ -66,15 +66,6 @@ const setModule = (moduleId: string) => {
     </div>
 
     <div class="flex items-center gap-3 md:gap-6">
-      <div class="relative hidden sm:block group">
-        <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors duration-300" />
-        <input 
-          type="search" 
-          placeholder="Cari data..." 
-          class="h-11 w-72 rounded-2xl border border-slate-200/80 bg-slate-50/50 pl-11 pr-4 text-sm font-medium focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/30 transition-all duration-300 outline-none"
-        />
-      </div>
-
       <Button variant="ghost" size="icon" class="relative h-11 w-11 rounded-2xl border border-transparent hover:border-slate-200 hover:bg-white hover:shadow-sm text-slate-500 transition-all duration-300">
         <Bell class="h-5.5 w-5.5" />
         <span class="absolute right-3 top-3 flex h-3 w-3">

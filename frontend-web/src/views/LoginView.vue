@@ -63,24 +63,24 @@ const handleLogin = async () => {
         <div class="relative z-10">
           <div class="flex items-center gap-3 mb-12">
             <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
-              <img :src="logo" alt="Logo" class="w-10 h-10 brightness-0 invert" />
+              <img :src="logo" alt="Logo" class="w-10 h-10 " />
             </div>
             <div class="flex flex-col">
-              <span class="text-2xl font-black text-white tracking-tight leading-none">SENTRAWEB</span>
-              <span class="text-[10px] font-bold text-white/70 uppercase tracking-[0.2em] mt-1">Management Portal</span>
+              <span class="text-2xl font-black text-white tracking-tight leading-none">Single Sign On</span>
+              <span class="text-[10px] font-bold text-white/70 uppercase tracking-[0.2em] mt-1">Management Portal PT Wowin Purnomo Putera</span>
             </div>
           </div>
           
           <h2 class="text-5xl font-black text-white leading-[1.1] mb-6">Satu Platform,<br/><span class="text-white/60">Solusi Beragam.</span></h2>
           <p class="text-white/70 text-lg font-medium max-w-sm leading-relaxed">
-            Kelola SDM, Inventaris, dan Marketing Anda dalam satu ekosistem yang premium dan terintegrasi.
+            Kelola SDM, Rekrutmen, dan Marketing Anda dalam satu platform dan terintegrasi.
           </p>
         </div>
 
         <div class="relative z-10 mt-12 bg-white/5 backdrop-blur-lg border border-white/10 p-6 rounded-[28px]">
           <div class="flex items-center gap-4">
             <div class="bg-emerald-400/20 p-2.5 rounded-xl">
-              <ShieldCheck class="w-6 h-6 text-emerald-400" />
+              <ShieldCheck class="w-6 h-6 text-white" />
             </div>
             <div>
               <p class="text-white font-bold text-sm">Enterprise Security</p>

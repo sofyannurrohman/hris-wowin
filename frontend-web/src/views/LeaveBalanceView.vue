@@ -163,7 +163,7 @@ const columns = [
     header: 'SISA',
     cell: ({ row }: any) => {
       const r = row.original
-      const sisa = (r.BalanceTotal || 0) - (r.BalanceUsed || 0)
+      const sisa = (r.balance_total || 0) - (r.balance_used || 0)
       return h('span', { class: `font-bold ${sisa > 0 ? 'text-green-600' : 'text-red-500'}` }, `${sisa} hari`)
     }
   },
@@ -207,20 +207,22 @@ const columns = [
 
     <!-- Edit Modal -->
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{{ isEditMode ? 'Sesuaikan Saldo Cuti' : 'Tambah Saldo Cuti' }}</DialogTitle>
-          <DialogDescription>
-            <span v-if="isEditMode">
-              Mengubah saldo untuk <b>{{ editingBalance.employeeName }}</b> pada tipe <b>{{ editingBalance.leaveTypeName }}</b>.
-            </span>
-            <span v-else>
-              Isi data di bawah untuk menambah atau menginisialisasi saldo cuti baru.
-            </span>
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div class="grid gap-4 py-4">
+      <DialogContent class="sm:max-w-md rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
+            <DialogHeader>
+              <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Sesuaikan Saldo Cuti' : 'Tambah Saldo Cuti' }}</DialogTitle>
+              <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4 leading-relaxed">
+                <span v-if="isEditMode">
+                  Mengubah saldo untuk <b>{{ editingBalance.employeeName }}</b> pada tipe <b>{{ editingBalance.leaveTypeName }}</b>.
+                </span>
+                <span v-else>
+                  Isi data di bawah untuk menambah atau menginisialisasi saldo cuti baru.
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+        </div>
+
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <div v-if="!isEditMode" class="grid gap-4">
             <div class="grid gap-2">
               <Label class="text-[13px]">Karyawan</Label>
@@ -266,10 +268,10 @@ const columns = [
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" @click="isModalOpen = false">Batal</Button>
-          <Button @click="saveBalance" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan' }}
+        <DialogFooter class="p-8 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="isModalOpen = false" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all">BATAL</Button>
+          <Button @click="saveBalance" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN' }}
           </Button>
         </DialogFooter>
       </DialogContent>

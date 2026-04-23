@@ -85,14 +85,14 @@ const menuGroups = [
     :class="[layoutStore.isSidebarCollapsed ? 'w-[88px]' : 'w-[280px]']"
   >
     <!-- Logo Area -->
-    <div class="px-6 py-8">
-      <div class="flex items-center gap-3.5 overflow-hidden whitespace-nowrap">
-        <div class="bg-primary/5 p-2 rounded-2xl border border-primary/10 shadow-sm shadow-primary/5">
+    <div class="py-8 transition-all duration-500" :class="[layoutStore.isSidebarCollapsed ? 'px-0' : 'px-6']">
+      <div class="flex items-center overflow-hidden whitespace-nowrap transition-all duration-500" :class="[layoutStore.isSidebarCollapsed ? 'justify-center gap-0' : 'gap-3.5']">
+        <div class="bg-primary/5 p-2 rounded-2xl border border-primary/10 shadow-sm shadow-primary/5 shrink-0 transition-all duration-500" :class="{ 'scale-90': layoutStore.isSidebarCollapsed }">
           <img src="@/assets/logo.svg" alt="Logo" class="w-8 h-8 shrink-0" />
         </div>
         <div 
-          class="flex flex-col transition-all duration-500"
-          :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 w-0 scale-90' : 'opacity-100 w-auto scale-100']"
+          class="flex flex-col transition-all duration-500 origin-left"
+          :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 w-0 -translate-x-4 scale-75' : 'opacity-100 w-auto translate-x-0 scale-100']"
         >
           <span class="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">HRIS</span>
           <span class="text-[10px] font-bold text-primary uppercase tracking-[0.2em] leading-none">SENTRAWEB</span>
@@ -105,8 +105,8 @@ const menuGroups = [
       <div v-for="group in menuGroups" :key="group.title" class="space-y-2">
         <p 
           v-if="group.title"
-          class="px-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-400 transition-all duration-300 whitespace-nowrap"
-          :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 pl-0' : 'opacity-100']"
+          class="px-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-400 transition-all duration-500 whitespace-nowrap overflow-hidden"
+          :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 h-0 my-0' : 'opacity-100 h-auto my-2']"
         >
           {{ group.title }}
         </p>
@@ -116,8 +116,11 @@ const menuGroups = [
             v-for="item in group.items"
             :key="item.to"
             :to="item.to" 
-            class="group flex items-center gap-3.5 px-4 py-3 text-slate-500 rounded-2xl transition-all duration-300 hover:bg-slate-50 hover:text-slate-900 relative overflow-hidden"
-            active-class="!bg-primary/5 !text-primary shadow-sm ring-1 ring-primary/10"
+            class="group flex items-center px-4 py-3 text-slate-500 rounded-2xl transition-all duration-300 hover:bg-slate-50 hover:text-slate-900 relative overflow-hidden"
+            :class="[
+                layoutStore.isSidebarCollapsed ? 'justify-center gap-0 px-2' : 'gap-3.5',
+                $route.path === item.to ? '!bg-primary/5 !text-primary shadow-sm ring-1 ring-primary/10' : ''
+            ]"
           >
             <!-- Vertical Indicator for Active Item -->
             <div 
@@ -126,12 +129,12 @@ const menuGroups = [
 
             <component 
               :is="item.icon" 
-              class="h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-[.router-link-exact-active]:scale-110 shrink-0" 
+              class="h-5 w-5 transition-all duration-300 group-hover:scale-110 group-[.router-link-exact-active]:scale-110 shrink-0" 
             />
             
             <span 
-              class="text-[14px] font-bold transition-all duration-500 origin-left"
-              :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 w-0 scale-90 invisible' : 'opacity-100 w-auto scale-100 visible']"
+              class="text-[14px] font-bold transition-all duration-500 origin-left whitespace-nowrap"
+              :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 w-0 scale-90 invisible ml-0' : 'opacity-100 w-auto scale-100 visible ml-0']"
             >
               {{ item.name }}
             </span>
@@ -144,20 +147,21 @@ const menuGroups = [
     </nav>
 
     <!-- Logout Area -->
-    <div class="p-6 mt-auto border-t border-slate-100 bg-slate-50/30">
+    <div class="p-4 mt-auto border-t border-slate-100 bg-slate-50/30 transition-all duration-500" :class="[layoutStore.isSidebarCollapsed ? 'px-2' : 'p-6']">
       <Button 
         @click="handleLogout" 
         variant="ghost" 
-        class="w-full justify-start gap-3.5 text-slate-500 hover:text-primary hover:bg-white hover:shadow-sm rounded-2xl px-4 py-6 transition-all duration-300 group"
+        class="w-full text-slate-500 hover:text-primary hover:bg-white hover:shadow-sm rounded-2xl py-6 transition-all duration-300 group px-2"
+        :class="[layoutStore.isSidebarCollapsed ? 'justify-center gap-0' : 'justify-start gap-3.5 px-4']"
       >
-        <div class="bg-slate-100 p-1.5 rounded-xl group-hover:bg-primary/10 transition-colors duration-300">
+        <div class="bg-slate-100 p-1.5 rounded-xl group-hover:bg-primary/10 transition-colors duration-300 shrink-0">
           <LogOut class="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </div>
         <span 
-          class="text-[14px] font-bold transition-all duration-500"
+          class="text-[14px] font-bold transition-all duration-500 origin-left whitespace-nowrap"
           :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 w-0 scale-90 invisible' : 'opacity-100 w-auto scale-100 visible']"
         >
-          Keluar Sesuai
+          Log Out
         </span>
       </Button>
     </div>

@@ -59,7 +59,7 @@ const openEditModal = (branch: any) => {
     timezone: branch.timezone || 'Asia/Jakarta',
     latitude: branch.latitude || 0,
     longitude: branch.longitude || 0,
-    radius_meter: branch.radius_meter || 100
+    radiusMeter: branch.radius_meter || 100
   }
   isModalOpen.value = true
 }
@@ -205,24 +205,26 @@ const columns = [
     <DataTable :data="branches" :columns="columns" :isLoading="isLoading" />
 
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle class="text-xl">{{ isEditMode ? 'Edit Cabang' : 'Tambah Kantor Cabang' }}</DialogTitle>
-          <DialogDescription>
-            Konfigurasi lokasi, zona waktu, dan radius absensi kantor.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent class="sm:max-w-2xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
+            <DialogHeader>
+              <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Edit Cabang' : 'Tambah Kantor Cabang' }}</DialogTitle>
+              <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4">
+                Konfigurasi lokasi, zona waktu, dan radius absensi kantor.
+              </DialogDescription>
+            </DialogHeader>
+        </div>
 
-        <div class="grid gap-4 py-4">
-          <div class="grid grid-cols-2 gap-4">
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar flex-1">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Nama Cabang</label>
-              <Input v-model="newBranch.name" placeholder="e.g. Kantor Pusat Jakarta" />
+              <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Nama Cabang</label>
+              <Input v-model="newBranch.name" placeholder="e.g. Kantor Pusat Jakarta" class="h-12 rounded-2xl border-slate-200" />
             </div>
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Perusahaan</label>
+              <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Perusahaan</label>
               <Select v-model="newBranch.companyId" :disabled="isEditMode">
-                <SelectTrigger>
+                <SelectTrigger class="h-12 rounded-2xl border-slate-200">
                   <SelectValue placeholder="Pilih perusahaan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -237,15 +239,15 @@ const columns = [
           </div>
 
           <div class="grid gap-2">
-            <label class="text-[13px] font-medium text-gray-700">Alamat</label>
-            <textarea v-model="newBranch.address" placeholder="Alamat kantor cabang..." rows="2" class="flex min-h-[60px] w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950"></textarea>
+            <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Alamat Lengkap</label>
+            <textarea v-model="newBranch.address" placeholder="Alamat kantor cabang..." rows="2" class="flex min-h-[80px] w-full rounded-2xl border border-slate-200 bg-transparent px-4 py-3 text-sm shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all"></textarea>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Zona Waktu</label>
+              <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Zona Waktu</label>
               <Select v-model="newBranch.timezone">
-                <SelectTrigger>
+                <SelectTrigger class="h-12 rounded-2xl border-slate-200">
                   <SelectValue placeholder="Pilih zona waktu" />
                 </SelectTrigger>
                 <SelectContent>
@@ -256,43 +258,43 @@ const columns = [
               </Select>
             </div>
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Radius Absensi (Meter)</label>
-              <Input v-model.number="newBranch.radiusMeter" type="number" min="10" placeholder="e.g. 100" />
+              <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Radius Absensi (Meter)</label>
+              <Input v-model.number="newBranch.radiusMeter" type="number" min="10" placeholder="e.g. 100" class="h-12 rounded-2xl border-slate-200" />
             </div>
           </div>
 
-          <div class="h-px bg-gray-100 my-1"></div>
+          <div class="h-px bg-slate-100 my-2"></div>
           
-          <div class="space-y-2">
-            <label class="text-[13px] font-medium text-gray-700">Pilih Lokasi di Peta</label>
+          <div class="space-y-3">
+            <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Pilih Lokasi di Peta</label>
             <MapPicker 
               :latitude="newBranch.latitude" 
               :longitude="newBranch.longitude" 
               :radius="newBranch.radiusMeter"
+              height="200px"
               @update:location="(lat, lng) => { newBranch.latitude = lat; newBranch.longitude = lng }"
               @update:address="(addr) => { newBranch.address = addr }"
             />
           </div>
 
-          <div class="h-px bg-gray-100 my-1"></div>
-          <h3 class="text-[13px] font-bold text-gray-800 uppercase tracking-wider">Koordinat GPS</h3>
-
-          <div class="grid grid-cols-2 gap-4">
+          <div class="h-px bg-slate-100 my-2"></div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pt-2">
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Latitude</label>
-              <Input v-model.number="newBranch.latitude" type="number" step="0.000001" placeholder="-6.200000" />
+              <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Latitude</label>
+              <Input v-model.number="newBranch.latitude" type="number" step="0.000001" placeholder="-6.200000" class="h-12 rounded-2xl border-slate-200" />
             </div>
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Longitude</label>
-              <Input v-model.number="newBranch.longitude" type="number" step="0.000001" placeholder="106.816666" />
+              <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Longitude</label>
+              <Input v-model.number="newBranch.longitude" type="number" step="0.000001" placeholder="106.816666" class="h-12 rounded-2xl border-slate-200" />
             </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" @click="closeModal">Batal</Button>
-          <Button @click="saveBranch" :disabled="isSubmitting || !newBranch.name">
-            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Data' }}
+        <DialogFooter class="p-8 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="closeModal" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all">BATAL</Button>
+          <Button @click="saveBranch" :disabled="isSubmitting || !newBranch.name" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN DATA' }}
           </Button>
         </DialogFooter>
       </DialogContent>

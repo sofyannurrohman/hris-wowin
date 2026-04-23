@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -50,5 +53,19 @@ func (r *shiftRepository) Update(shift *domain.Shift) error {
 }
 
 func (r *shiftRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&domain.Shift{}).Error
+	// Check for associated employee shifts
+	var count int64
+	r.db.Model(&domain.EmployeeShift{}).Where("shift_id = ?", id).Count(&count)
+	if count > 0 {
+		return fmt.Errorf("tidak dapat menghapus shift: terdapat %d jadwal karyawan yang menggunakan shift ini. Hapus jadwal terkait terlebih dahulu", count)
+	}
+
+	result := r.db.Where("id = ?", id).Delete(&domain.Shift{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("shift tidak ditemukan")
+	}
+	return nil
 }

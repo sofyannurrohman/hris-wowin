@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -51,7 +54,42 @@ func (r *companyRepository) Update(company *domain.Company) error {
 }
 
 func (r *companyRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&domain.Company{}).Error
+	// Check for associated branches
+	var branchCount int64
+	r.db.Model(&domain.Branch{}).Where("company_id = ?", id).Count(&branchCount)
+	if branchCount > 0 {
+		return fmt.Errorf("tidak dapat menghapus perusahaan: terdapat %d cabang yang masih terhubung. Hapus cabang terlebih dahulu", branchCount)
+	}
+
+	// Check for associated employees
+	var employeeCount int64
+	r.db.Model(&domain.Employee{}).Where("company_id = ?", id).Count(&employeeCount)
+	if employeeCount > 0 {
+		return fmt.Errorf("tidak dapat menghapus perusahaan: terdapat %d karyawan yang masih terdaftar. Hapus atau pindahkan karyawan terlebih dahulu", employeeCount)
+	}
+
+	// Check for associated departments
+	var deptCount int64
+	r.db.Model(&domain.Department{}).Where("company_id = ?", id).Count(&deptCount)
+	if deptCount > 0 {
+		return fmt.Errorf("tidak dapat menghapus perusahaan: terdapat %d departemen yang masih terhubung. Hapus departemen terlebih dahulu", deptCount)
+	}
+
+	// Check for associated job positions
+	var jobCount int64
+	r.db.Model(&domain.JobPosition{}).Where("company_id = ?", id).Count(&jobCount)
+	if jobCount > 0 {
+		return fmt.Errorf("tidak dapat menghapus perusahaan: terdapat %d posisi jabatan yang masih terhubung. Hapus posisi jabatan terlebih dahulu", jobCount)
+	}
+
+	result := r.db.Where("id = ?", id).Delete(&domain.Company{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("perusahaan tidak ditemukan")
+	}
+	return nil
 }
 
 func (r *companyRepository) FindByName(name string) (*domain.Company, error) {

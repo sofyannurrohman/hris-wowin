@@ -14,7 +14,7 @@ import (
 
 type EmployeeUsecase interface {
 	CreateEmployee(req *CreateEmployeeRequest) error
-	GetEmployees(limit int) ([]domain.Employee, error)
+	GetEmployees(limit int, branchID *uuid.UUID) ([]domain.Employee, error)
 	GetEmployeeByID(id uuid.UUID) (*domain.Employee, error)
 	GetEmployeeByUserID(userID uuid.UUID) (*domain.Employee, error)
 	UpdateEmployee(id uuid.UUID, req *UpdateEmployeeRequest) error
@@ -160,8 +160,8 @@ func (u *employeeUsecase) CreateEmployee(req *CreateEmployeeRequest) error {
 	return u.employeeRepo.Create(newEmployee)
 }
 
-func (u *employeeUsecase) GetEmployees(limit int) ([]domain.Employee, error) {
-	return u.employeeRepo.FindAll(limit)
+func (u *employeeUsecase) GetEmployees(limit int, branchID *uuid.UUID) ([]domain.Employee, error) {
+	return u.employeeRepo.FindAll(limit, branchID)
 }
 
 func (u *employeeUsecase) GetEmployeeByID(id uuid.UUID) (*domain.Employee, error) {
@@ -273,7 +273,7 @@ func (u *employeeUsecase) DeleteEmployee(id uuid.UUID) error {
 }
 
 func (u *employeeUsecase) GetDirectory(query string) ([]DirectoryResponse, error) {
-	employees, err := u.employeeRepo.FindAll(0)
+	employees, err := u.employeeRepo.FindAll(0, nil)
 	if err != nil {
 		return nil, err
 	}

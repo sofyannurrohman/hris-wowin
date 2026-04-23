@@ -1,6 +1,9 @@
 package http
 
 import (
+	"bytes"
+	"encoding/csv"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -35,6 +38,7 @@ func (h *EmployeeHandler) SetupRoutes(router *gin.RouterGroup) {
 	admin.Use(RoleMiddleware(string(domain.RoleSuperAdmin), string(domain.RoleHRAdmin)))
 	{
 		admin.GET("", h.GetEmployees)
+		admin.GET("/export-csv", h.ExportCSV)
 		admin.POST("", h.CreateEmployee)
 		admin.PUT("/:id", h.UpdateEmployee)
 		admin.DELETE("/:id", h.DeleteEmployee)
@@ -49,7 +53,15 @@ func (h *EmployeeHandler) GetEmployees(c *gin.Context) {
 			limit = l
 		}
 	}
-	res, err := h.employeeUsecase.GetEmployees(limit)
+	var branchID *uuid.UUID
+	branchIDStr := c.Query("branch_id")
+	if branchIDStr != "" {
+		if id, err := uuid.Parse(branchIDStr); err == nil {
+			branchID = &id
+		}
+	}
+
+	res, err := h.employeeUsecase.GetEmployees(limit, branchID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get employees: "+err.Error())
 		return
@@ -160,6 +172,80 @@ func (h *EmployeeHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Profile updated successfully", nil)
+}
+
+func (h *EmployeeHandler) ExportCSV(c *gin.Context) {
+	var branchID *uuid.UUID
+	branchIDStr := c.Query("branch_id")
+	if branchIDStr != "" {
+		if id, err := uuid.Parse(branchIDStr); err == nil {
+			branchID = &id
+		}
+	}
+
+	// Fetch all records (limit=0 = no limit)
+	employees, err := h.employeeUsecase.GetEmployees(0, branchID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to export employees")
+		return
+	}
+
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+
+	// Header
+	_ = writer.Write([]string{"No", "ID Karyawan", "Nama", "Email", "No. Telepon", "Departemen", "Jabatan", "Cabang", "Status", "Tanggal Bergabung", "Gaji Pokok", "Bank", "No. Rekening"})
+
+	for i, emp := range employees {
+		deptName := "-"
+		if emp.Department != nil {
+			deptName = emp.Department.Name
+		}
+		posName := "-"
+		if emp.JobPosition != nil {
+			posName = emp.JobPosition.Title
+		}
+		branchName := "-"
+		if emp.Branch != nil {
+			branchName = emp.Branch.Name
+		}
+		email := "-"
+		if emp.User != nil {
+			email = emp.User.Email
+		}
+
+		salaryStr := "0"
+		if emp.Salary != nil {
+			salaryStr = fmt.Sprintf("%.0f", *emp.Salary)
+		}
+
+		_ = writer.Write([]string{
+			strconv.Itoa(i + 1),
+			emp.EmployeeIDNumber,
+			emp.FirstName,
+			email,
+			emp.PhoneNumber,
+			deptName,
+			posName,
+			branchName,
+			emp.EmploymentStatus,
+			emp.JoinDate.Format("02/01/2006"),
+			salaryStr,
+			emp.BankName,
+			emp.BankAccountNumber,
+		})
+	}
+
+	writer.Flush()
+
+	filename := "data_karyawan.csv"
+	if branchName := c.Query("branch_name"); branchName != "" {
+		filename = fmt.Sprintf("data_karyawan_%s.csv", branchName)
+	}
+
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Data(http.StatusOK, "text/csv; charset=utf-8", buf.Bytes())
 }
 
 func (h *EmployeeHandler) GetDirectory(c *gin.Context) {

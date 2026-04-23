@@ -200,15 +200,17 @@ const columns = [
     <DataTable :data="announcements" :columns="columns" :isLoading="isLoading" />
 
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle class="text-xl text-primary">{{ isEditMode ? 'Edit Pengumuman' : 'Buat Pengumuman Baru' }}</DialogTitle>
-          <DialogDescription>
-            Isi detail informasi pengumuman di bawah ini.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent class="sm:max-w-xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-primary p-8 md:p-10 text-white relative shrink-0">
+          <DialogHeader>
+            <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Edit Pengumuman' : 'Buat Pengumuman Baru' }}</DialogTitle>
+            <DialogDescription class="text-white/70 mt-2 font-medium uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-white/30 pl-4">
+                Siarkan informasi penting ke seluruh dashboard karyawan.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div class="grid gap-6 py-4">
+        <div class="p-6 md:p-10 bg-white space-y-6 overflow-y-auto custom-scrollbar flex-1">
           <div class="grid gap-2">
             <Label class="text-[13px] font-bold text-gray-700 uppercase tracking-wider">Judul Pengumuman</Label>
             <Input v-model="currentAnnouncement.title" placeholder="e.g. Update Kebijakan Lembur Ramadhan" class="h-11" />
@@ -260,11 +262,10 @@ const columns = [
           </div>
         </div>
 
-        <DialogFooter class="bg-slate-50 -mx-6 -mb-6 p-6 mt-2 rounded-b-lg border-t border-slate-100">
-          <Button variant="outline" @click="closeModal" class="h-11 px-6 font-bold">Batal</Button>
-          <Button @click="saveAnnouncement" :disabled="isSubmitting || !currentAnnouncement.title" class="h-11 px-8 font-extrabold flex gap-2">
-            <span v-if="isSubmitting" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-            {{ isSubmitting ? 'Menyimpan...' : 'Publikasikan Sekarang' }}
+        <DialogFooter class="p-6 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
+          <Button variant="ghost" @click="isModalOpen = false" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all">BATAL</Button>
+          <Button @click="saveAnnouncement" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
+            {{ isSubmitting ? 'MENGIRIM...' : (isEditMode ? 'UPDATE' : 'PUBLIKASIKAN') }}
           </Button>
         </DialogFooter>
       </DialogContent>

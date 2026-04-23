@@ -297,18 +297,18 @@ const columns = [
 
     <!-- Review Modal -->
     <Dialog v-model:open="isModalOpen">
-      <DialogContent class="sm:max-w-lg rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader class="p-8 bg-slate-900 text-white relative">
+      <DialogContent class="sm:max-w-lg rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <DialogHeader class="p-8 md:p-10 bg-slate-900 text-white relative shrink-0">
           <div class="absolute right-8 top-8 opacity-10">
             <FileText class="w-20 h-20" />
           </div>
-          <DialogTitle class="text-xl font-black tracking-tight">Review Pengajuan Klaim</DialogTitle>
-          <DialogDescription class="text-slate-400 mt-2 font-medium">
+          <DialogTitle class="text-xl md:text-2xl font-black tracking-tight">Review Pengajuan Klaim</DialogTitle>
+          <DialogDescription class="text-slate-400 mt-2 font-medium uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4">
             Tinjau detail bukti nota dan nominal sebelum memberikan keputusan persetujuan.
           </DialogDescription>
         </DialogHeader>
         
-        <div class="p-8 space-y-6">
+        <div class="p-6 md:p-10 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
           <div v-if="selectedItem" class="space-y-4">
             <!-- Summary Info -->
             <div class="grid grid-cols-2 gap-4">
@@ -342,48 +342,50 @@ const columns = [
           </div>
         </div>
 
-        <DialogFooter class="p-8 bg-slate-50 flex gap-3 sm:gap-4 sm:justify-end">
+        <DialogFooter class="p-6 md:p-8 bg-slate-50 flex flex-col sm:flex-row gap-3 md:gap-4 shrink-0">
           <Button 
             variant="ghost" 
             @click="isModalOpen = false" 
-            class="rounded-xl font-bold text-slate-500 hover:bg-slate-200 h-12 px-6"
-          >Batal</Button>
+            class="rounded-2xl font-black text-slate-400 border border-slate-100 hover:bg-white h-12 md:h-14 px-6 order-last sm:order-first flex-1 sm:flex-none"
+          >BATAL</Button>
           
-          <Button 
-            variant="outline"
-            @click="updateStatus('REJECTED')"
-            :disabled="isSubmitting"
-            class="rounded-xl font-bold border-red-200 text-red-600 hover:bg-red-50 h-12 px-6 gap-2"
-          >
-            <XCircle class="w-4 h-4" />
-            Tolak Klaim
-          </Button>
+          <div class="flex gap-3 flex-1">
+            <Button 
+              variant="outline"
+              @click="updateStatus('REJECTED')"
+              :disabled="isSubmitting"
+              class="rounded-2xl font-bold border-red-100 text-red-600 hover:bg-red-50 h-12 md:h-14 px-4 md:px-6 gap-2 flex-1 shadow-sm transition-all"
+            >
+              <XCircle class="w-4 h-4" />
+              TOLAK
+            </Button>
 
-          <Button 
-            @click="updateStatus('APPROVED')"
-            :disabled="isSubmitting"
-            class="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 h-12 px-8 gap-2 shadow-lg shadow-emerald-200"
-          >
-            <CheckCircle2 class="w-4 h-4" />
-            Setujui Klaim
-          </Button>
+            <Button 
+              @click="updateStatus('APPROVED')"
+              :disabled="isSubmitting"
+              class="rounded-2xl font-black bg-emerald-600 hover:bg-emerald-700 text-white h-12 md:h-14 px-6 md:px-10 gap-2 flex-1 shadow-lg shadow-emerald-200 transition-all active:scale-95"
+            >
+              <CheckCircle2 class="w-4 h-4" />
+              SETUJUI
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
 
     <!-- CRUD Modal (Add/Edit) -->
     <Dialog v-model:open="isCRUDModalOpen">
-      <DialogContent class="sm:max-w-xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-        <DialogHeader class="p-8 bg-primary text-white relative">
-          <DialogTitle class="text-xl font-black tracking-tight">
+      <DialogContent class="sm:max-w-xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <DialogHeader class="p-8 md:p-10 bg-primary text-white relative shrink-0">
+          <DialogTitle class="text-xl md:text-2xl font-black tracking-tight">
             {{ isEditMode ? 'Edit Pengajuan Reimbursement' : 'Tambah Pengajuan Reimbursement' }}
           </DialogTitle>
-          <DialogDescription class="text-white/70 mt-2 font-medium">
+          <DialogDescription class="text-white/70 mt-2 font-medium uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-white/30 pl-4">
             Lengkapi data pengajuan reimbursement karyawan berikut ini.
           </DialogDescription>
         </DialogHeader>
 
-        <div class="p-8 space-y-6">
+        <div class="p-4 md:p-10 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
           <div class="grid gap-6">
             <!-- Karyawan -->
             <div class="space-y-2">
@@ -447,10 +449,10 @@ const columns = [
           </div>
         </div>
 
-        <DialogFooter class="p-8 bg-slate-50 flex gap-3 sm:gap-4 sm:justify-end">
-          <Button variant="ghost" @click="isCRUDModalOpen = false" class="rounded-xl font-bold h-12 px-6">Batal</Button>
-          <Button @click="saveReimbursement" :disabled="isSubmitting" class="rounded-xl font-black h-12 px-10 shadow-lg shadow-primary/20">
-            {{ isSubmitting ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Tambah Pengajuan') }}
+        <DialogFooter class="p-6 md:p-8 bg-slate-50 flex flex-col sm:flex-row gap-3 md:gap-4 shrink-0">
+          <Button variant="ghost" @click="isCRUDModalOpen = false" class="rounded-2xl font-black text-slate-400 border border-slate-100 hover:bg-white h-12 md:h-14 px-6 order-last sm:order-first flex-1 sm:flex-none transition-all">BATAL</Button>
+          <Button @click="saveReimbursement" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 px-10 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all flex-1">
+            {{ isSubmitting ? 'MENYIMPAN...' : (isEditMode ? 'SIMPAN PERUBAHAN' : 'TAMBAH PENGAJUAN') }}
           </Button>
         </DialogFooter>
       </DialogContent>
