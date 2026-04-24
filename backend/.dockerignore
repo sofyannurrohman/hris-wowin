@@ -3,3 +3,6 @@ uploads/
 vendor/
 .github/
 .vscode/
+.env
+.env.*
+!.env.example
