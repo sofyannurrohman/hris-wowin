@@ -30,7 +30,21 @@ const newEmployee = ref({
   bankAccountNumber: '',
   accountHolderName: '',
   salary: 0,
-  phoneNumber: ''
+  phoneNumber: '',
+  birthPlace: '',
+  birthDate: '',
+  gender: 'MALE',
+  maritalStatus: 'SINGLE',
+  bpjsKesehatanNumber: '',
+  bpjsKetenagakerjaanNumber: '',
+  identityNumber: '',
+  npwpNumber: '',
+  lastName: '',
+  addressKTP: '',
+  addressResidential: '',
+  emergencyContact: '',
+  ptkpStatus: 'TK/0',
+  managerId: ''
 })
 
 const isEditMode = ref(false)
@@ -66,7 +80,21 @@ const openAddModal = () => {
     bankAccountNumber: '',
     accountHolderName: '',
     salary: 0,
-    phoneNumber: ''
+    phoneNumber: '',
+    birthPlace: '',
+    birthDate: '',
+    gender: 'MALE',
+    maritalStatus: 'SINGLE',
+    bpjsKesehatanNumber: '',
+    bpjsKetenagakerjaanNumber: '',
+    identityNumber: '',
+    npwpNumber: '',
+    lastName: '',
+    addressKTP: '',
+    addressResidential: '',
+    emergencyContact: '',
+    ptkpStatus: 'TK/0',
+    managerId: ''
   }
   isModalOpen.value = true
 }
@@ -87,7 +115,21 @@ const openEditModal = (user: any) => {
     bankAccountNumber: user.bank_account_number || '',
     accountHolderName: user.account_holder_name || '',
     salary: user.salary || 0,
-    phoneNumber: user.phone_number || ''
+    phoneNumber: user.phone_number || '',
+    birthPlace: user.birth_place || '',
+    birthDate: user.birth_date ? new Date(user.birth_date).toISOString().split('T')[0] : '',
+    gender: user.gender || 'MALE',
+    maritalStatus: user.marital_status || 'SINGLE',
+    bpjsKesehatanNumber: user.bpjs_kesehatan_number || '',
+    bpjsKetenagakerjaanNumber: user.bpjs_ketenagakerjaan_number || '',
+    identityNumber: user.identity_number || '',
+    npwpNumber: user.npwp_number || '',
+    lastName: user.last_name || '',
+    addressKTP: user.address_ktp || '',
+    addressResidential: user.address_residential || '',
+    emergencyContact: user.emergency_contact || '',
+    ptkpStatus: user.ptkp_status || 'TK/0',
+    managerId: user.manager_id || ''
   }
   isModalOpen.value = true
 }
@@ -193,7 +235,8 @@ const saveEmployee = async () => {
     salary: Number(newEmployee.value.salary),
     branchId: newEmployee.value.branchId || null,
     departmentId: newEmployee.value.departmentId || null,
-    jobPositionId: newEmployee.value.jobPositionId || null
+    jobPositionId: newEmployee.value.jobPositionId || null,
+    managerId: newEmployee.value.managerId || null
   }
 
   try {
@@ -234,49 +277,126 @@ onMounted(() => {
 
 const columns = [
   {
-    accessorFn: (row: any) => row.first_name || 'Unnamed',
+    accessorFn: (row: any) => `${row.first_name} ${row.last_name || ''}`.trim(),
     id: 'name',
     header: 'KARYAWAN',
     cell: ({ row }: any) => {
        const user = row.original
        return h('div', { class: 'flex flex-col py-1' }, [
-         h('p', { class: 'font-extrabold text-slate-900 leading-tight group-hover:text-primary transition-colors' }, user.first_name || 'Unnamed'),
+         h('p', { class: 'font-extrabold text-slate-900 leading-tight group-hover:text-primary transition-colors' }, `${user.first_name} ${user.last_name || ''}`.trim()),
          h('p', { class: 'text-[11px] font-bold text-slate-400' }, user.user?.email || '-')
        ])
     }
   },
   {
-    accessorKey: 'employee_id_number',
-    header: 'ID #',
-    cell: (info: any) => h('span', { class: 'text-slate-500 text-md font-black tracking-tighter' }, info.getValue() || '-')
-  },
-  {
-    accessorKey: 'phone_number',
-    header: 'KONTAK',
-    cell: (info: any) => h('span', { class: 'text-slate-600 text-md font-bold' }, info.getValue() || '-')
-  },
-  {
-    accessorFn: (row: any) => row.job_position?.title || '-',
-    id: 'jobPosition',
-    header: 'JABATAN',
-    cell: (info: any) => h('span', { class: 'font-black text-black text-md' }, info.getValue())
-  },
-  {
-    accessorKey: 'salary',
-    header: 'GAJI POKOK',
-    cell: (info: any) => {
-      const val = info.getValue() || 0
-      return h('span', { class: 'font-black text-slate-900 text-[13px]' }, 'Rp ' + val.toLocaleString('id-ID'))
+    accessorFn: (row: any) => ({ id: row.employee_id_number, dept: row.department?.name, pos: row.job_position?.title }),
+    id: 'identity',
+    header: 'ID / JABATAN',
+    cell: ({ getValue }: any) => {
+      const { id, dept, pos } = getValue()
+      return h('div', { class: 'flex flex-col' }, [
+        h('span', { class: 'text-slate-900 font-black tracking-tighter text-sm' }, id || '-'),
+        h('span', { class: 'text-slate-500 text-[11px] font-bold uppercase' }, `${pos || '-'} • ${dept || '-'}`)
+      ])
     }
   },
   {
-    accessorKey: 'employment_status',
-    header: 'STATUS',
+    accessorFn: (row: any) => ({ place: row.birth_place, date: row.birth_date, gender: row.gender, marital: row.marital_status }),
+    id: 'personal',
+    header: 'DATA PERSONAL',
     cell: ({ getValue }: any) => {
-        const val = getValue() as string || 'Active'
-        let cls = 'bg-emerald-50 text-emerald-700 border-emerald-100'
-        if (val !== 'Active' && val !== 'Aktif') cls = 'bg-slate-50 text-slate-500 border-slate-100'
-        return h('span', { class: `${cls} px-3 py-1 rounded-full text-[10px] font-black uppercase border` }, val)
+      const { place, date, gender, marital } = getValue()
+      const dateStr = date ? new Date(date).toLocaleDateString('id-ID') : '-'
+      return h('div', { class: 'flex flex-col text-[12px]' }, [
+        h('span', { class: 'text-slate-700 font-bold' }, `${place || '-'}, ${dateStr}`),
+        h('span', { class: 'text-slate-400 font-medium italic' }, `${gender || '-'} • ${marital || '-'}`)
+      ])
+    }
+  },
+  {
+    accessorFn: (row: any) => ({ ktp: row.identity_number, npwp: row.npwp_number, bpjsKs: row.bpjs_kesehatan_number, bpjsKt: row.bpjs_ketenagakerjaan_number }),
+    id: 'government',
+    header: 'DOKUMEN & BPJS',
+    cell: ({ getValue }: any) => {
+      const { ktp, npwp, bpjsKs, bpjsKt } = getValue()
+      return h('div', { class: 'grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]' }, [
+        h('div', { class: 'flex flex-col' }, [
+          h('span', { class: 'text-slate-400 font-bold uppercase text-[9px]' }, 'KTP'),
+          h('span', { class: 'text-slate-700 font-black' }, ktp || '-')
+        ]),
+        h('div', { class: 'flex flex-col' }, [
+          h('span', { class: 'text-slate-400 font-bold uppercase text-[9px]' }, 'NPWP'),
+          h('span', { class: 'text-slate-700 font-black' }, npwp || '-')
+        ]),
+        h('div', { class: 'flex flex-col' }, [
+          h('span', { class: 'text-emerald-600 font-bold uppercase text-[9px]' }, 'BPJS KS'),
+          h('span', { class: 'text-emerald-700 font-black' }, bpjsKs || '-')
+        ]),
+        h('div', { class: 'flex flex-col' }, [
+          h('span', { class: 'text-blue-600 font-bold uppercase text-[9px]' }, 'BPJS KT'),
+          h('span', { class: 'text-blue-700 font-black' }, bpjsKt || '-')
+        ])
+      ])
+    }
+  },
+  {
+    accessorFn: (row: any) => ({ ktp: row.address_ktp, res: row.address_residential }),
+    id: 'address',
+    header: 'ALAMAT',
+    cell: ({ getValue }: any) => {
+      const { ktp, res } = getValue()
+      return h('div', { class: 'flex flex-col gap-1 max-w-[200px]' }, [
+        h('p', { class: 'text-[11px] text-slate-500 leading-tight line-clamp-1 italic', title: ktp }, ktp || '-'),
+        h('p', { class: 'text-[11px] text-slate-700 leading-tight line-clamp-1 font-bold', title: res }, res || '-')
+      ])
+    }
+  },
+  {
+    accessorFn: (row: any) => ({ phone: row.phone_number, emergency: row.emergency_contact }),
+    id: 'contact',
+    header: 'KONTAK',
+    cell: ({ getValue }: any) => {
+      const { phone, emergency } = getValue()
+      return h('div', { class: 'flex flex-col text-[12px]' }, [
+        h('span', { class: 'text-slate-900 font-black' }, phone || '-'),
+        h('span', { class: 'text-rose-500 font-bold text-[10px]' }, emergency ? `EMG: ${emergency}` : '-')
+      ])
+    }
+  },
+  {
+    accessorFn: (row: any) => ({ join: row.join_date, status: row.employment_status, manager: row.manager?.first_name }),
+    id: 'employment',
+    header: 'STATUS & JOIN',
+    cell: ({ getValue }: any) => {
+      const { join, status, manager } = getValue()
+      const joinStr = join ? new Date(join).toLocaleDateString('id-ID') : '-'
+      let cls = 'bg-emerald-50 text-emerald-700 border-emerald-100'
+      if (status !== 'Active' && status !== 'Aktif') cls = 'bg-slate-50 text-slate-500 border-slate-100'
+      return h('div', { class: 'flex flex-col gap-1' }, [
+        h('span', { class: 'text-slate-700 font-black text-[12px]' }, joinStr),
+        h('span', { class: `${cls} px-2 py-0.5 rounded-full text-[9px] font-black uppercase border w-fit` }, status || 'Active'),
+        h('span', { class: 'text-slate-400 text-[10px] font-bold' }, manager ? `MG: ${manager}` : '-')
+      ])
+    }
+  },
+  {
+    id: 'shift',
+    header: 'SHIFT',
+    cell: ({ row }: any) => {
+      const shifts = row.original.employee_shifts
+      let name = '-'
+      if (shifts && shifts.length > 0) {
+        name = shifts[0].shift?.name || '-'
+      }
+      return h('span', { class: 'bg-primary/5 text-primary px-3 py-1 rounded-xl text-[11px] font-black' }, name)
+    }
+  },
+  {
+    accessorKey: 'salary',
+    header: 'GAJI',
+    cell: (info: any) => {
+      const val = info.getValue() || 0
+      return h('span', { class: 'font-black text-slate-900 text-[14px]' }, 'Rp' + val.toLocaleString('id-ID'))
     }
   },
   {
@@ -284,17 +404,17 @@ const columns = [
     header: 'AKSI',
     cell: ({ row }: any) => {
       const user = row.original
-      return h('div', { class: 'flex items-center gap-2' }, [
+      return h('div', { class: 'flex items-center gap-1' }, [
         h(Button, { 
-            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-primary hover:bg-primary/5 rounded-xl transition-all',
+            variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-primary hover:bg-primary/5 rounded-lg',
             onClick: () => openSalaryModal(user)
-        }, () => h(Wallet, { class: 'w-4.5 h-4.5' })),
+        }, () => h(Wallet, { class: 'w-4 h-4' })),
         h(Button, { 
-            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all',
+            variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg',
             onClick: () => openEditModal(user)
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
-            variant: 'ghost', size: 'sm', class: 'h-9 px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all',
+            variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg',
             onClick: () => deleteEmployee(user.id)
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
@@ -446,70 +566,230 @@ const columns = [
             </DialogHeader>
         </div>
 
-        <div class="p-6 md:p-10 bg-white space-y-8 overflow-y-auto custom-scrollbar">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div class="space-y-3">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                <Input v-model="newEmployee.name" placeholder="John Doe" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-primary" />
-              </div>
-              <div class="space-y-3">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Corporate</label>
-                <Input v-model="newEmployee.email" type="email" placeholder="john@company.com" :disabled="isEditMode" class="h-14 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-primary disabled:opacity-50" />
-              </div>
+        <div class="p-6 md:p-10 bg-white space-y-10 overflow-y-auto custom-scrollbar">
+            <!-- Section 1: Account & Work -->
+            <div class="space-y-6">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Akun & Pekerjaan</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Depan</label>
+                        <Input v-model="newEmployee.name" placeholder="Contoh: John" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Belakang</label>
+                        <Input v-model="newEmployee.lastName" placeholder="Contoh: Doe" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Corporate</label>
+                        <Input v-model="newEmployee.email" type="email" placeholder="john@company.com" :disabled="isEditMode" class="h-12 rounded-xl bg-slate-50 border-none font-bold disabled:opacity-50" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cabang</label>
+                        <Select v-model="newEmployee.branchId">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue placeholder="Pilih Cabang" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="b in masterData.branches" :key="b.id" :value="b.id">{{ b.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Departemen</label>
+                        <Select v-model="newEmployee.departmentId">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue placeholder="Pilih..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="d in masterData.departments" :key="d.id" :value="d.id">{{ d.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Jabatan</label>
+                        <Select v-model="newEmployee.jobPositionId">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue placeholder="Pilih..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Langsung Ke (Manager)</label>
+                        <Select v-model="newEmployee.managerId">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue placeholder="Pilih Manager" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">Tanpa Manager</SelectItem>
+                                <SelectItem v-for="e in employees" :key="e.id" :value="e.id">{{ e.first_name }} {{ e.last_name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tgl Join</label>
+                        <Input v-model="newEmployee.joinDate" type="date" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Status</label>
+                        <Select v-model="newEmployee.employmentStatus">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Active">Aktif</SelectItem>
+                                <SelectItem value="Inactive">Non-Aktif</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Gaji Pokok</label>
+                        <Input v-model="newEmployee.salary" type="number" class="h-12 rounded-xl bg-primary/5 border-none font-black text-primary" />
+                    </div>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div class="space-y-3">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Departemen</label>
-                <Select v-model="newEmployee.departmentId">
-                  <SelectTrigger class="h-14 rounded-2xl bg-slate-50 border-none font-bold">
-                    <SelectValue placeholder="Pilih..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="d in masterData.departments" :key="d.id" :value="d.id">{{ d.name }}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-3">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Jabatan</label>
-                <Select v-model="newEmployee.jobPositionId">
-                  <SelectTrigger class="h-14 rounded-2xl bg-slate-50 border-none font-bold">
-                    <SelectValue placeholder="Pilih..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.name }}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-3">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Gaji Pokok (Salary)</label>
-                <Input v-model="newEmployee.salary" type="number" class="h-14 rounded-2xl bg-primary/5 border-none font-black text-primary" />
-              </div>
+            <!-- Section 2: Personal -->
+            <div class="space-y-6">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Data Personal</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tempat Lahir</label>
+                        <Input v-model="newEmployee.birthPlace" placeholder="Jakarta" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tanggal Lahir</label>
+                        <Input v-model="newEmployee.birthDate" type="date" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Jenis Kelamin</label>
+                        <Select v-model="newEmployee.gender">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="MALE">Laki-laki</SelectItem>
+                                <SelectItem value="FEMALE">Perempuan</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Status Marital</label>
+                        <Select v-model="newEmployee.maritalStatus">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="SINGLE">Lajang</SelectItem>
+                                <SelectItem value="MARRIED">Menikah</SelectItem>
+                                <SelectItem value="WIDOWED">Janda/Duda</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Status PTKP</label>
+                        <Select v-model="newEmployee.ptkpStatus">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TK/0">TK/0</SelectItem>
+                                <SelectItem value="K/0">K/0</SelectItem>
+                                <SelectItem value="K/1">K/1</SelectItem>
+                                <SelectItem value="K/2">K/2</SelectItem>
+                                <SelectItem value="K/3">K/3</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
             </div>
 
-            <div class="h-px bg-slate-100"></div>
-            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Data Rekening Bank</h4>
+            <!-- Section 3: Identity & BPJS -->
+            <div class="space-y-6">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Identitas & BPJS</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">NIK (KTP)</label>
+                        <Input v-model="newEmployee.identityNumber" placeholder="320..." class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">NPWP</label>
+                        <Input v-model="newEmployee.npwpNumber" placeholder="00..." class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">No. BPJS Kesehatan</label>
+                        <Input v-model="newEmployee.bpjsKesehatanNumber" class="h-12 rounded-xl bg-emerald-50 border-none font-bold text-emerald-700" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">No. BPJS Ketenagakerjaan</label>
+                        <Input v-model="newEmployee.bpjsKetenagakerjaanNumber" class="h-12 rounded-xl bg-blue-50 border-none font-bold text-blue-700" />
+                    </div>
+                </div>
+            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div class="space-y-3">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Bank</label>
-                <Select v-model="newEmployee.bankName">
-                  <SelectTrigger class="h-14 rounded-2xl bg-slate-50 border-none font-bold">
-                    <SelectValue placeholder="Pilih Bank" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BCA">BCA</SelectItem>
-                    <SelectItem value="MANDIRI">MANDIRI</SelectItem>
-                    <SelectItem value="BNI">BNI</SelectItem>
-                    <SelectItem value="BRI">BRI</SelectItem>
-                    <SelectItem value="BANK JAGO">BANK JAGO</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-3 md:col-span-2">
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Nomor Rekening</label>
-                <Input v-model="newEmployee.bankAccountNumber" class="h-14 rounded-2xl bg-slate-50 border-none font-bold" />
-              </div>
+            <!-- Section 4: Address & Contact -->
+            <div class="space-y-6">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Alamat & Kontak</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">No. Telepon</label>
+                        <Input v-model="newEmployee.phoneNumber" placeholder="0812..." class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Kontak Darurat</label>
+                        <Input v-model="newEmployee.emergencyContact" placeholder="Nama - Hubungan - No. HP" class="h-12 rounded-xl bg-rose-50 border-none font-bold text-rose-700" />
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Alamat Sesuai KTP</label>
+                    <Input v-model="newEmployee.addressKTP" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Alamat Domisili</label>
+                    <Input v-model="newEmployee.addressResidential" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                </div>
+            </div>
+
+            <!-- Section 5: Bank -->
+            <div class="space-y-6">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Data Rekening</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bank</label>
+                        <Select v-model="newEmployee.bankName">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue placeholder="Pilih Bank" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="BCA">BCA</SelectItem>
+                                <SelectItem value="MANDIRI">MANDIRI</SelectItem>
+                                <SelectItem value="BNI">BNI</SelectItem>
+                                <SelectItem value="BRI">BRI</SelectItem>
+                                <SelectItem value="BANK JAGO">BANK JAGO</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">No. Rekening</label>
+                        <Input v-model="newEmployee.bankAccountNumber" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Atas Nama</label>
+                        <Input v-model="newEmployee.accountHolderName" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
+                    </div>
+                </div>
             </div>
         </div>
 

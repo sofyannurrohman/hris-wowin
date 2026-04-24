@@ -113,15 +113,26 @@ const columns = [
     header: 'SHIFT',
     cell: ({ row }: any) => {
       const shift = row.original.shift
-      const fmtTime = (iso: string) => {
-        if (!iso) return ''
-        const d = new Date(iso)
+      const fmtTime = (timeStr: string, isEndTime = false) => {
+        if (!timeStr) return ''
+        
+        // Handle HH:mm:ss format
+        if (timeStr.includes(':') && !timeStr.includes('-') && !timeStr.includes('T')) {
+          const parts = timeStr.split(':')
+          const h = (parts[0] || '00').padStart(2, '0')
+          const m = (parts[1] || '00').padStart(2, '0')
+          if (isEndTime && h === '00' && m === '00') return '24.00'
+          return `${h}.${m}`
+        }
+
+        const d = new Date(timeStr)
         if (isNaN(d.getTime())) return ''
-        const h = String(d.getUTCHours()).padStart(2, '0')
-        const m = String(d.getUTCMinutes()).padStart(2, '0')
-        return `${h}.${m}`
+        let h = d.getUTCHours()
+        let m = d.getUTCMinutes()
+        if (isEndTime && h === 0 && m === 0) return '24.00'
+        return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
       }
-      const timeRange = shift ? ` (${fmtTime(shift.start_time)} - ${fmtTime(shift.end_time)})` : ''
+      const timeRange = shift ? ` (${fmtTime(shift.start_time)} - ${fmtTime(shift.end_time, true)})` : ''
       return h('span', { class: 'bg-primary/5 text-primary px-3 py-1 rounded-full text-[12px] font-semibold' }, (shift?.name || '-') + timeRange)
     }
   },

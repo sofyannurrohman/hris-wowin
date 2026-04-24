@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { LogIn, Mail, Lock, AlertCircle, Loader2, ShieldCheck, ChevronRight } from 'lucide-vue-next'
 import logo from '@/assets/logo.svg'
+import { toast } from 'vue-sonner'
 
 const email = ref("sofyan@sentraweb.id")
 const password = ref("password123")
@@ -11,7 +12,17 @@ const errorMsg = ref('')
 const isLoading = ref(false)
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+onMounted(() => {
+  if (route.query.session === 'expired') {
+    errorMsg.value = 'Sesi Anda telah berakhir. Silakan masuk kembali.'
+    toast.error('Sesi Berakhir', {
+      description: 'Silakan login ulang untuk melanjutkan.'
+    })
+  }
+})
 
 const handleLogin = async () => {
   isLoading.value = true

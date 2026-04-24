@@ -131,13 +131,11 @@ func main() {
 	allEmployees := []domain.Employee{adminEmployee, staffEmployee}
 
 	// 7. Create Shifts and EmployeeShifts
-	shiftTimeStart, _ := time.Parse("15:04", "09:00")
-	shiftTimeEnd, _ := time.Parse("15:04", "18:00")
 	shift := domain.Shift{
 		CompanyID: &company.ID,
 		Name:      "Regular Shift",
-		StartTime: shiftTimeStart,
-		EndTime:   shiftTimeEnd,
+		StartTime: "09:00:00",
+		EndTime:   "18:00:00",
 	}
 	if err := db.FirstOrCreate(&shift, domain.Shift{Name: shift.Name}).Error; err != nil {
 		log.Fatalf("Failed to seed shift: %v", err)

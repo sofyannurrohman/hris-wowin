@@ -11,10 +11,10 @@ type Shift struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	CompanyID  *uuid.UUID `gorm:"type:uuid" json:"company_id"`
 	Name       string     `gorm:"type:varchar(50);not null" json:"name"`
-	StartTime  time.Time  `gorm:"type:time;not null" json:"start_time"`
-	EndTime    time.Time  `gorm:"type:time;not null" json:"end_time"`
-	BreakStart *time.Time `gorm:"type:time" json:"break_start"`
-	BreakEnd   *time.Time `gorm:"type:time" json:"break_end"`
+	StartTime  string     `gorm:"type:time;not null" json:"start_time"`
+	EndTime    string     `gorm:"type:time;not null" json:"end_time"`
+	BreakStart *string    `gorm:"type:time" json:"break_start"`
+	BreakEnd   *string    `gorm:"type:time" json:"break_end"`
 	BranchID   *uuid.UUID `gorm:"type:uuid" json:"branch_id"`
 	IsFlexible bool       `gorm:"default:false" json:"is_flexible"`
 	CreatedAt  time.Time  `gorm:"default:now()" json:"created_at"`

@@ -28,6 +28,26 @@ const masterData = useMasterDataStore()
 const authStore = useAuthStore()
 
 const isLoading = ref(true)
+
+const fmtTime = (timeStr: string, isEndTime = false) => {
+  if (!timeStr) return ''
+  
+  // Handle HH:mm:ss format
+  if (timeStr.includes(':') && !timeStr.includes('-') && !timeStr.includes('T')) {
+    const parts = timeStr.split(':')
+    const h = (parts[0] || '00').padStart(2, '0')
+    const m = (parts[1] || '00').padStart(2, '0')
+    if (isEndTime && h === '00' && m === '00') return '24.00'
+    return `${h}.${m}`
+  }
+
+  const d = new Date(timeStr)
+  if (isNaN(d.getTime())) return ''
+  let h = d.getUTCHours()
+  let m = d.getUTCMinutes()
+  if (isEndTime && h === 0 && m === 0) return '24.00'
+  return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
+}
 const displayData = ref<any[]>([])
 const employeeOptions = ref<any[]>([])
 const selectedBranch = ref<string>('all')
@@ -204,12 +224,6 @@ const openEditModal = (item: any) => {
   isEditMode.value = true
   
   // parse dates specifically
-  const fmtTime = (iso: string) => {
-    if (!iso) return ''
-    const d = new Date(iso)
-    if (isNaN(d.getTime())) return ''
-    return `${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')}`
-  }
   const dateStr = item._raw.clock_in_time ? new Date(item._raw.clock_in_time).toISOString().split('T')[0] : ''
   const inTimeStr = item._raw.clock_in_time ? fmtTime(item._raw.clock_in_time) : ''
   const outTimeStr = item._raw.clock_out_time ? fmtTime(item._raw.clock_out_time) : ''
@@ -303,8 +317,8 @@ const fetchAttendance = async () => {
           date: clockIn ? clockIn.toLocaleDateString('id-ID') : 'N/A',
           name: item.employee?.first_name || 'Karyawan',
           role: item.employee?.job_position?.title || '-',
-          checkIn: clockIn ? `${String(clockIn.getUTCHours()).padStart(2, '0')}.${String(clockIn.getUTCMinutes()).padStart(2, '0')}` : '-',
-          checkOut: clockOut ? `${String(clockOut.getUTCHours()).padStart(2, '0')}.${String(clockOut.getUTCMinutes()).padStart(2, '0')}` : '-',
+          checkIn: clockIn ? fmtTime(item.clock_in_time) : '-',
+          checkOut: clockOut ? fmtTime(item.clock_out_time, true) : '-',
           total: totalStr,
           status: item.status || 'PRESENT',
           branch: item.employee?.branch?.name || '-',

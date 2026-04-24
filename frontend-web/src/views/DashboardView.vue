@@ -149,9 +149,26 @@ const fetchTodayAttendance = async () => {
         const name = item.employee?.first_name || 'Karyawan'
         const role = item.employee?.job_position?.title || '-'
         const dept = item.employee?.department?.name || '-'
-        const checkInTime = item.clock_in_time
-          ? new Date(item.clock_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-          : '-'
+        
+        const fmtTime = (timeStr: string) => {
+          if (!timeStr) return '-'
+          
+          // Handle HH:mm:ss format
+          if (timeStr.includes(':') && !timeStr.includes('-') && !timeStr.includes('T')) {
+            const parts = timeStr.split(':')
+            const h = (parts[0] || '00').padStart(2, '0')
+            const m = (parts[1] || '00').padStart(2, '0')
+            return `${h}.${m}`
+          }
+
+          const d = new Date(timeStr)
+          if (isNaN(d.getTime())) return '-'
+          const h = String(d.getUTCHours()).padStart(2, '0')
+          const m = String(d.getUTCMinutes()).padStart(2, '0')
+          return `${h}.${m}`
+        }
+
+        const checkInTime = item.clock_in_time ? fmtTime(item.clock_in_time) : '-'
         const status = item.status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'
         return {
           id: item.id,

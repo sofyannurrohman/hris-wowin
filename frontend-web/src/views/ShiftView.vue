@@ -44,16 +44,44 @@ const openAddModal = () => {
   isModalOpen.value = true
 }
 
-const formatTime = (iso: string) => {
-  if (!iso) return '-'
-  const d = new Date(iso)
+const formatTime = (timeStr: string, isEndTime = false) => {
+  if (!timeStr) return '-'
+  
+  // Handle HH:mm:ss format
+  if (timeStr.includes(':') && !timeStr.includes('-') && !timeStr.includes('T')) {
+    const parts = timeStr.split(':')
+    const h = (parts[0] || '00').padStart(2, '0')
+    const m = (parts[1] || '00').padStart(2, '0')
+    
+    if (isEndTime && h === '00' && m === '00') {
+      return '24.00'
+    }
+    
+    return `${h}.${m}`
+  }
+
+  const d = new Date(timeStr)
   if (isNaN(d.getTime())) return '-'
-  return `${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')}`
+  let h = d.getUTCHours()
+  let m = d.getUTCMinutes()
+  
+  if (isEndTime && h === 0 && m === 0) {
+    return '24.00'
+  }
+  
+  return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
 }
 
-const formatTimeForInput = (iso: string) => {
-  if (!iso) return ''
-  const d = new Date(iso)
+const formatTimeForInput = (timeStr: string) => {
+  if (!timeStr) return ''
+  
+  // Handle HH:mm:ss format
+  if (timeStr.includes(':') && !timeStr.includes('-') && !timeStr.includes('T')) {
+    const parts = timeStr.split(':')
+    return `${(parts[0] || '00').padStart(2, '0')}:${(parts[1] || '00').padStart(2, '0')}`
+  }
+
+  const d = new Date(timeStr)
   if (isNaN(d.getTime())) return ''
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
 }
@@ -62,14 +90,14 @@ const openEditModal = (shift: any) => {
   isEditMode.value = true
   
   newShift.value = {
-    id: shift.id,
-    name: shift.name || '',
-    startTime: formatTimeForInput(shift.start_time),
-    endTime: formatTimeForInput(shift.end_time),
-    breakStart: shift.break_start ? formatTimeForInput(shift.break_start) : '',
-    breakEnd: shift.break_end ? formatTimeForInput(shift.break_end) : '',
-    branchId: shift.branch_id || 'all',
-    isFlexible: shift.is_flexible || false
+    id: shift?.id || '',
+    name: shift?.name || '',
+    startTime: formatTimeForInput(shift?.start_time || ''),
+    endTime: formatTimeForInput(shift?.end_time || ''),
+    breakStart: shift?.break_start ? formatTimeForInput(shift.break_start) : '',
+    breakEnd: shift?.break_end ? formatTimeForInput(shift.break_end) : '',
+    branchId: shift?.branch_id || 'all',
+    isFlexible: shift?.is_flexible || false
   }
   isModalOpen.value = true
 }
@@ -93,17 +121,17 @@ const fetchShifts = async () => {
 const saveShift = async () => {
   isSubmitting.value = true
   try {
-    const toISO = (timeStr: string) => {
+    const formatTimeForBackend = (timeStr: string) => {
       if (!timeStr) return null
-      return `0000-01-01T${timeStr}:00Z`
+      return timeStr
     }
 
     const payload = {
       name: newShift.value.name,
-      start_time: toISO(newShift.value.startTime),
-      end_time: toISO(newShift.value.endTime),
-      break_start: toISO(newShift.value.breakStart),
-      break_end: toISO(newShift.value.breakEnd),
+      start_time: formatTimeForBackend(newShift.value.startTime),
+      end_time: formatTimeForBackend(newShift.value.endTime),
+      break_start: formatTimeForBackend(newShift.value.breakStart),
+      break_end: formatTimeForBackend(newShift.value.breakEnd),
       branch_id: newShift.value.branchId === 'all' ? null : newShift.value.branchId,
       is_flexible: newShift.value.isFlexible
     }
@@ -154,7 +182,7 @@ const columns = [
     cell: (info: any) => h('span', { class: 'text-gray-500' }, info.getValue())
   },
   {
-    accessorFn: (row: any) => `${formatTime(row.start_time)} - ${formatTime(row.end_time)}`,
+    accessorFn: (row: any) => `${formatTime(row.start_time)} - ${formatTime(row.end_time, true)}`,
     id: 'waktu',
     header: 'JAM KERJA',
     cell: ({ getValue }: any) => h('span', { class: 'text-gray-600' }, getValue())
@@ -162,7 +190,7 @@ const columns = [
   {
     accessorFn: (row: any) => {
       if (!row.break_start || !row.break_end) return 'Tidak Ada'
-      return `${formatTime(row.break_start)} - ${formatTime(row.break_end)}`
+      return `${formatTime(row.break_start)} - ${formatTime(row.break_end, true)}`
     },
     id: 'istirahat',
     header: 'ISTIRAHAT',

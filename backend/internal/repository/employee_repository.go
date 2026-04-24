@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"time"
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -30,7 +31,10 @@ func (r *employeeRepository) Create(employee *domain.Employee) error {
 
 func (r *employeeRepository) FindAll(limit int, branchID *uuid.UUID) ([]domain.Employee, error) {
 	var employees []domain.Employee
-	query := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition")
+	today := time.Now().Format("2006-01-02")
+	query := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition").
+		Preload("EmployeeShifts", "date = ?", today).
+		Preload("EmployeeShifts.Shift")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}

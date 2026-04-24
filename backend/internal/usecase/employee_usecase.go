@@ -45,6 +45,24 @@ type CreateEmployeeRequest struct {
 	JoinDate          string     `json:"joinDate"` // Format: YYYY-MM-DD
 	Salary            *float64   `json:"salary"`
 	PhoneNumber       string     `json:"phoneNumber"`
+	
+	// New Fields
+	BirthPlace                string `json:"birthPlace"`
+	BirthDate                 string `json:"birthDate"`
+	Gender                    string `json:"gender"`
+	MaritalStatus             string `json:"maritalStatus"`
+	BpjsKesehatanNumber       string `json:"bpjsKesehatanNumber"`
+	BpjsKetenagakerjaanNumber string `json:"bpjsKetenagakerjaanNumber"`
+	IdentityNumber            string `json:"identityNumber"`
+	NpwpNumber                string `json:"npwpNumber"`
+
+	// More Fields
+	LastName           string     `json:"lastName"`
+	AddressKTP         string     `json:"addressKTP"`
+	AddressResidential string     `json:"addressResidential"`
+	EmergencyContact   string     `json:"emergencyContact"`
+	PtkpStatus         string     `json:"ptkpStatus"`
+	ManagerID          *uuid.UUID `json:"managerId"`
 }
 
 type UpdateEmployeeRequest struct {
@@ -61,6 +79,24 @@ type UpdateEmployeeRequest struct {
 	JoinDate          string     `json:"joinDate"`
 	Salary            *float64   `json:"salary"`
 	PhoneNumber       string     `json:"phoneNumber"`
+
+	// New Fields
+	BirthPlace                string `json:"birthPlace"`
+	BirthDate                 string `json:"birthDate"`
+	Gender                    string `json:"gender"`
+	MaritalStatus             string `json:"maritalStatus"`
+	BpjsKesehatanNumber       string `json:"bpjsKesehatanNumber"`
+	BpjsKetenagakerjaanNumber string `json:"bpjsKetenagakerjaanNumber"`
+	IdentityNumber            string `json:"identityNumber"`
+	NpwpNumber                string `json:"npwpNumber"`
+
+	// More Fields
+	LastName           string     `json:"lastName"`
+	AddressKTP         string     `json:"addressKTP"`
+	AddressResidential string     `json:"addressResidential"`
+	EmergencyContact   string     `json:"emergencyContact"`
+	PtkpStatus         string     `json:"ptkpStatus"`
+	ManagerID          *uuid.UUID `json:"managerId"`
 }
 
 type UpdateProfileRequest struct {
@@ -155,6 +191,25 @@ func (u *employeeUsecase) CreateEmployee(req *CreateEmployeeRequest) error {
 		JoinDate:          joinDate,
 		Salary:            req.Salary,
 		PhoneNumber:       req.PhoneNumber,
+		BirthPlace:        req.BirthPlace,
+		Gender:            req.Gender,
+		MaritalStatus:     req.MaritalStatus,
+		BpjsKesehatanNumber:       req.BpjsKesehatanNumber,
+		BpjsKetenagakerjaanNumber: req.BpjsKetenagakerjaanNumber,
+		IdentityNumber:            req.IdentityNumber,
+		NpwpNumber:                req.NpwpNumber,
+		LastName:                  req.LastName,
+		AddressKTP:                req.AddressKTP,
+		AddressResidential:        req.AddressResidential,
+		EmergencyContact:          req.EmergencyContact,
+		PtkpStatus:                req.PtkpStatus,
+		ManagerID:                 req.ManagerID,
+	}
+
+	if req.BirthDate != "" {
+		if t, err := time.Parse("2006-01-02", req.BirthDate); err == nil {
+			newEmployee.BirthDate = &t
+		}
 	}
 
 	return u.employeeRepo.Create(newEmployee)
@@ -203,6 +258,25 @@ func (u *employeeUsecase) UpdateEmployee(id uuid.UUID, req *UpdateEmployeeReques
 	}
 	
 	employee.PhoneNumber = req.PhoneNumber
+	employee.BirthPlace = req.BirthPlace
+	employee.Gender = req.Gender
+	employee.MaritalStatus = req.MaritalStatus
+	employee.BpjsKesehatanNumber = req.BpjsKesehatanNumber
+	employee.BpjsKetenagakerjaanNumber = req.BpjsKetenagakerjaanNumber
+	employee.IdentityNumber = req.IdentityNumber
+	employee.NpwpNumber = req.NpwpNumber
+	employee.LastName = req.LastName
+	employee.AddressKTP = req.AddressKTP
+	employee.AddressResidential = req.AddressResidential
+	employee.EmergencyContact = req.EmergencyContact
+	employee.PtkpStatus = req.PtkpStatus
+	employee.ManagerID = req.ManagerID
+
+	if req.BirthDate != "" {
+		if t, err := time.Parse("2006-01-02", req.BirthDate); err == nil {
+			employee.BirthDate = &t
+		}
+	}
 
 	if err := u.employeeRepo.Update(employee); err != nil {
 		return err

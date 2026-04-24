@@ -77,6 +77,7 @@ type Employee struct {
 	Department  *Department  `gorm:"foreignKey:DepartmentID" json:"department,omitempty"`
 	JobPosition *JobPosition `gorm:"foreignKey:JobPositionID" json:"job_position,omitempty"`
 	Manager     *Employee    `gorm:"foreignKey:ManagerID;constraint:OnDelete:SET NULL;" json:"manager,omitempty"`
+	EmployeeShifts []EmployeeShift `gorm:"foreignKey:EmployeeID" json:"employee_shifts,omitempty"`
 }
 
 func (e *Employee) BeforeCreate(tx *gorm.DB) (err error) {

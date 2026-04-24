@@ -46,6 +46,18 @@ apiClient.interceptors.response.use(
   (error) => {
     activeRequests--
     updateLoadingBar()
+
+    // Handle 401 Unauthorized - Token expired or invalid
+    if (error.response && error.response.status === 401) {
+      const isLoginPage = window.location.pathname.includes('/login')
+      
+      if (!isLoginPage) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.location.href = '/login?session=expired'
+      }
+    }
+
     return Promise.reject(error)
   }
 )
