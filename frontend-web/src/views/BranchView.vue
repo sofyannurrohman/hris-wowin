@@ -223,7 +223,7 @@ const columns = [
             </div>
             <div class="grid gap-2">
               <label class="text-[13px] font-black text-slate-400 uppercase tracking-widest pl-1">Perusahaan</label>
-              <Select v-model="newBranch.companyId" :disabled="isEditMode">
+              <Select v-model="newBranch.companyId">
                 <SelectTrigger class="h-12 rounded-2xl border-slate-200">
                   <SelectValue placeholder="Pilih perusahaan" />
                 </SelectTrigger>
