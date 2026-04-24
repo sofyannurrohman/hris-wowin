@@ -30,7 +30,7 @@ Pastikan `VITE_API_BASE_URL=/api`.
 docker compose up -d --build
 ```
 Aplikasi sekarang berjalan secara internal:
-- Frontend: `http://127.0.0.1:3000`
+- Frontend: `http://127.0.0.1:3001`
 - Backend: `http://127.0.0.1:8081`
 
 ---
@@ -49,7 +49,7 @@ server {
     server_name hris.wowinapps.cloud;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
