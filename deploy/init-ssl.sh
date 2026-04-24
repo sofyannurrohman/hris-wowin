@@ -18,7 +18,7 @@ echo "### Starting SSL setup for $DOMAIN ###"
 
 # 1. Start Nginx to handle the challenge
 echo "### Starting Nginx ###"
-docker-compose up -d nginx
+docker compose up -d nginx
 
 # 2. Request certificate
 echo "### Requesting Let's Encrypt certificate for $DOMAIN ###"
@@ -26,7 +26,7 @@ echo "### Requesting Let's Encrypt certificate for $DOMAIN ###"
 # Enable staging mode if requested
 if [ $STAGING != "0" ]; then staging_arg="--staging"; fi
 
-docker-compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint "\
   certbot certonly --webroot -w /var/www/certbot \
     $staging_arg \
     --email $EMAIL \
@@ -37,7 +37,7 @@ docker-compose run --rm --entrypoint "\
     --non-interactive" certbot
 
 echo "### Reloading Nginx to apply certificates ###"
-docker-compose exec nginx nginx -s reload
+docker compose exec nginx nginx -s reload
 
 echo "### SSL Setup Complete! ###"
 echo "Don't forget to uncomment the SSL lines in deploy/nginx/nginx.conf and restart Nginx."
