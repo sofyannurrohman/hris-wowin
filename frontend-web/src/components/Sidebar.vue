@@ -26,6 +26,7 @@ import {
   Receipt,
   Target,
   Megaphone,
+  Timer,
   LogOut 
 } from 'lucide-vue-next'
 
@@ -49,8 +50,9 @@ const menuGroups = [
       { to: '/employees', name: 'Karyawan', icon: Users },
       { to: '/attendance', name: 'Kehadiran', icon: Clock },
       { to: '/leaves', name: 'Cuti & Izin', icon: FileText },
-      { to: '/performance-kpi', name: 'Performa & KPI', icon: Target },
+      { to: '/overtimes', name: 'Lembur', icon: Timer },
       { to: '/reimbursements', name: 'Reimbursement', icon: Receipt },
+      { to: '/performance-kpi', name: 'Performa & KPI', icon: Target },
       { to: '/payroll', name: 'Penggajian', icon: Wallet },
       { to: '/payroll-settings', name: 'Pengaturan Gaji', icon: Settings },
     ]
