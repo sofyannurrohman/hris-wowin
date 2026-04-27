@@ -483,9 +483,9 @@ func (u *leaveUseCase) GetMyBalances(userID uuid.UUID) ([]LeaveBalanceResponse, 
 		
 		// Ensure zero-values (false, 0) are correctly saved to DB overriding GORM defaults if tampered
 		if err := u.db.Model(&tempIT).Updates(map[string]interface{}{
-			"is_paid":        tempIT.IsPaid,
-			"requires_quota": tempIT.RequiresQuota,
-			"default_quota":  tempIT.DefaultQuota,
+			"is_paid":        it.IsPaid,
+			"requires_quota": it.RequiresQuota,
+			"default_quota":  it.DefaultQuota,
 		}).Error; err != nil {
 			log.Printf("Warning: Failed to update leave type %s attributes: %v", tempIT.Name, err)
 		}

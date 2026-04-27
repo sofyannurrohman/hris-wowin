@@ -62,5 +62,12 @@ func (r *overtimeRepository) Update(overtime *domain.Overtime) error {
 }
 
 func (r *overtimeRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&domain.Overtime{}).Error
+	result := r.db.Delete(&domain.Overtime{ID: id})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }

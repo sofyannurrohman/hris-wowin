@@ -157,8 +157,11 @@ func (u *overtimeUseCase) DeleteOvertime(userID uuid.UUID, id uuid.UUID) error {
 	}
 
 	employee, err := u.employeeRepo.FindByUserID(userID)
-	if err != nil || employee == nil {
-		return errors.New("employee record not found")
+	if err != nil {
+		return err
+	}
+	if employee == nil {
+		return errors.New("employee record not found for the current user")
 	}
 
 	if overtime.EmployeeID != employee.ID {

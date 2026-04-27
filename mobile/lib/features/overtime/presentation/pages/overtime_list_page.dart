@@ -109,7 +109,7 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
           return const SizedBox.shrink();
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           final overtimeBloc = context.read<OvertimeBloc>();
           Navigator.of(context).push(
@@ -128,7 +128,16 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
         backgroundColor: primaryRed,
         elevation: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+        icon: const Icon(Icons.add, color: Colors.white, size: 24),
+        label: Text(
+          'AJUKAN LEMBUR',
+          style: GoogleFonts.plusJakartaSans(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }
@@ -301,21 +310,22 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
   }
 
   void _deleteOvertime(BuildContext context, Overtime overtime) {
+    final overtimeBloc = context.read<OvertimeBloc>();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text('Hapus Pengajuan?', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900)),
         content: Text('Apakah Anda yakin ingin menghapus pengajuan lembur ini?', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('BATAL', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textTertiary)),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.read<OvertimeBloc>().add(DeleteOvertimeRequested(overtime.id));
+              Navigator.pop(dialogContext);
+              overtimeBloc.add(DeleteOvertimeRequested(overtime.id));
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             child: const Text('HAPUS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
