@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
-import 'package:hris_app/features/home/presentation/pages/home_page.dart';
+import 'package:hris_app/main.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -219,7 +219,7 @@ class ClockOutSuccessPage extends StatelessWidget {
                     ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const HomePage()),
+                          MaterialPageRoute(builder: (_) => const AuthWrapper()),
                           (route) => false,
                         );
                       },

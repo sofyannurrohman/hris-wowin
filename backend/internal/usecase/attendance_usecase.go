@@ -204,11 +204,12 @@ func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*Atte
 	}
 	
 	return &AttendanceResponse{
-		ID:        attendance.ID.String(),
-		UserID:    employee.ID.String(),
-		CheckIn:   attendance.ClockInTime,
-		Status:    attendance.Status,
-		SelfieURL: attendance.ClockInPhotoURL,
+		ID:           attendance.ID.String(),
+		UserID:       employee.ID.String(),
+		CheckIn:      attendance.ClockInTime,
+		Status:       attendance.Status,
+		SelfieURL:    attendance.ClockInPhotoURL,
+		WorkDuration: 0,
 	}, nil
 }
 
@@ -312,14 +313,20 @@ func (u *attendanceUseCase) CheckOut(userID uuid.UUID, req CheckOutRequest) (*At
 	if err := u.repo.Update(existing); err != nil {
 		return nil, errors.New("gagal menyimpan data absen pulang")
 	}
+
+	duration := 0
+	if existing.ClockInTime != nil {
+		duration = int(now.Sub(*existing.ClockInTime).Minutes())
+	}
 	
 	return &AttendanceResponse{
-		ID:        existing.ID.String(),
-		UserID:    employee.ID.String(),
-		CheckIn:   existing.ClockInTime,
-		CheckOut:  existing.ClockOutTime,
-		Status:    existing.Status,
-		SelfieURL: existing.ClockOutPhotoURL,
+		ID:           existing.ID.String(),
+		UserID:       employee.ID.String(),
+		CheckIn:      existing.ClockInTime,
+		CheckOut:     existing.ClockOutTime,
+		Status:       existing.Status,
+		SelfieURL:    existing.ClockOutPhotoURL,
+		WorkDuration: duration,
 	}, nil
 }
 

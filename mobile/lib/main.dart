@@ -88,6 +88,11 @@ class AuthWrapper extends StatelessWidget {
             message: state.message,
           );
         }
+        
+        if (state is Unauthenticated) {
+          // Clear all routes above the base AuthWrapper when user logs out
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
