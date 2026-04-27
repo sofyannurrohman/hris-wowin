@@ -113,6 +113,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SetBiometricEnabledUseCase(sl()));
   sl.registerLazySingleton(() => GetProfileUseCase(sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
+  sl.registerLazySingleton(() => ForgotPasswordUseCase(sl()));
 
 
   // BLoC
@@ -128,6 +129,7 @@ Future<void> init() async {
       setBiometricEnabledUseCase: sl(),
       getProfileUseCase: sl(),
       changePasswordUseCase: sl(),
+      forgotPasswordUseCase: sl(),
     ),
   );
   sl.registerFactory(

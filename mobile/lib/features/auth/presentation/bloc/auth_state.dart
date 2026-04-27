@@ -57,4 +57,4 @@ class FaceRegistrationSuccess extends AuthState {}
 class RegisterSuccess extends AuthState {}
 
 class ChangePasswordSuccess extends AuthState {}
-
+class ForgotPasswordSuccess extends AuthState {}

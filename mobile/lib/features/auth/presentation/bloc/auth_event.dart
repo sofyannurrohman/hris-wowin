@@ -78,4 +78,11 @@ class ChangePasswordRequested extends AuthEvent {
   @override
   List<Object> get props => [oldPassword, newPassword];
 }
+class ForgotPasswordRequested extends AuthEvent {
+  final String email;
 
+  const ForgotPasswordRequested(this.email);
+
+  @override
+  List<Object> get props => [email];
+}

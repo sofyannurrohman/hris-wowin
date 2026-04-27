@@ -15,6 +15,7 @@ import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/core/services/notification_service.dart';
 import 'package:hris_app/features/announcement/presentation/bloc/announcement_bloc.dart';
 import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
+import 'package:hris_app/core/utils/dialog_utils.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
@@ -78,30 +79,38 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is Authenticated) {
-          return const HomePage();
-        } else if (state is Unauthenticated || 
-                   state is AuthError || 
-                   state is RegisterSuccess || 
-                   state is FaceRegistrationSuccess) {
-          return const LoginPage();
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthError) {
+          DialogUtils.showError(
+            context: context,
+            title: 'Gagal',
+            message: state.message,
+          );
         }
-        
-        // If state is AuthLoading or ChangePasswordSuccess, show loading
-        // But if it's AuthInitial or anything else, we might want to show splash or login
-        if (state is AuthInitial) {
-          return const SplashScreen();
-        }
-
-        return const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
       },
-
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is Authenticated) {
+            return const HomePage();
+          } else if (state is Unauthenticated || 
+                     state is AuthError || 
+                     state is RegisterSuccess || 
+                     state is FaceRegistrationSuccess) {
+            return const LoginPage(key: ValueKey('login_page'));
+          }
+          
+          if (state is AuthInitial) {
+            return const SplashScreen();
+          }
+  
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        },
+      ),
     );
   }
 }

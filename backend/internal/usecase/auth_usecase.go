@@ -18,6 +18,7 @@ import (
 type AuthUseCase interface {
 	Register(req RegisterRequest) error
 	Login(req LoginRequest, secret string) (*LoginResponse, error)
+	ForgotPassword(email string) error
 }
 
 type authUseCase struct {
@@ -157,4 +158,17 @@ func (u *authUseCase) Login(req LoginRequest, secret string) (*LoginResponse, er
 			Role:  string(user.Role),
 		},
 	}, nil
+}
+
+func (u *authUseCase) ForgotPassword(email string) error {
+	user, err := u.userRepo.FindByEmail(email)
+	if err != nil || user == nil {
+		return errors.New("email tidak terdaftar di sistem kami")
+	}
+
+	// Logic to send email would go here
+	// Since we don't have SMTP configured, we just log it and return success
+	fmt.Printf("Forgot Password requested for email: %s\n", email)
+
+	return nil
 }

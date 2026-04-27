@@ -71,4 +71,12 @@ class ChangePasswordUseCase {
     return repository.changePassword(oldPassword, newPassword);
   }
 }
+class ForgotPasswordUseCase {
+  final AuthRepository repository;
 
+  ForgotPasswordUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String email) {
+    return repository.forgotPassword(email);
+  }
+}

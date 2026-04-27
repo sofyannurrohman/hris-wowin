@@ -15,6 +15,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SetBiometricEnabledUseCase setBiometricEnabledUseCase;
   final GetProfileUseCase getProfileUseCase;
   final ChangePasswordUseCase changePasswordUseCase;
+  final ForgotPasswordUseCase forgotPasswordUseCase;
 
   AuthBloc({
     required this.loginUseCase,
@@ -27,6 +28,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.setBiometricEnabledUseCase,
     required this.getProfileUseCase,
     required this.changePasswordUseCase,
+    required this.forgotPasswordUseCase,
   }) : super(AuthInitial()) {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
@@ -38,6 +40,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<CheckBiometricSupportRequested>(_onCheckBiometricSupportRequested);
     on<ToggleBiometricRequested>(_onToggleBiometricRequested);
     on<ChangePasswordRequested>(_onChangePasswordRequested);
+    on<ForgotPasswordRequested>(_onForgotPasswordRequested);
   }
 
 
@@ -205,4 +208,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
+  Future<void> _onForgotPasswordRequested(ForgotPasswordRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    final bio = await _getBioStatus();
+    final result = await forgotPasswordUseCase(event.email);
+    
+    result.fold(
+      (failure) => emit(AuthError(
+        failure.message, 
+        isBiometricSupported: bio['supported']!, 
+        isBiometricEnabled: bio['enabled']!
+      )),
+      (_) => emit(ForgotPasswordSuccess()),
+    );
+  }
 }

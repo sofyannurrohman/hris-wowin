@@ -335,4 +335,27 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> forgotPassword(String email) async {
+    try {
+      final response = await apiClient.client.post(
+        'auth/forgot-password',
+        data: {'email': email},
+      );
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Gagal memproses permintaan') : 'Gagal memproses permintaan'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Gagal memproses permintaan'));
+      }
+      return Left(ServerFailure(e.message ?? 'Kesalahan koneksi'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }
+
