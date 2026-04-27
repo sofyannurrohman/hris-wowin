@@ -177,13 +177,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onChangePasswordRequested(ChangePasswordRequested event, Emitter<AuthState> emit) async {
+    final currentState = state;
+    Map<String, dynamic>? currentProfile;
+    if (currentState is Authenticated) {
+      currentProfile = currentState.userProfile;
+    }
+
     emit(AuthLoading());
     final bio = await _getBioStatus();
     final result = await changePasswordUseCase(event.oldPassword, event.newPassword);
     
     result.fold(
-      (failure) => emit(AuthError(failure.message, isBiometricSupported: bio['supported']!, isBiometricEnabled: bio['enabled']!)),
-      (_) => emit(ChangePasswordSuccess()),
+      (failure) => emit(AuthError(
+        failure.message, 
+        isBiometricSupported: bio['supported']!, 
+        isBiometricEnabled: bio['enabled']!
+      )),
+      (_) {
+        emit(ChangePasswordSuccess());
+        // Restore authenticated state after success so AuthWrapper doesn't get stuck in loading
+        emit(Authenticated(
+          userProfile: currentProfile,
+          isBiometricSupported: bio['supported']!,
+          isBiometricEnabled: bio['enabled']!,
+        ));
+      },
     );
   }
+
 }

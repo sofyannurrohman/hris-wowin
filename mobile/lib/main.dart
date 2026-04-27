@@ -82,15 +82,26 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, state) {
         if (state is Authenticated) {
           return const HomePage();
-        } else if (state is Unauthenticated || state is AuthError || state is RegisterSuccess) {
+        } else if (state is Unauthenticated || 
+                   state is AuthError || 
+                   state is RegisterSuccess || 
+                   state is FaceRegistrationSuccess) {
           return const LoginPage();
         }
+        
+        // If state is AuthLoading or ChangePasswordSuccess, show loading
+        // But if it's AuthInitial or anything else, we might want to show splash or login
+        if (state is AuthInitial) {
+          return const SplashScreen();
+        }
+
         return const Scaffold(
           body: Center(
             child: CircularProgressIndicator(),
           ),
         );
       },
+
     );
   }
 }
