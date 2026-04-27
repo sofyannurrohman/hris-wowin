@@ -88,7 +88,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     result.fold(
       (failure) => emit(AuthError(failure.message)),
-      (_) => emit(RegisterSuccess()),
+      (_) {
+        emit(RegisterSuccess());
+        // Restore unauthenticated state
+        add(CheckAuthStatusRequested());
+      },
     );
   }
 
@@ -129,7 +133,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await registerFaceUseCase(event.embedding, event.selfiePath);
     result.fold(
       (failure) => emit(AuthError(failure.message)),
-      (_) => emit(FaceRegistrationSuccess()),
+      (_) {
+        emit(FaceRegistrationSuccess());
+        // Restore auth status (could be authenticated or unauthenticated depending on context)
+        add(CheckAuthStatusRequested());
+      },
     );
   }
 
@@ -219,7 +227,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         isBiometricSupported: bio['supported']!, 
         isBiometricEnabled: bio['enabled']!
       )),
-      (_) => emit(ForgotPasswordSuccess()),
+      (_) {
+        emit(ForgotPasswordSuccess());
+        // Restore unauthenticated state so AuthWrapper doesn't get stuck
+        emit(Unauthenticated(
+          isBiometricSupported: bio['supported']!,
+          isBiometricEnabled: bio['enabled']!,
+        ));
+      },
     );
   }
 }

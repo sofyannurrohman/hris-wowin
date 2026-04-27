@@ -15,6 +15,11 @@ type Config struct {
 	DBPort     string
 	ServerPort string
 	JWTSecret  string
+	SMTPHost   string
+	SMTPPort   string
+	SMTPUser   string
+	SMTPPass   string
+	SMTPFrom   string
 }
 
 func LoadConfig() Config {
@@ -37,6 +42,11 @@ func LoadConfig() Config {
 		DBPort:     getEnv("DB_PORT", "5321"),
 		ServerPort: getEnv("SERVER_PORT", "8080"),
 		JWTSecret:  getEnv("JWT_SECRET", "supersecretkey"),
+		SMTPHost:   getEnv("SMTP_HOST", "smtp.gmail.com"),
+		SMTPPort:   getEnv("SMTP_PORT", "587"),
+		SMTPUser:   getEnv("SMTP_USER", ""),
+		SMTPPass:   getEnv("SMTP_PASS", ""),
+		SMTPFrom:   getEnv("SMTP_FROM", ""),
 	}
 }
 

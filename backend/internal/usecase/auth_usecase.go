@@ -24,10 +24,11 @@ type AuthUseCase interface {
 type authUseCase struct {
 	userRepo    repository.UserRepository
 	companyRepo repository.CompanyRepository
+	emailSender utils.EmailSender
 }
 
-func NewAuthUseCase(userRepo repository.UserRepository, companyRepo repository.CompanyRepository) AuthUseCase {
-	return &authUseCase{userRepo, companyRepo}
+func NewAuthUseCase(userRepo repository.UserRepository, companyRepo repository.CompanyRepository, emailSender utils.EmailSender) AuthUseCase {
+	return &authUseCase{userRepo, companyRepo, emailSender}
 }
 
 type RegisterRequest struct {
@@ -166,9 +167,40 @@ func (u *authUseCase) ForgotPassword(email string) error {
 		return errors.New("email tidak terdaftar di sistem kami")
 	}
 
-	// Logic to send email would go here
-	// Since we don't have SMTP configured, we just log it and return success
-	fmt.Printf("Forgot Password requested for email: %s\n", email)
+	// Generate a temporary random password
+	tempPassword := utils.GenerateRandomString(8)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(tempPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal menggenerasi kata sandi baru")
+	}
+
+	// Update user password in database
+	user.PasswordHash = string(hashed)
+	err = u.userRepo.Update(user)
+	if err != nil {
+		return errors.New("gagal memperbarui kata sandi di sistem")
+	}
+
+	// Send email
+	subject := "Pemulihan Kata Sandi - HRIS Wowin"
+	body := fmt.Sprintf(`
+		<html>
+			<body>
+				<h2>Halo, %s</h2>
+				<p>Kami telah menerima permintaan pemulihan kata sandi untuk akun Anda.</p>
+				<p>Kata sandi sementara Anda adalah: <b>%s</b></p>
+				<p>Silakan gunakan kata sandi ini untuk masuk dan segera ubah kata sandi Anda di menu Profil demi keamanan.</p>
+				<br>
+				<p>Terima kasih,<br>Tim HRIS Wowin</p>
+			</body>
+		</html>
+	`, email, tempPassword)
+
+	err = u.emailSender.SendEmail(email, subject, body)
+	if err != nil {
+		fmt.Printf("Error sending email to %s: %v\n", email, err)
+		return errors.New("gagal mengirim email instruksi. silakan coba lagi nanti")
+	}
 
 	return nil
 }

@@ -91,12 +91,15 @@ class AuthWrapper extends StatelessWidget {
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
-          if (state is Authenticated) {
+          if (state is Authenticated || state is ChangePasswordSuccess) {
             return const HomePage();
-          } else if (state is Unauthenticated || 
-                     state is AuthError || 
-                     state is RegisterSuccess || 
-                     state is FaceRegistrationSuccess) {
+          }
+          
+          if (state is Unauthenticated || 
+              state is AuthError || 
+              state is RegisterSuccess || 
+              state is FaceRegistrationSuccess ||
+              state is ForgotPasswordSuccess) {
             return const LoginPage(key: ValueKey('login_page'));
           }
           
@@ -104,6 +107,7 @@ class AuthWrapper extends StatelessWidget {
             return const SplashScreen();
           }
   
+          // Fallback for AuthLoading or other transient states
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(),

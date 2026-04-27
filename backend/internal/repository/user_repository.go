@@ -12,6 +12,7 @@ type UserRepository interface {
 	Create(user *domain.User) error
 	CreateWithEmployee(user *domain.User, employee *domain.Employee) error
 	FindByEmail(email string) (*domain.User, error)
+	Update(user *domain.User) error
 	Delete(id uuid.UUID) error
 }
 
@@ -52,6 +53,10 @@ func (r *userRepository) FindByEmail(email string) (*domain.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *userRepository) Update(user *domain.User) error {
+	return r.db.Save(user).Error
 }
 
 func (r *userRepository) Delete(id uuid.UUID) error {

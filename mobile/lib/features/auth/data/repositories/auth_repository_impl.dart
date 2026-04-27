@@ -340,9 +340,10 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, void>> forgotPassword(String email) async {
     try {
       final response = await apiClient.client.post(
-        'auth/forgot-password',
+        'forgot-password',
         data: {'email': email},
       );
+
       if (response.statusCode == 200) {
         return const Right(null);
       } else {

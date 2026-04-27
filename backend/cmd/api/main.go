@@ -38,8 +38,11 @@ func main() {
 	payrollConfigRepo := repository.NewPayrollConfigRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
 
+	// Setup Utils
+	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+
 	// Setup UseCases
-	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo)
+	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo, emailSender)
 	employeeUseCase := usecase.NewEmployeeUsecase(employeeRepo, userRepo)
 	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo, employeeShiftRepo, leaveRepo)
 	leaveUseCase := usecase.NewLeaveUseCase(db, leaveRepo, employeeRepo)
