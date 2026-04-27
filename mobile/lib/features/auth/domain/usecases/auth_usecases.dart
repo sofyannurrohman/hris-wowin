@@ -61,3 +61,14 @@ class GetProfileUseCase {
     return repository.getProfile();
   }
 }
+
+class ChangePasswordUseCase {
+  final AuthRepository repository;
+
+  ChangePasswordUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String oldPassword, String newPassword) {
+    return repository.changePassword(oldPassword, newPassword);
+  }
+}
+

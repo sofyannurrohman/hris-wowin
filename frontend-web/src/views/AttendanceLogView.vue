@@ -25,8 +25,8 @@ const fmt = (iso: string) => {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '-'
   const date = d.toLocaleDateString('id-ID', { dateStyle: 'medium' })
-  const h = String(d.getUTCHours()).padStart(2, '0')
-  const m = String(d.getUTCMinutes()).padStart(2, '0')
+  const h = String(d.getHours()).padStart(2, '0')
+  const m = String(d.getMinutes()).padStart(2, '0')
   return `${date} ${h}.${m}`
 }
 

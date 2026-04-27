@@ -131,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 56),
                         
                         // Email Field
-                        _buildLabel('NIK / Email'),
+                        _buildLabel('Email'),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _emailController,

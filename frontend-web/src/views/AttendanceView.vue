@@ -43,8 +43,8 @@ const fmtTime = (timeStr: string, isEndTime = false) => {
 
   const d = new Date(timeStr)
   if (isNaN(d.getTime())) return ''
-  let h = d.getUTCHours()
-  let m = d.getUTCMinutes()
+  let h = d.getHours()
+  let m = d.getMinutes()
   if (isEndTime && h === 0 && m === 0) return '24.00'
   return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
 }

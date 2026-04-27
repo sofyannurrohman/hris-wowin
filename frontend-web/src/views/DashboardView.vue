@@ -163,8 +163,8 @@ const fetchTodayAttendance = async () => {
 
           const d = new Date(timeStr)
           if (isNaN(d.getTime())) return '-'
-          const h = String(d.getUTCHours()).padStart(2, '0')
-          const m = String(d.getUTCMinutes()).padStart(2, '0')
+          const h = String(d.getHours()).padStart(2, '0')
+          const m = String(d.getMinutes()).padStart(2, '0')
           return `${h}.${m}`
         }
 

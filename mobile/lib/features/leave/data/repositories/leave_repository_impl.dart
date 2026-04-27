@@ -128,7 +128,7 @@ class LeaveRepositoryImpl implements LeaveRepository {
   @override
   Future<Either<Failure, List<LeaveBalance>>> getMyBalances() async {
     try {
-      final response = await apiClient.client.get('time-off/balances');
+      final response = await apiClient.client.get('leave-types');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['data'] ?? [];
         return Right(data.map((e) => LeaveBalance.fromJson(e)).toList());

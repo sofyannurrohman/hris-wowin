@@ -13,6 +13,8 @@ import 'package:hris_app/features/auth/presentation/pages/splash_screen.dart';
 import 'package:hris_app/core/theme/app_theme.dart';
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/core/services/notification_service.dart';
+import 'package:hris_app/features/announcement/presentation/bloc/announcement_bloc.dart';
+import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
@@ -53,6 +55,12 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (_) => di.sl<ProfileBloc>(),
+        ),
+        BlocProvider(
+          create: (_) => di.sl<AnnouncementBloc>()..add(FetchAnnouncementsRequested()),
+        ),
+        BlocProvider(
+          create: (_) => di.sl<NotificationBloc>()..add(FetchNotificationsRequested()),
         ),
       ],
       child: MaterialApp(

@@ -40,6 +40,7 @@ import 'package:hris_app/features/directory/data/repositories/directory_reposito
 import 'package:hris_app/features/directory/presentation/bloc/directory_bloc.dart';
 import 'package:hris_app/features/schedule/data/repositories/shift_repository.dart';
 import 'package:hris_app/features/schedule/presentation/bloc/shift_bloc.dart';
+import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -111,6 +112,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetBiometricStatusUseCase(sl()));
   sl.registerLazySingleton(() => SetBiometricEnabledUseCase(sl()));
   sl.registerLazySingleton(() => GetProfileUseCase(sl()));
+  sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
+
 
   // BLoC
   sl.registerFactory(
@@ -124,6 +127,7 @@ Future<void> init() async {
       getBiometricStatusUseCase: sl(),
       setBiometricEnabledUseCase: sl(),
       getProfileUseCase: sl(),
+      changePasswordUseCase: sl(),
     ),
   );
   sl.registerFactory(
@@ -167,5 +171,13 @@ Future<void> init() async {
   );
   sl.registerFactory(
     () => ShiftBloc(repository: sl(), notificationService: sl()),
+  );
+  sl.registerFactory(
+    () => NotificationBloc(
+      announcementRepository: sl(),
+      leaveRepository: sl(),
+      overtimeRepository: sl(),
+      reimbursementRepository: sl(),
+    ),
   );
 }

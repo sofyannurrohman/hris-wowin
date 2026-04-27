@@ -68,3 +68,14 @@ class ToggleBiometricRequested extends AuthEvent {
   @override
   List<Object> get props => [enabled];
 }
+
+class ChangePasswordRequested extends AuthEvent {
+  final String oldPassword;
+  final String newPassword;
+
+  const ChangePasswordRequested(this.oldPassword, this.newPassword);
+
+  @override
+  List<Object> get props => [oldPassword, newPassword];
+}
+

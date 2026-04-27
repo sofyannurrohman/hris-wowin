@@ -2,11 +2,39 @@ import 'package:equatable/equatable.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
 import 'package:hris_app/features/attendance/data/repositories/attendance_repository.dart';
 
+enum AttendanceStatus { none, clockedIn, completed }
+
 abstract class AttendanceState extends Equatable {
   const AttendanceState();
   
   @override
   List<Object?> get props => [];
+}
+
+extension AttendanceStateX on AttendanceState {
+  AttendanceStatus get attendanceStatus {
+    final history = _getHistory();
+    if (history.isEmpty) return AttendanceStatus.none;
+
+    final last = history.first;
+    final today = DateTime.now();
+    final isToday = last.checkIn.year == today.year && 
+                    last.checkIn.month == today.month && 
+                    last.checkIn.day == today.day;
+
+    if (!isToday) return AttendanceStatus.none;
+
+    return last.checkOut == null ? AttendanceStatus.clockedIn : AttendanceStatus.completed;
+  }
+
+  List<Attendance> _getHistory() {
+    if (this is HomeDataLoaded) {
+      return (this as HomeDataLoaded).history;
+    } else if (this is AttendanceHistoryLoaded) {
+      return (this as AttendanceHistoryLoaded).history;
+    }
+    return [];
+  }
 }
 
 class AttendanceInitial extends AttendanceState {}

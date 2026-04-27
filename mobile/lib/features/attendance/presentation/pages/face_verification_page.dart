@@ -207,10 +207,16 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       embeddingResult.fold(
         (l) => debugPrint("Error embedding: ${l.message}"),
         (embedding) {
-          if (mounted && embedding != null && embedding.isNotEmpty) {
-            setState(() {
-              _baselineEmbedding = embedding;
-            });
+          if (mounted) {
+            if (embedding != null && embedding.isNotEmpty) {
+              setState(() {
+                _baselineEmbedding = embedding;
+              });
+            } else if (!widget.isRegistration) {
+              setState(() {
+                _statusText = "Data wajah tidak ditemukan.";
+              });
+            }
           }
         }
       );
@@ -405,7 +411,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         }
       } else {
         final face = faces.first;
-        if (face.headEulerAngleY! > 10 || face.headEulerAngleY! < -10 || face.headEulerAngleZ! > 10 || face.headEulerAngleZ! < -10) {
+        if (face.headEulerAngleY! > 20 || face.headEulerAngleY! < -20 || face.headEulerAngleZ! > 20 || face.headEulerAngleZ! < -20) {
           if (mounted) {
             setState(() {
               _isFaceDetected = false;
@@ -460,6 +466,11 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
             _isFaceMatched = isMatched;
             _statusText = isMatched ? "Wajah diverifikasi." : "Wajah tidak sesuai.";
           });
+
+          // AUTO-CAPTURE: If matched, trigger capture automatically
+          if (isMatched && !widget.isRegistration && !_isVerifying) {
+            _takePicture();
+          }
         }
       }
     } catch (e) {
@@ -512,11 +523,20 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       
       final embedding = _mlService.predict(faceCrop);
 
+      // Save the baked and cropped image for upload/registration
+      final tempDir = await getTemporaryDirectory();
+      final facePath = p.join(tempDir.path, 'verify_face_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final faceFile = File(facePath);
+      await faceFile.writeAsBytes(imglib.encodeJpg(faceCrop));
+
       if (widget.isRegistration) {
-        setState(() {
-          _capturedImagePath = photo.path;
-          _isVerifying = false;
-        });
+        if (mounted) {
+          setState(() {
+            _currentEmbedding = embedding;
+            _capturedImagePath = faceFile.path;
+            _isVerifying = false;
+          });
+        }
       } else {
         if (_baselineEmbedding == null) {
           // Handle missing baseline - IMPORTANT: prevents hang
@@ -533,12 +553,6 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         // Verify against baseline
         final double distance = _mlService.calculateEuclideanDistance(_baselineEmbedding!, embedding);
         final bool isMatched = distance < 1.5;
-
-        // Save the baked and cropped image for upload
-        final tempDir = await getTemporaryDirectory();
-        final facePath = p.join(tempDir.path, 'verify_face_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        final faceFile = File(facePath);
-        await faceFile.writeAsBytes(imglib.encodeJpg(faceCrop));
 
         if (mounted) {
           setState(() {

@@ -8,6 +8,7 @@ import 'package:hris_app/features/attendance/presentation/bloc/attendance_bloc.d
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.dart';
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.dart';
 import 'package:hris_app/features/attendance/presentation/pages/face_verification_page.dart';
+import 'package:hris_app/core/utils/dialog_utils.dart';
 import 'package:hris_app/features/attendance/presentation/pages/attendance_page.dart';
 import 'package:hris_app/features/attendance/presentation/pages/activity_history_page.dart';
 import 'package:hris_app/features/leave/presentation/pages/leave_page.dart';
@@ -39,6 +40,9 @@ import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:shimmer/shimmer.dart';
+
+import 'package:hris_app/features/announcement/presentation/pages/notification_list_page.dart';
+import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -324,7 +328,7 @@ class DashboardTab extends StatelessWidget {
           },
           child: CustomScrollView(
             slivers: [
-              _buildSliverAppBar(profile, displayName),
+              _buildSliverAppBar(context, profile, displayName),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
@@ -333,7 +337,7 @@ class DashboardTab extends StatelessWidget {
                     children: [
                       _buildStatistics(statistics),
                       const SizedBox(height: 32),
-                      _buildQuickActions(context),
+                      _buildQuickActions(context, state.attendanceStatus),
                       const SizedBox(height: 40),
                       _buildAnnouncements(context),
                       const SizedBox(height: 40),
@@ -349,7 +353,7 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildSliverAppBar(Map<String, dynamic>? profile, String displayName) {
+  Widget _buildSliverAppBar(BuildContext context, Map<String, dynamic>? profile, String displayName) {
     return SliverAppBar(
       expandedHeight: 60,
       floating: false,
@@ -387,16 +391,33 @@ class DashboardTab extends StatelessWidget {
         ],
       ),
       actions: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), onPressed: () {}),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.yellow, shape: BoxShape.circle)),
-            ),
-          ],
+        BlocBuilder<NotificationBloc, NotificationState>(
+          builder: (context, state) {
+            final hasNotifications = state is NotificationLoaded && state.notifications.isNotEmpty;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), 
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const NotificationListPage()),
+                    );
+                  }
+                ),
+                if (hasNotifications)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      width: 8, 
+                      height: 8, 
+                      decoration: const BoxDecoration(color: Colors.yellow, shape: BoxShape.circle, border: Border.fromBorderSide(BorderSide(color: AppColors.primaryRed, width: 1))),
+                    ),
+                  ),
+              ],
+            );
+          }
         ),
         const SizedBox(width: 8),
       ],
@@ -451,7 +472,7 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
+  Widget _buildQuickActions(BuildContext context, AttendanceStatus status) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -460,8 +481,46 @@ class DashboardTab extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildActionItem(Icons.qr_code_scanner_rounded, 'Absen Masuk', AppColors.success, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: true)))),
-            _buildActionItem(Icons.logout_rounded, 'Absen Keluar', AppColors.primaryRed, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: false)))),
+            _buildActionItem(
+              Icons.qr_code_scanner_rounded, 
+              'Absen Masuk', 
+              AppColors.success, 
+              () {
+                if (status == AttendanceStatus.clockedIn || status == AttendanceStatus.completed) {
+                  DialogUtils.showError(
+                    context: context, 
+                    title: 'Sudah Absen', 
+                    message: 'Sudah absen masuk hari ini',
+                  );
+                } else {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: true)));
+                }
+              },
+              isDisabled: status == AttendanceStatus.clockedIn || status == AttendanceStatus.completed,
+            ),
+            _buildActionItem(
+              Icons.logout_rounded, 
+              'Absen Keluar', 
+              AppColors.primaryRed, 
+              () {
+                if (status == AttendanceStatus.none) {
+                  DialogUtils.showError(
+                    context: context, 
+                    title: 'Belum Absen', 
+                    message: 'Anda belum melakukan absen masuk hari ini',
+                  );
+                } else if (status == AttendanceStatus.completed) {
+                  DialogUtils.showError(
+                    context: context, 
+                    title: 'Sudah Absen', 
+                    message: 'Anda sudah melakukan absen keluar hari ini',
+                  );
+                } else {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaceVerificationPage(isClockIn: false)));
+                }
+              },
+              isDisabled: status == AttendanceStatus.none || status == AttendanceStatus.completed,
+            ),
             _buildActionItem(Icons.history_rounded, 'Riwayat', AppColors.warning, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityHistoryPage()))),
             _buildActionItem(Icons.event_available_rounded, 'Cuti', const Color(0xFF6366F1), () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeavePage()))),
           ],
@@ -470,7 +529,7 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildActionItem(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _buildActionItem(IconData icon, String label, Color color, VoidCallback onTap, {bool isDisabled = false}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -479,101 +538,109 @@ class DashboardTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: (isDisabled ? Colors.grey.shade200 : color.withOpacity(0.12)),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(icon, color: (isDisabled ? Colors.grey.shade400 : color), size: 28),
           ),
           const SizedBox(height: 10),
-          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          Text(
+            label, 
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12, 
+              fontWeight: FontWeight.w600, 
+              color: (isDisabled ? AppColors.textTertiary : AppColors.textPrimary),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildAnnouncements(BuildContext context) {
-    return BlocProvider(
-      create: (context) => di.sl<AnnouncementBloc>()..add(FetchAnnouncementsRequested()),
-      child: BlocBuilder<AnnouncementBloc, AnnouncementState>(
-        builder: (context, state) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('PENGUMUMAN', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
-                  TextButton(
-                    onPressed: () {}, 
-                    child: Text('Lihat Semua', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primaryRed))
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (state is AnnouncementLoading)
-                const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
-              else if (state is AnnouncementLoaded && state.announcements.isNotEmpty)
-                SizedBox(
-                  height: 180,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: state.announcements.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final ann = state.announcements[index];
-                      return GestureDetector(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => AnnouncementDetailPage(announcement: ann),
-                          ),
+    return BlocBuilder<AnnouncementBloc, AnnouncementState>(
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('PENGUMUMAN', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textTertiary, letterSpacing: 1.5)),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const NotificationListPage()),
+                    );
+                  }, 
+                  child: Text('Lihat Semua', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primaryRed))
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (state is AnnouncementLoading)
+              const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
+            else if (state is AnnouncementLoaded && state.announcements.isNotEmpty)
+              SizedBox(
+                height: 180,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: state.announcements.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) {
+                    final ann = state.announcements[index];
+                    return GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => AnnouncementDetailPage(announcement: ann),
                         ),
-                        child: Container(
-                          width: 300,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8)),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8), 
-                                    decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), 
-                                    child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 18)
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(child: Text(ann.title.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(ann.content, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.6), maxLines: 2, overflow: TextOverflow.ellipsis),
-                              const Spacer(),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
-                                  Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryRed.withOpacity(0.5)),
-                                ],
-                              ),
-                            ],
-                          ),
+                      ),
+                      child: Container(
+                        width: 300,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8)),
+                          ],
                         ),
-                      );
-                    },
-                  ),
-                )
-              else
-                _buildEmptyPlaceholder(Icons.campaign_outlined, 'Belum ada pengumuman hari ini'),
-            ],
-          );
-        },
-      ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8), 
+                                  decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), 
+                                  child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 18)
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(ann.title.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(ann.content, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.6), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const Spacer(),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
+                                Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryRed.withOpacity(0.5)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              _buildEmptyPlaceholder(Icons.campaign_outlined, 'Belum ada pengumuman hari ini'),
+          ],
+        );
+      },
     );
   }
 

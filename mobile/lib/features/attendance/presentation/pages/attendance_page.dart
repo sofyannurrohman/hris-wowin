@@ -9,6 +9,7 @@ import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.
 import 'package:hris_app/features/attendance/presentation/bloc/attendance_state.dart';
 import 'package:hris_app/features/attendance/presentation/pages/face_verification_page.dart';
 import 'package:hris_app/features/attendance/domain/entities/attendance.dart';
+import 'package:hris_app/core/utils/dialog_utils.dart';
 import 'package:shimmer/shimmer.dart';
 
 class AttendancePage extends StatefulWidget {
@@ -51,12 +52,15 @@ class _AttendancePageState extends State<AttendancePage> {
             return _buildLoadingState();
           }
 
+          final status = state.attendanceStatus;
+          final bool isClockedIn = status == AttendanceStatus.clockedIn;
+          final bool isCompleted = status == AttendanceStatus.completed;
+
           Attendance? lastAttendance;
           if (state is HomeDataLoaded && state.history.isNotEmpty) {
             lastAttendance = state.history.first;
           }
 
-          final bool isClockedIn = lastAttendance != null && lastAttendance.checkOut == null;
           final String workDuration = _calculateWorkDuration(lastAttendance?.checkIn);
 
           return RefreshIndicator(
@@ -70,9 +74,9 @@ class _AttendancePageState extends State<AttendancePage> {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      _buildTimerCard(isClockedIn, workDuration, lastAttendance),
+                      _buildTimerCard(isClockedIn, workDuration, lastAttendance, isCompleted),
                       const SizedBox(height: 32),
-                      _buildMainActionButton(isClockedIn),
+                      _buildMainActionButton(isClockedIn, isCompleted),
                       const SizedBox(height: 32),
                       _buildStatusIndicators(),
                       const SizedBox(height: 32),
@@ -135,7 +139,10 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  Widget _buildTimerCard(bool isClockedIn, String duration, Attendance? lastAttendance) {
+  Widget _buildTimerCard(bool isClockedIn, String duration, Attendance? lastAttendance, bool isCompleted) {
+    final bool showCheckIn = isClockedIn || isCompleted;
+    final bool showCheckOut = isCompleted;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -155,7 +162,7 @@ class _AttendancePageState extends State<AttendancePage> {
                   const Text('CHECK IN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1)),
                   const SizedBox(height: 4),
                   Text(
-                    isClockedIn ? DateFormat('HH:mm').format(lastAttendance!.checkIn) : '--:--',
+                    showCheckIn ? DateFormat('HH:mm').format(lastAttendance!.checkIn) : '--:--',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                   ),
                 ],
@@ -171,9 +178,7 @@ class _AttendancePageState extends State<AttendancePage> {
                   const Text('CHECK OUT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.textTertiary, letterSpacing: 1)),
                   const SizedBox(height: 4),
                   Text(
-                    (!isClockedIn && lastAttendance?.checkOut != null) 
-                        ? DateFormat('HH:mm').format(lastAttendance!.checkOut!) 
-                        : '--:--',
+                    showCheckOut ? DateFormat('HH:mm').format(lastAttendance!.checkOut!) : '--:--',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                   ),
                 ],
@@ -191,7 +196,7 @@ class _AttendancePageState extends State<AttendancePage> {
               ),
               const SizedBox(height: 8),
               Text(
-                isClockedIn ? duration : (lastAttendance?.checkOut != null ? 'Shift Selesai' : 'Belum Absen'),
+                isClockedIn ? duration : (isCompleted ? 'Shift Selesai' : 'Belum Absen'),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
@@ -205,15 +210,27 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  Widget _buildMainActionButton(bool isClockedIn) {
+  Widget _buildMainActionButton(bool isClockedIn, bool isCompleted) {
+    final color = isCompleted 
+        ? Colors.grey.shade400 
+        : (isClockedIn ? AppColors.primaryRed : const Color(0xFF10B981));
+
     return Center(
       child: InkWell(
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => FaceVerificationPage(isClockIn: !isClockedIn),
-            ),
-          );
+          if (isCompleted) {
+            DialogUtils.showError(
+              context: context, 
+              title: 'Shift Selesai', 
+              message: 'Anda sudah melakukan absen masuk dan keluar hari ini',
+            );
+          } else {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => FaceVerificationPage(isClockIn: !isClockedIn),
+              ),
+            );
+          }
         },
         borderRadius: BorderRadius.circular(100),
         child: Container(
@@ -222,10 +239,10 @@ class _AttendancePageState extends State<AttendancePage> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white,
-            border: Border.all(color: (isClockedIn ? AppColors.primaryRed : const Color(0xFF10B981)).withOpacity(0.1), width: 10),
+            border: Border.all(color: color.withOpacity(0.1), width: 10),
             boxShadow: [
               BoxShadow(
-                color: (isClockedIn ? AppColors.primaryRed : const Color(0xFF10B981)).withOpacity(0.2),
+                color: color.withOpacity(0.2),
                 blurRadius: 40,
                 offset: const Offset(0, 10),
               ),
@@ -235,13 +252,13 @@ class _AttendancePageState extends State<AttendancePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                isClockedIn ? Icons.logout_rounded : Icons.login_rounded,
+                isCompleted ? Icons.check_circle_rounded : (isClockedIn ? Icons.logout_rounded : Icons.login_rounded),
                 size: 48,
-                color: isClockedIn ? AppColors.primaryRed : const Color(0xFF10B981),
+                color: color,
               ),
               const SizedBox(height: 12),
               Text(
-                isClockedIn ? 'CLOCK OUT' : 'CLOCK IN',
+                isCompleted ? 'SELESAI' : (isClockedIn ? 'CLOCK OUT' : 'CLOCK IN'),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,

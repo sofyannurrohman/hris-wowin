@@ -17,4 +17,5 @@ abstract class AuthRepository {
   Future<Either<Failure, List<Map<String, dynamic>>>> getBranches();
   Future<Either<Failure, List<Map<String, dynamic>>>> getJobPositions();
   Future<Either<Failure, void>> updateProfile(Map<String, dynamic> data);
+  Future<Either<Failure, void>> changePassword(String oldPassword, String newPassword);
 }

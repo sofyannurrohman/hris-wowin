@@ -439,11 +439,16 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
         // Filter balances based on mode
         List<LeaveBalance> allBalances = state.balances;
         List<LeaveBalance> filteredBalances = allBalances.where((b) {
+          final typeName = b.leaveTypeName.toLowerCase();
           final isIzinType = !b.requiresQuota || 
-                             b.leaveTypeName.toLowerCase().contains('izin') || 
-                             b.leaveTypeName.toLowerCase().contains('sakit') || 
-                             b.leaveTypeName.toLowerCase().contains('musibah') ||
-                             b.leaveTypeName.toLowerCase().contains('unpaid');
+                             typeName.contains('izin') || 
+                             typeName.contains('ijin') || 
+                             typeName.contains('sakit') || 
+                             typeName.contains('musibah') ||
+                             typeName.contains('dispensasi') ||
+                             typeName.contains('tugas') ||
+                             typeName.contains('dinas') ||
+                             typeName.contains('unpaid');
           return _isIzinMode ? isIzinType : !isIzinType;
         }).toList();
 

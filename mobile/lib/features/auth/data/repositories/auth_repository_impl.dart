@@ -310,4 +310,29 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> changePassword(String oldPassword, String newPassword) async {
+    try {
+      final response = await apiClient.client.post(
+        'users/change-password',
+        data: {
+          'oldPassword': oldPassword,
+          'newPassword': newPassword,
+        },
+      );
+      if (response.statusCode == 200) {
+        return const Right(null);
+      } else {
+        return Left(ServerFailure(response.data is Map ? (response.data['message'] ?? 'Failed to change password') : 'Failed to change password'));
+      }
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data is Map) {
+        return Left(ServerFailure(e.response?.data['message'] ?? 'Failed to change password'));
+      }
+      return Left(ServerFailure(e.message ?? 'Unknown error occurred'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }

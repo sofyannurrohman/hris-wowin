@@ -10,6 +10,7 @@ import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:hris_app/features/profile/presentation/pages/edit_profile_page.dart';
 import 'package:hris_app/features/profile/presentation/pages/face_registration_page.dart';
+import 'package:hris_app/features/auth/presentation/pages/change_password_page.dart';
 import 'package:hris_app/core/utils/constants.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -74,7 +75,7 @@ class _ProfileOverviewPageState extends State<ProfileOverviewPage> {
                             title: 'Ganti Kata Sandi',
                             subtitle: 'Klik untuk ubah password anda',
                             onTap: () {
-                              // Placeholder for change password
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordPage()));
                             },
                           ),
                         ],

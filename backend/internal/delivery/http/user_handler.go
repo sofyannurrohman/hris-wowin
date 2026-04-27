@@ -34,6 +34,7 @@ func (h *UserHandler) SetupRoutes(router *gin.RouterGroup) {
 
 	// Open to authenticated users initially
 	users.POST("/face-register", h.RegisterFace)
+	users.POST("/change-password", h.ChangePassword)
 
 	// Admin only
 	admin := users.Group("")
@@ -269,4 +270,50 @@ func (h *UserHandler) RegisterFace(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, "Face registered successfully", nil)
+}
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword" binding:"required"`
+	NewPassword string `json:"newPassword" binding:"required,min=6"`
+}
+
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDStr.(uuid.UUID)
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var user domain.User
+	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to find user")
+		return
+	}
+
+	// Verify old password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Password lama tidak sesuai")
+		return
+	}
+
+	// Hash new password
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to hash new password")
+		return
+	}
+
+	if err := h.db.Model(&user).Update("password_hash", string(hashed)).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update password")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Password berhasil diperbarui", nil)
 }

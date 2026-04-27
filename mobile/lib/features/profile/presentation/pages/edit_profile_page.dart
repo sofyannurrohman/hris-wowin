@@ -271,7 +271,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 children: [
                                   _buildLabel('Tanggal Lahir'),
                                   const SizedBox(height: 12),
-                                  _buildEditableField(_birthDateController, Icons.calendar_today_rounded, borderColor, primaryRed),
+                                  _buildDatePickerField(_birthDateController, Icons.calendar_today_rounded, borderColor, primaryRed),
                                 ],
                               ),
                             ),
@@ -279,31 +279,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ),
                         const SizedBox(height: 20),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildLabel('Jenis Kelamin'),
-                                  const SizedBox(height: 12),
-                                  _buildDropdownField(_gender, ['Laki-laki', 'Perempuan'], Icons.wc_rounded, borderColor, primaryRed, (v) => setState(() => _gender = v)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildLabel('Status Nikah'),
-                                  const SizedBox(height: 12),
-                                  _buildDropdownField(_maritalStatus, ['Lajang', 'Menikah', 'Cerai'], Icons.favorite_rounded, borderColor, primaryRed, (v) => setState(() => _maritalStatus = v)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        _buildLabel('Jenis Kelamin'),
+                        const SizedBox(height: 12),
+                        _buildDropdownField(_gender, ['Laki-laki', 'Perempuan'], Icons.wc_rounded, borderColor, primaryRed, (v) => setState(() => _gender = v)),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Status Nikah'),
+                        const SizedBox(height: 12),
+                        _buildDropdownField(_maritalStatus, ['Lajang', 'Menikah', 'Cerai'], Icons.favorite_rounded, borderColor, primaryRed, (v) => setState(() => _maritalStatus = v)),
                         const SizedBox(height: 20),
 
                         _buildLabel('Nomor Telepon'),
@@ -477,6 +460,58 @@ class _EditProfilePageState extends State<EditProfilePage> {
             borderSide: BorderSide(color: focusBorder, width: 1.5)),
       ),
     );
+  }
+
+  Widget _buildDatePickerField(TextEditingController controller, IconData icon, Color border, Color focusBorder) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      onTap: () => _selectDate(context, controller),
+      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: AppColors.grayLight,
+        suffixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    DateTime initialDate = DateTime.now().subtract(const Duration(days: 365 * 20));
+    if (controller.text.isNotEmpty) {
+      try {
+        initialDate = DateFormat('yyyy-MM-dd').parse(controller.text);
+      } catch (_) {}
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primaryRed,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        controller.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
   }
 
   Widget _buildDropdownField(String? value, List<String> items, IconData icon, Color border, Color focusBorder, void Function(String?) onChanged) {

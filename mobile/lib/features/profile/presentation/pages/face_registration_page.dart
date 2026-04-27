@@ -133,7 +133,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
         }
       } else {
         final face = faces.first;
-        if (face.headEulerAngleY! > 10 || face.headEulerAngleY! < -10 || face.headEulerAngleZ! > 10 || face.headEulerAngleZ! < -10) {
+        if (face.headEulerAngleY! > 20 || face.headEulerAngleY! < -20 || face.headEulerAngleZ! > 20 || face.headEulerAngleZ! < -20) {
           if (mounted) {
             setState(() {
               _isFaceDetected = false;
