@@ -62,5 +62,5 @@ func (r *overtimeRepository) Update(overtime *domain.Overtime) error {
 }
 
 func (r *overtimeRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&domain.Overtime{}, "id = ?", id).Error
+	return r.db.Where("id = ?", id).Delete(&domain.Overtime{}).Error
 }

@@ -160,7 +160,14 @@ func (u *leaveUseCase) SubmitLeave(userID uuid.UUID, req SubmitLeaveRequest) err
 	if leaveType.RequiresQuota {
 		balance, err := u.repo.GetLeaveBalance(employee.ID, leaveType.ID, currentYear)
 		if err != nil {
-			return errors.New("leave balance not found for this year")
+			// If balance record not found, initialize it with default quota from leave type
+			balance = &domain.LeaveBalance{
+				EmployeeID:   employee.ID,
+				LeaveTypeID:  leaveType.ID,
+				Year:         currentYear,
+				BalanceTotal: leaveType.DefaultQuota,
+				BalanceUsed:  0,
+			}
 		}
 
 		remaining := balance.BalanceTotal - balance.BalanceUsed
@@ -278,7 +285,14 @@ func (u *leaveUseCase) UpdateMyLeave(leaveID, userID uuid.UUID, req SubmitLeaveR
 			if balance == nil || balance.LeaveTypeID != newLeaveTypeID {
 				balance, err = u.repo.GetLeaveBalance(employee.ID, newLeaveTypeID, currentYear)
 				if err != nil {
-					return errors.New("insufficient leave balance record for this year")
+					// Auto-initialize balance record if missing during update
+					balance = &domain.LeaveBalance{
+						EmployeeID:   employee.ID,
+						LeaveTypeID:  newLeaveTypeID,
+						Year:         currentYear,
+						BalanceTotal: newLeaveType.DefaultQuota,
+						BalanceUsed:  0,
+					}
 				}
 			}
 
