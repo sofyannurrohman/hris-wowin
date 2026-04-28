@@ -24,6 +24,7 @@ type AttendanceUseCase interface {
 	UpdateAttendance(id uuid.UUID, req UpdateAttendanceRequest) error
 	DeleteAttendance(id uuid.UUID) error
 	ProcessDailyAlpha(date time.Time) error
+	ProcessEmployeeAlpha(employeeID uuid.UUID, date time.Time) error
 }
 
 type attendanceUseCase struct {
@@ -356,6 +357,12 @@ func (u *attendanceUseCase) GetHistory(userID uuid.UUID, startDate, endDate stri
 		end = time.Date(parsedEnd.Year(), parsedEnd.Month(), parsedEnd.Day(), 23, 59, 59, 0, now.Location())
 	}
 
+	// 1.5. Trigger ALFA check for yesterday if within range
+	yesterday := time.Now().AddDate(0, 0, -1)
+	if (yesterday.After(start) || yesterday.Equal(start)) && (yesterday.Before(end) || yesterday.Equal(end)) {
+		_ = u.ProcessEmployeeAlpha(employee.ID, yesterday)
+	}
+
 	// 2. Ambil data dari Repository
 	logs, err := u.repo.FindHistoryByDateRange(employee.ID, start, end)
 	if err != nil {
@@ -405,6 +412,10 @@ func (u *attendanceUseCase) GetStats(userID uuid.UUID) (*AttendanceStatsResponse
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	end := now
+
+	// Sync ALFA for yesterday
+	yesterday := time.Now().AddDate(0, 0, -1)
+	_ = u.ProcessEmployeeAlpha(employee.ID, yesterday)
 
 	logs, err := u.repo.FindHistoryByDateRange(employee.ID, start, end)
 	if err != nil {
@@ -518,10 +529,6 @@ func (u *attendanceUseCase) DeleteAttendance(id uuid.UUID) error {
 }
 
 func (u *attendanceUseCase) ProcessDailyAlpha(date time.Time) error {
-	// Normalize date to start of day
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Second)
-
 	// 1. Fetch all active employees
 	employees, err := u.employeeRepo.FindAll(0, nil) // Getting all
 	if err != nil {
@@ -529,41 +536,49 @@ func (u *attendanceUseCase) ProcessDailyAlpha(date time.Time) error {
 	}
 
 	for _, emp := range employees {
-		// 2. Check if employee has a scheduled shift for this date
-		shifts, err := u.employeeShiftRepo.FindByEmployeeIDAndDateRange(emp.ID, startOfDay, endOfDay)
-		if err != nil || len(shifts) == 0 || shifts[0].IsOffDay {
-			continue // No shift or off day, skip
-		}
-
-		// 3. Check if employee already has an attendance log for this date
-		logs, err := u.repo.FindHistoryByDateRange(emp.ID, startOfDay, endOfDay)
-		if err != nil {
-			continue
-		}
-		if len(logs) > 0 {
-			continue // Already has attendance (Poin Present/Late)
-		}
-
-		// 4. Check if employee has an approved leave for this date
-		leaves, err := u.leaveRepo.FindApprovedByEmployeeAndDateRange(emp.ID, startOfDay, endOfDay)
-		if err != nil {
-			continue
-		}
-		if len(leaves) > 0 {
-			continue // Has approved leave (Poin Permit)
-		}
-
-		// 5. No log and no leave -> Create ALFA log
-		alfaLog := &domain.AttendanceLog{
-			ID:          uuid.New(),
-			EmployeeID:  emp.ID,
-			ClockInTime: &startOfDay, // Use start of day as reference
-			Status:      "ALFA",
-			Notes:       "Sistem generated: Tidak absen masuk",
-		}
-
-		_ = u.repo.Create(alfaLog)
+		_ = u.ProcessEmployeeAlpha(emp.ID, date)
 	}
 
 	return nil
+}
+
+func (u *attendanceUseCase) ProcessEmployeeAlpha(employeeID uuid.UUID, date time.Time) error {
+	// Normalize date to start of day
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Second)
+
+	// 1. Check if employee has a scheduled shift for this date
+	shifts, err := u.employeeShiftRepo.FindByEmployeeIDAndDateRange(employeeID, startOfDay, endOfDay)
+	if err != nil || len(shifts) == 0 || shifts[0].IsOffDay {
+		return nil // No shift or off day, skip
+	}
+
+	// 2. Check if employee already has an attendance log for this date
+	logs, err := u.repo.FindHistoryByDateRange(employeeID, startOfDay, endOfDay)
+	if err != nil {
+		return err
+	}
+	if len(logs) > 0 {
+		return nil // Already has attendance (Poin Present/Late/ALFA)
+	}
+
+	// 3. Check if employee has an approved leave for this date
+	leaves, err := u.leaveRepo.FindApprovedByEmployeeAndDateRange(employeeID, startOfDay, endOfDay)
+	if err != nil {
+		return err
+	}
+	if len(leaves) > 0 {
+		return nil // Has approved leave
+	}
+
+	// 4. No log and no leave -> Create ALFA log
+	alfaLog := &domain.AttendanceLog{
+		ID:          uuid.New(),
+		EmployeeID:  employeeID,
+		ClockInTime: &startOfDay, // Use start of day as reference
+		Status:      "ALFA",
+		Notes:       "Sistem generated: Tidak absen masuk",
+	}
+
+	return u.repo.Create(alfaLog)
 }

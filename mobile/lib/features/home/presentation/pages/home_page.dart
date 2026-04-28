@@ -659,8 +659,35 @@ class DashboardTab extends StatelessWidget {
             itemCount: activity.length > 5 ? 5 : activity.length,
             itemBuilder: (context, index) {
               final att = activity[index];
-              final isClockIn = att.checkOut == null;
-              final statusColor = isClockIn ? AppColors.success : AppColors.primaryRed;
+              final isAlfa = att.status == 'ALFA';
+              final isClockIn = att.checkOut == null && !isAlfa;
+              
+              Color statusColor;
+              if (isAlfa) {
+                statusColor = AppColors.warning;
+              } else if (isClockIn) {
+                statusColor = AppColors.success;
+              } else {
+                statusColor = AppColors.primaryRed;
+              }
+
+              IconData statusIcon;
+              if (isAlfa) {
+                statusIcon = Icons.cancel_outlined;
+              } else if (isClockIn) {
+                statusIcon = Icons.login_rounded;
+              } else {
+                statusIcon = Icons.logout_rounded;
+              }
+
+              String title;
+              if (isAlfa) {
+                title = 'Tidak Absen (ALFA)';
+              } else if (isClockIn) {
+                title = 'Absen Masuk';
+              } else {
+                title = 'Absen Keluar';
+              }
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -681,20 +708,20 @@ class DashboardTab extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
-                          child: Icon(isClockIn ? Icons.login_rounded : Icons.logout_rounded, color: statusColor, size: 22),
+                          child: Icon(statusIcon, color: statusColor, size: 22),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(isClockIn ? 'Absen Masuk' : 'Absen Keluar', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                              Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
                               const SizedBox(height: 2),
                               Text(DateFormat('dd MMMM yyyy').format(att.checkIn), style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ),
-                        Text(DateFormat('HH:mm').format(att.checkOut ?? att.checkIn), style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                        Text(isAlfa ? '--:--' : DateFormat('HH:mm').format(att.checkOut ?? att.checkIn), style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
                       ],
                     ),
                   ),
