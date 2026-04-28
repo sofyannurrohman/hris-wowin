@@ -26,6 +26,8 @@ RUN apk --no-cache add ca-certificates tzdata
 # Copy the compiled binary
 COPY --from=builder /app/bin/api .
 COPY --from=builder /app/bin/seeder .
+COPY --from=builder /app/migrate .
+COPY --from=builder /app/config/migrations ./config/migrations
 
 # Copy entrypoint script
 COPY entrypoint.sh .

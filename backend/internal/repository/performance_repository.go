@@ -20,6 +20,8 @@ type PerformanceRepository interface {
 	// Sales KPIs
 	GetSalesKPIByEmployeeAndPeriod(employeeID uuid.UUID, month, year int) (*domain.SalesKPI, error)
 	GetSalesKPIHistory(employeeID uuid.UUID) ([]domain.SalesKPI, error)
+	GetSalesKPIReportByMonth(month, year int) ([]SalesKPIReport, error)
+	SaveSalesKPI(kpi *domain.SalesKPI) error
 
 	// Single Employee KPI History
 	GetEmployeeKPIHistory(employeeID uuid.UUID) ([]domain.EmployeeKPI, error)
@@ -113,4 +115,31 @@ func (r *performanceRepository) GetEmployeeKPIHistory(employeeID uuid.UUID) ([]d
 	var kpis []domain.EmployeeKPI
 	err := r.db.Where("employee_id = ?", employeeID).Order("period_year DESC, period_month DESC").Limit(12).Find(&kpis).Error
 	return kpis, err
+}
+
+func (r *performanceRepository) SaveSalesKPI(kpi *domain.SalesKPI) error {
+	return r.db.Save(kpi).Error
+}
+
+type SalesKPIReport struct {
+	EmployeeID    uuid.UUID `gorm:"column:employee_id"`
+	OmzetLama     float64   `gorm:"column:omzet_lama"`
+	OmzetBaru     float64   `gorm:"column:omzet_baru"`
+	TotalTokoBaru int       `gorm:"column:total_toko_baru"`
+}
+
+func (r *performanceRepository) GetSalesKPIReportByMonth(month, year int) ([]SalesKPIReport, error) {
+	var report []SalesKPIReport
+	query := `
+		SELECT 
+			employee_id,
+			SUM(CASE WHEN store_category = 'TOKO_LAMA' THEN total_amount ELSE 0 END) as omzet_lama,
+			SUM(CASE WHEN store_category = 'TOKO_BARU' THEN total_amount ELSE 0 END) as omzet_baru,
+			COUNT(CASE WHEN store_category = 'TOKO_BARU' THEN 1 END) as total_toko_baru
+		FROM sales_transactions
+		WHERE status = 'VERIFIED' AND period_month = ? AND period_year = ?
+		GROUP BY employee_id
+	`
+	err := r.db.Raw(query, month, year).Scan(&report).Error
+	return report, err
 }

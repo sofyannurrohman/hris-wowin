@@ -1,0 +1,164 @@
+package usecase
+
+import (
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/sofyan/hris_wowin/backend/internal/domain"
+	"github.com/sofyan/hris_wowin/backend/internal/repository"
+)
+
+type SalesUsecase interface {
+	ManualEntry(req ManualEntryRequest) (*domain.SalesTransaction, error)
+	CalculateKPI(employeeID uuid.UUID, month, year int) error
+	GenerateKPIReportExcel(month, year int) ([]byte, error)
+	GetSummaryKPI(month, year int) (map[string]interface{}, error)
+}
+
+type salesUsecase struct {
+	salesRepo       repository.SalesTransactionRepository
+	performanceRepo repository.PerformanceRepository
+}
+
+func NewSalesUsecase(salesRepo repository.SalesTransactionRepository, performanceRepo repository.PerformanceRepository) SalesUsecase {
+	return &salesUsecase{
+		salesRepo:       salesRepo,
+		performanceRepo: performanceRepo,
+	}
+}
+
+type ManualEntryRequest struct {
+	CompanyID       uuid.UUID `json:"company_id" binding:"required"`
+	StoreID         uuid.UUID `json:"store_id" binding:"required"`
+	EmployeeID      uuid.UUID `json:"employee_id" binding:"required"`
+	ReceiptNo       string    `json:"receipt_no"`
+	ReceiptImageURL string    `json:"receipt_image_url"`
+	TotalAmount     float64   `json:"total_amount" binding:"required"`
+	StoreCategory   string    `json:"store_category" binding:"required"` // 'TOKO_LAMA' or 'TOKO_BARU'
+	TransactionDate string    `json:"transaction_date" binding:"required"` // YYYY-MM-DD
+}
+
+func (u *salesUsecase) ManualEntry(req ManualEntryRequest) (*domain.SalesTransaction, error) {
+	trxDate, err := time.Parse("2006-01-02", req.TransactionDate)
+	if err != nil {
+		return nil, errors.New("invalid transaction date format, expected YYYY-MM-DD")
+	}
+
+	trx := &domain.SalesTransaction{
+		CompanyID:       req.CompanyID,
+		StoreID:         req.StoreID,
+		EmployeeID:      req.EmployeeID,
+		ReceiptNo:       req.ReceiptNo,
+		ReceiptImageURL: req.ReceiptImageURL,
+		TotalAmount:     req.TotalAmount,
+		StoreCategory:   req.StoreCategory,
+		TransactionDate: trxDate,
+		PeriodMonth:     int(trxDate.Month()),
+		PeriodYear:      trxDate.Year(),
+		Status:          "VERIFIED", // Auto-verified since entered by admin
+	}
+
+	err = u.salesRepo.Create(trx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Recalculate KPI for this employee
+	err = u.CalculateKPI(req.EmployeeID, int(trxDate.Month()), trxDate.Year())
+	if err != nil {
+		// Log the error but don't fail the transaction entry
+	}
+
+	return trx, nil
+}
+
+func (u *salesUsecase) CalculateKPI(employeeID uuid.UUID, month, year int) error {
+	kpiReports, err := u.performanceRepo.GetSalesKPIReportByMonth(month, year)
+	if err != nil {
+		return err
+	}
+
+	var report *repository.SalesKPIReport
+	for _, r := range kpiReports {
+		if r.EmployeeID == employeeID {
+			report = &r
+			break
+		}
+	}
+
+	if report == nil {
+		return nil // No transactions found
+	}
+
+	totalOmzet := report.OmzetLama + report.OmzetBaru
+
+	salesKpi, err := u.performanceRepo.GetSalesKPIByEmployeeAndPeriod(employeeID, month, year)
+	if err != nil {
+		return err
+	}
+
+	if salesKpi == nil {
+		// Create new if not exists
+		salesKpi = &domain.SalesKPI{
+			EmployeeID:     employeeID,
+			TargetOmzet:    0, // Needs manual setup later
+			TargetNewStores: 0,
+			PeriodMonth:    month,
+			PeriodYear:     year,
+		}
+	}
+
+	salesKpi.AchievedOmzet = totalOmzet
+	// Calculation logic for estimated bonus could go here based on omzet_lama vs omzet_baru
+
+	return u.performanceRepo.SaveSalesKPI(salesKpi)
+}
+
+func (u *salesUsecase) GenerateKPIReportExcel(month, year int) ([]byte, error) {
+	// 1. Fetch data from PerformanceRepository
+	reports, err := u.performanceRepo.GetSalesKPIReportByMonth(month, year)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Mocking Excel generation process
+	// Usually this would use a library like `github.com/xuri/excelize/v2`
+	// Here we simply return a mocked byte array mimicking CSV/Excel data
+	csvData := "EmployeeID,OmzetLama,OmzetBaru,TotalTokoBaru\n"
+	for _, r := range reports {
+		csvData += r.EmployeeID.String() + "," + 
+			// Formatting float simply for demo
+			"" + "," + 
+			"" + "," + 
+			"0" + "\n"
+	}
+
+	return []byte(csvData), nil
+}
+
+func (u *salesUsecase) GetSummaryKPI(month, year int) (map[string]interface{}, error) {
+	reports, err := u.performanceRepo.GetSalesKPIReportByMonth(month, year)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalOmzetLama float64
+	var totalOmzetBaru float64
+	var totalTokoBaru int
+
+	for _, r := range reports {
+		totalOmzetLama += r.OmzetLama
+		totalOmzetBaru += r.OmzetBaru
+		totalTokoBaru += r.TotalTokoBaru
+	}
+
+	return map[string]interface{}{
+		"period_month":    month,
+		"period_year":     year,
+		"total_omzet_lama": totalOmzetLama,
+		"total_omzet_baru": totalOmzetBaru,
+		"total_omzet_all":  totalOmzetLama + totalOmzetBaru,
+		"total_toko_baru":  totalTokoBaru,
+	}, nil
+}

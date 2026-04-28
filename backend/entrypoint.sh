@@ -7,6 +7,9 @@ echo "Initializing Upload Directories..."
 mkdir -p uploads/attachments uploads/faces uploads/selfies uploads/files
 chmod -R 777 uploads
 
+echo "Running Database Migrations..."
+./migrate -path config/migrations -database "postgres://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME?sslmode=disable" up
+
 if [ "$SKIP_SEED" != "true" ]; then
     echo "Running Database Seeding..."
     ./seeder

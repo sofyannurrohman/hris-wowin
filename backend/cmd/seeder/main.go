@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/sofyan/hris_wowin/backend/config"
@@ -58,9 +59,13 @@ func main() {
 		{CompanyID: &company.ID, Title: "CTO", Level: 9},
 		{CompanyID: &company.ID, Title: "Software Engineer", Level: 3},
 		{CompanyID: &company.ID, Title: "HR Manager", Level: 5},
+		{CompanyID: &company.ID, Title: "Sales Motoris", Level: 2},
+		{CompanyID: &company.ID, Title: "Sales Task Order", Level: 2},
+		{CompanyID: &company.ID, Title: "Sales Booster", Level: 2},
+		{CompanyID: &company.ID, Title: "Kurir Pengiriman", Level: 2},
 	}
 	for i := range positions {
-		if err := db.FirstOrCreate(&positions[i], domain.JobPosition{Title: positions[i].Title}).Error; err != nil {
+		if err := db.FirstOrCreate(&positions[i], domain.JobPosition{Title: positions[i].Title, CompanyID: &company.ID}).Error; err != nil {
 			log.Fatalf("Failed to seed job position %s: %v", positions[i].Title, err)
 		}
 	}
@@ -252,6 +257,89 @@ func main() {
 			}).Updates(domain.LeaveBalance{
 				BalanceTotal: lt.DefaultQuota,
 			})
+		}
+	}
+
+	// 12. Create Sales Accounts and Data
+	log.Println("Seeding sales operational data...")
+	salesRoles := []struct {
+		Email     string
+		FirstName string
+		Position  string
+		EmpID     string
+	}{
+		{"motoris@wowin.com", "Andi", "Sales Motoris", "SLS-MOT-001"},
+		{"to@wowin.com", "Siti", "Sales Task Order", "SLS-TO-001"},
+		{"booster@wowin.com", "Eko", "Sales Booster", "SLS-BST-001"},
+		{"delivery@wowin.com", "Dedi", "Kurir Pengiriman", "DEL-001"},
+	}
+
+	for _, sr := range salesRoles {
+		user := domain.User{
+			Email:        sr.Email,
+			PasswordHash: string(hashedPassword),
+			Role:         domain.RoleEmployee,
+			IsActive:     true,
+			CompanyID:    &company.ID,
+		}
+		db.FirstOrCreate(&user, domain.User{Email: user.Email})
+
+		var pos domain.JobPosition
+		db.Where("title = ? AND company_id = ?", sr.Position, company.ID).First(&pos)
+
+		emp := domain.Employee{
+			UserID:           user.ID,
+			CompanyID:        &company.ID,
+			BranchID:         &branch.ID,
+			DepartmentID:     &departments[0].ID, // Assuming first dept
+			JobPositionID:    &pos.ID,
+			EmployeeIDNumber: sr.EmpID,
+			FirstName:        sr.FirstName,
+			LastName:         "Wowin",
+			JoinDate:         time.Now().AddDate(0, -6, 0),
+			EmploymentStatus: "PERMANENT",
+		}
+		db.FirstOrCreate(&emp, domain.Employee{EmployeeIDNumber: emp.EmployeeIDNumber})
+
+		// Seed KPI for this month
+		kpi := domain.SalesKPI{
+			EmployeeID:     emp.ID,
+			TargetOmzet:    50000000,
+			TargetNewStores: 10,
+			PeriodMonth:    int(time.Now().Month()),
+			PeriodYear:     time.Now().Year(),
+		}
+		db.FirstOrCreate(&kpi, domain.SalesKPI{EmployeeID: emp.ID, PeriodMonth: kpi.PeriodMonth, PeriodYear: kpi.PeriodYear})
+
+		// Seed some Stores for this sales
+		if sr.Position != "Kurir Pengiriman" {
+			for i := 1; i <= 3; i++ {
+				store := domain.Store{
+					CompanyID:          company.ID,
+					AssignedEmployeeID: &emp.ID,
+					Name:               "Toko " + sr.FirstName + " " + strconv.Itoa(i),
+					OwnerName:          "Owner " + strconv.Itoa(i),
+					Address:            "Alamat Toko " + strconv.Itoa(i),
+					IsActive:           true,
+				}
+				db.FirstOrCreate(&store, domain.Store{Name: store.Name, CompanyID: store.CompanyID})
+
+				// Seed a transaction for one of the stores
+				if i == 1 {
+					trx := domain.SalesTransaction{
+						CompanyID:       company.ID,
+						StoreID:         store.ID,
+						EmployeeID:      emp.ID,
+						TotalAmount:     1500000,
+						StoreCategory:   "TOKO_LAMA",
+						PeriodMonth:     int(time.Now().Month()),
+						PeriodYear:      time.Now().Year(),
+						TransactionDate: time.Now(),
+						Status:          "VERIFIED",
+					}
+					db.Create(&trx)
+				}
+			}
 		}
 	}
 
