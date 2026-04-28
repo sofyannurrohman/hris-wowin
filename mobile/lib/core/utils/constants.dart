@@ -11,4 +11,8 @@ class AppConstants {
   // Face Verification Threshold (Lower = stricter)
   // Standard range for MobileFaceNet is 0.8 - 1.2
   static const double faceVerificationThreshold = 0.9;
+
+  static const String rememberMeKey = 'remember_me';
+  static const String emailKey = 'remembered_email';
+  static const String passwordKey = 'remembered_password';
 }

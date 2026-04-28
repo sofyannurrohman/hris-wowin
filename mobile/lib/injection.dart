@@ -13,6 +13,7 @@ import 'package:hris_app/features/auth/domain/repositories/auth_repository.dart'
 import 'package:hris_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:hris_app/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:hris_app/features/auth/domain/usecases/biometric_usecases.dart';
+import 'package:hris_app/features/auth/domain/usecases/remember_me_usecases.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
 
 import 'package:hris_app/features/leave/domain/repositories/leave_repository.dart';
@@ -114,6 +115,10 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetProfileUseCase(sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
   sl.registerLazySingleton(() => ForgotPasswordUseCase(sl()));
+  sl.registerLazySingleton(() => SetRememberMeEnabledUseCase(sl()));
+  sl.registerLazySingleton(() => GetRememberMeStatusUseCase(sl()));
+  sl.registerLazySingleton(() => GetRememberedCredentialsUseCase(sl()));
+  sl.registerLazySingleton(() => ClearRememberedCredentialsUseCase(sl()));
 
 
   // BLoC
@@ -130,6 +135,10 @@ Future<void> init() async {
       getProfileUseCase: sl(),
       changePasswordUseCase: sl(),
       forgotPasswordUseCase: sl(),
+      getRememberMeStatusUseCase: sl(),
+      setRememberMeEnabledUseCase: sl(),
+      getRememberedCredentialsUseCase: sl(),
+      clearRememberedCredentialsUseCase: sl(),
     ),
   );
   sl.registerFactory(

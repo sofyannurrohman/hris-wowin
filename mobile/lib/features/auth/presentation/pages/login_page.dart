@@ -24,11 +24,14 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _obscureText = true;
+  bool _rememberMe = false;
 
   @override
   void initState() {
     super.initState();
-    context.read<AuthBloc>().add(CheckBiometricSupportRequested());
+    final authBloc = context.read<AuthBloc>();
+    authBloc.add(CheckBiometricSupportRequested());
+    authBloc.add(LoadRememberedCredentialsRequested());
   }
 
   @override
@@ -44,6 +47,7 @@ class _LoginPageState extends State<LoginPage> {
             LoginRequested(
               _emailController.text.trim(),
               _passwordController.text,
+              rememberMe: _rememberMe,
             ),
           );
     }
@@ -53,10 +57,20 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0),
+      body: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is Unauthenticated && state.rememberedCredentials != null) {
+            _emailController.text = state.rememberedCredentials!['email'] ?? '';
+            _passwordController.text = state.rememberedCredentials!['password'] ?? '';
+            setState(() {
+              _rememberMe = true;
+            });
+          }
+        },
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28.0),
             child: AnimationLimiter(
               child: Form(
                 key: _formKey,
@@ -154,27 +168,58 @@ class _LoginPageState extends State<LoginPage> {
                         validator: (value) => (value == null || value.isEmpty) ? 'Masukkan kata sandi' : null,
                       ),
                       
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primaryRed,
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          child: const Text(
-                            'Lupa kata sandi?',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                      const SizedBox(height: 16),
+                      
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          InkWell(
+                            onTap: () => setState(() => _rememberMe = !_rememberMe),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: Checkbox(
+                                    value: _rememberMe,
+                                    onChanged: (val) => setState(() => _rememberMe = val ?? false),
+                                    activeColor: AppColors.primaryRed,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    side: const BorderSide(color: AppColors.grayBorder, width: 1.5),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Ingat Saya',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primaryRed,
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: const Text(
+                              'Lupa kata sandi?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 48),
   
@@ -294,8 +339,9 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLabel(String text) {
     return Text(

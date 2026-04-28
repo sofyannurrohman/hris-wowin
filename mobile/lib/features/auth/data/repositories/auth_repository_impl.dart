@@ -358,5 +358,51 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> setRememberMeEnabled(bool enabled) async {
+    try {
+      await prefs.setBool(AppConstants.rememberMeKey, enabled);
+      return const Right(null);
+    } catch (e) {
+      return const Left(CacheFailure('Gagal menyimpan pengaturan Remember Me.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> getRememberMeEnabled() async {
+    try {
+      return Right(prefs.getBool(AppConstants.rememberMeKey) ?? false);
+    } catch (e) {
+      return const Right(false);
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, String>?>> getRememberedCredentials() async {
+    try {
+      final email = await secureStorage.read(key: 'email');
+      final password = await secureStorage.read(key: 'password');
+      
+      if (email != null && password != null) {
+        return Right({'email': email, 'password': password});
+      }
+      return const Right(null);
+    } catch (e) {
+      return const Left(CacheFailure('Gagal mengambil data login tersimpan.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> clearRememberedCredentials() async {
+    try {
+      await secureStorage.delete(key: 'email');
+      await secureStorage.delete(key: 'password');
+      await prefs.setBool(AppConstants.rememberMeKey, false);
+      return const Right(null);
+    } catch (e) {
+      return const Left(CacheFailure('Gagal menghapus data login tersimpan.'));
+    }
+  }
 }
 

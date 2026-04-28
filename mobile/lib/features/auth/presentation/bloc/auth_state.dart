@@ -3,14 +3,16 @@ import 'package:equatable/equatable.dart';
 abstract class AuthState extends Equatable {
   final bool isBiometricSupported;
   final bool isBiometricEnabled;
+  final bool isRememberMeEnabled;
 
   const AuthState({
     this.isBiometricSupported = false,
     this.isBiometricEnabled = false,
+    this.isRememberMeEnabled = false,
   });
   
   @override
-  List<Object?> get props => [isBiometricSupported, isBiometricEnabled];
+  List<Object?> get props => [isBiometricSupported, isBiometricEnabled, isRememberMeEnabled];
 }
 
 class AuthInitial extends AuthState {}
@@ -24,6 +26,7 @@ class Authenticated extends AuthState {
     this.userProfile,
     super.isBiometricSupported = false,
     super.isBiometricEnabled = false,
+    super.isRememberMeEnabled = false,
   });
 
   @override
@@ -31,13 +34,17 @@ class Authenticated extends AuthState {
 }
 
 class Unauthenticated extends AuthState {
+  final Map<String, String>? rememberedCredentials;
+
   const Unauthenticated({
+    this.rememberedCredentials,
     super.isBiometricSupported = false,
     super.isBiometricEnabled = false,
+    super.isRememberMeEnabled = false,
   });
 
   @override
-  List<Object?> get props => super.props;
+  List<Object?> get props => [...super.props, rememberedCredentials];
 }
 
 class AuthError extends AuthState {
@@ -46,6 +53,7 @@ class AuthError extends AuthState {
   const AuthError(this.message, {
     super.isBiometricSupported = false,
     super.isBiometricEnabled = false,
+    super.isRememberMeEnabled = false,
   });
 
   @override

@@ -19,5 +19,11 @@ abstract class AuthRepository {
   Future<Either<Failure, void>> updateProfile(Map<String, dynamic> data);
   Future<Either<Failure, void>> changePassword(String oldPassword, String newPassword);
   Future<Either<Failure, void>> forgotPassword(String email);
+  
+  // Remember Me
+  Future<Either<Failure, void>> setRememberMeEnabled(bool enabled);
+  Future<Either<Failure, bool>> getRememberMeEnabled();
+  Future<Either<Failure, Map<String, String>?>> getRememberedCredentials();
+  Future<Either<Failure, void>> clearRememberedCredentials();
 }
 
