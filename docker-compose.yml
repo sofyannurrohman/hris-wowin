@@ -48,7 +48,7 @@ services:
       - DB_PORT=5432
       - SERVER_PORT=8081
       - JWT_SECRET=${JWT_SECRET:-supersecretkey_dev}
-      - SKIP_SEED=${SKIP_SEED:-false}
+      - SKIP_SEED=true
     depends_on:
       postgres:
         condition: service_healthy

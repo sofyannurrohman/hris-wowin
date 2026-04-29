@@ -21,6 +21,7 @@ type SalesTransaction struct {
 	PeriodYear      int        `gorm:"type:int;not null" json:"period_year"`
 	TransactionDate time.Time  `gorm:"type:date;not null" json:"transaction_date"`
 	Status          string     `gorm:"type:varchar(50);default:'PENDING'" json:"status"` // 'PENDING', 'VERIFIED'
+	Notes           *string    `gorm:"type:text" json:"notes"`
 	CreatedAt       time.Time  `gorm:"default:now()" json:"created_at"`
 	UpdatedAt       time.Time  `gorm:"default:now()" json:"updated_at"`
 

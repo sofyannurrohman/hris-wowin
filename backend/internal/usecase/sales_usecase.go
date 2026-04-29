@@ -14,6 +14,30 @@ type SalesUsecase interface {
 	CalculateKPI(employeeID uuid.UUID, month, year int) error
 	GenerateKPIReportExcel(month, year int) ([]byte, error)
 	GetSummaryKPI(month, year int) (map[string]interface{}, error)
+
+	// Mobile App Endpoints
+	CreateTransaction(req CreateTransactionRequest) (*domain.SalesTransaction, error)
+	GetPendingTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error)
+	GetHistoryTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error)
+	VerifyTransaction(id uuid.UUID, req VerifyTransactionRequest) error
+}
+
+type CreateTransactionRequest struct {
+	CompanyID       uuid.UUID `json:"company_id"`
+	StoreID         uuid.UUID `json:"store_id"`
+	EmployeeID      uuid.UUID `json:"employee_id"`
+	ReceiptNo       string    `json:"receipt_no"`
+	ReceiptImageURL string    `json:"receipt_image_url"`
+	TotalAmount     float64   `json:"total_amount"`
+	StoreCategory   string    `json:"store_category"`
+	TransactionDate time.Time `json:"transaction_date"`
+	Notes           string    `json:"notes"`
+}
+
+type VerifyTransactionRequest struct {
+	ReceiptNo   string  `json:"receipt_no"`
+	TotalAmount float64 `json:"total_amount"`
+	Notes       string  `json:"notes"` // Catatan dari finalisasi
 }
 
 type salesUsecase struct {
@@ -161,4 +185,90 @@ func (u *salesUsecase) GetSummaryKPI(month, year int) (map[string]interface{}, e
 		"total_omzet_all":  totalOmzetLama + totalOmzetBaru,
 		"total_toko_baru":  totalTokoBaru,
 	}, nil
+}
+
+func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.SalesTransaction, error) {
+	trx := &domain.SalesTransaction{
+		CompanyID:       req.CompanyID,
+		StoreID:         req.StoreID,
+		EmployeeID:      req.EmployeeID,
+		ReceiptNo:       req.ReceiptNo,
+		ReceiptImageURL: req.ReceiptImageURL,
+		TotalAmount:     req.TotalAmount,
+		StoreCategory:   req.StoreCategory,
+		TransactionDate: req.TransactionDate,
+		PeriodMonth:     int(req.TransactionDate.Month()),
+		PeriodYear:      req.TransactionDate.Year(),
+		Status:          "PENDING",
+		Notes:           &req.Notes,
+	}
+
+	err := u.salesRepo.Create(trx)
+	if err != nil {
+		return nil, err
+	}
+
+	return trx, nil
+}
+
+func (u *salesUsecase) GetPendingTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error) {
+	// Re-using the repository, maybe filtering by status PENDING manually or we add a repo method.
+	// We'll fetch all by employee and period, but filtering manually is fine for now, or just add a method.
+	// Since repo only has GetTransactionsByEmployeeAndPeriod, let's use FindAll and filter.
+	// In a real app we'd add GetPendingByEmployee to repo.
+	all, err := u.salesRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var pending []domain.SalesTransaction
+	for _, t := range all {
+		if t.EmployeeID == employeeID && t.Status == "PENDING" {
+			pending = append(pending, t)
+		}
+	}
+	return pending, nil
+}
+
+func (u *salesUsecase) GetHistoryTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error) {
+	all, err := u.salesRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var history []domain.SalesTransaction
+	// Let's return all transactions for the employee (or just VERIFIED, depending on need. The user wants log checkin/checkout, upload nota, etc. So returning all makes sense).
+	for _, t := range all {
+		if t.EmployeeID == employeeID {
+			history = append(history, t)
+		}
+	}
+	
+	// Normally we would sort by date descending here, but let's assume it's sorted by creation order in FindAll.
+	return history, nil
+}
+
+func (u *salesUsecase) VerifyTransaction(id uuid.UUID, req VerifyTransactionRequest) error {
+	trx, err := u.salesRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if trx == nil {
+		return errors.New("transaction not found")
+	}
+
+	trx.ReceiptNo = req.ReceiptNo
+	trx.TotalAmount = req.TotalAmount
+	trx.Status = "VERIFIED"
+	trx.Notes = &req.Notes
+
+	err = u.salesRepo.Update(trx)
+	if err != nil {
+		return err
+	}
+
+	// Recalculate KPI after verification
+	_ = u.CalculateKPI(trx.EmployeeID, trx.PeriodMonth, trx.PeriodYear)
+
+	return nil
 }

@@ -46,7 +46,7 @@ func (r *branchRepository) FindByID(id uuid.UUID) (*domain.Branch, error) {
 }
 
 func (r *branchRepository) Update(branch *domain.Branch) error {
-	return r.db.Save(branch).Error
+	return r.db.Omit("Company").Save(branch).Error
 }
 
 func (r *branchRepository) Delete(id uuid.UUID) error {

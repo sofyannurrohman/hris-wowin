@@ -301,6 +301,14 @@ const columns = [
     }
   },
   {
+    id: 'branch',
+    header: 'CABANG',
+    cell: ({ row }: any) => {
+      const branchName = row.original.branch?.name || '-'
+      return h('span', { class: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200' }, branchName)
+    }
+  },
+  {
     accessorFn: (row: any) => ({ place: row.birth_place, date: row.birth_date, gender: row.gender, marital: row.marital_status }),
     id: 'personal',
     header: 'DATA PERSONAL',

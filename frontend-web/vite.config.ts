@@ -20,6 +20,16 @@ export default defineConfig({
     },
   },
   server: {
-    host: true, 
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+      },
+    },
   }
 })

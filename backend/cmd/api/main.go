@@ -38,6 +38,9 @@ func main() {
 	performanceRepo := repository.NewPerformanceRepository(db)
 	payrollConfigRepo := repository.NewPayrollConfigRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
+	storeRepo := repository.NewStoreRepository(db)
+	salesRepo := repository.NewSalesTransactionRepository(db)
+	bannerOrderRepo := repository.NewBannerOrderRepository(db)
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
@@ -61,6 +64,8 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
+	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo)
+	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -97,6 +102,9 @@ func main() {
 	performanceHandler := http.NewPerformanceHandler(performanceUseCase, employeeUseCase)
 	payrollConfigHandler := http.NewPayrollConfigHandler(payrollConfigUseCase)
 	announcementHandler := http.NewAnnouncementHandler(announcementUseCase)
+	storeHandler := http.NewStoreHandler(storeRepo, employeeUseCase)
+	salesHandler := http.NewSalesHandler(salesUseCase, employeeUseCase)
+	bannerOrderHandler := http.NewBannerOrderHandler(bannerOrderUseCase, employeeUseCase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -129,6 +137,10 @@ func main() {
 			performanceHandler.SetupRoutes(protected)
 			payrollConfigHandler.SetupRoutes(protected)
 			announcementHandler.SetupRoutes(protected)
+			storeHandler.SetupRoutes(protected)
+			salesHandler.SetupMobileRoutes(protected)
+			salesHandler.RegisterRoutes(protected)
+			bannerOrderHandler.SetupRoutes(protected)
 		}
 	}
 

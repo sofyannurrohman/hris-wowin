@@ -40,6 +40,8 @@ import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:hris_app/features/sales/presentation/pages/store_visit_page.dart';
+import 'package:hris_app/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 import 'package:hris_app/features/announcement/presentation/pages/notification_list_page.dart';
 import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
@@ -337,6 +339,8 @@ class DashboardTab extends StatelessWidget {
                     children: [
                       _buildStatistics(statistics),
                       const SizedBox(height: 32),
+                      _buildSalesWorkingButton(context, state.attendanceStatus, profile),
+                      const SizedBox(height: 32),
                       _buildQuickActions(context, state.attendanceStatus),
                       const SizedBox(height: 40),
                       _buildAnnouncements(context),
@@ -350,6 +354,100 @@ class DashboardTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSalesWorkingButton(BuildContext context, AttendanceStatus status, Map<String, dynamic>? profile) {
+    if (status != AttendanceStatus.clockedIn) return const SizedBox.shrink();
+
+    final jobTitle = profile?['job_position']?['title']?.toString().toLowerCase() ?? '';
+    final isSales = jobTitle.contains('sales');
+
+    if (!isSales) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.15),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: Colors.orange.withOpacity(0.3), width: 2),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+            decoration: const BoxDecoration(
+              color: Colors.orange,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(26),
+                topRight: Radius.circular(26),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Text(
+                  'KHUSUS OPERASIONAL SALES',
+                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const Icon(Icons.storefront_rounded, color: Colors.orange, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'SIAP MULAI KUNJUNGAN?',
+                  style: GoogleFonts.outfit(color: const Color(0xFF1E293B), fontWeight: FontWeight.w900, fontSize: 20),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tekan tombol besar di bawah untuk masuk ke Dashboard Penjualan Anda.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 72, // Extra large for seniors
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/sales_dashboard'),
+                          builder: (context) => const SalesDashboardPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      elevation: 8,
+                      shadowColor: Colors.orange.withOpacity(0.5),
+                    ),
+                    child: Text(
+                      'MULAI BEKERJA SEKARANG',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

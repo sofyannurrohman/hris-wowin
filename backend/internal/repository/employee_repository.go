@@ -70,7 +70,7 @@ func (r *employeeRepository) FindByUserID(userID uuid.UUID) (*domain.Employee, e
 }
 
 func (r *employeeRepository) Update(employee *domain.Employee) error {
-	return r.db.Save(employee).Error
+	return r.db.Omit("User", "Branch", "Department", "JobPosition", "Manager", "EmployeeShifts").Save(employee).Error
 }
 
 func (r *employeeRepository) Delete(id uuid.UUID) error {

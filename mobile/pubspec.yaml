@@ -64,6 +64,9 @@ dependencies:
   geocoding: ^3.0.0
   flutter_local_notifications: ^21.0.0
   timezone: ^0.11.0
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  google_generative_ai: ^0.4.5
 
 dev_dependencies:
   flutter_test:
@@ -100,6 +103,9 @@ flutter:
     - assets/splash_corporate.png
     - assets/splash_premium.png
     - assets/mobilefacenet.tflite
+    - assets/kecap_manis_wowin_1777446817239.png
+    - assets/kecap_asin_wowin_1777446836873.png
+    - assets/saus_sambal_wowin_1777446854511.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

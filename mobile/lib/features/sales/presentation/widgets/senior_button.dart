@@ -37,12 +37,17 @@ class SeniorButton extends StatelessWidget {
           children: [
             Icon(icon, size: 48, color: Colors.white),
             const SizedBox(width: 20),
-            Text(
-              text,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ],

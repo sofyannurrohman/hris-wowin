@@ -31,12 +31,13 @@ type CreateBranchRequest struct {
 }
 
 type UpdateBranchRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	Address     string  `json:"address"`
-	Timezone    string  `json:"timezone"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
-	RadiusMeter int     `json:"radiusMeter"`
+	CompanyID   *uuid.UUID `json:"companyId"`
+	Name        string     `json:"name" binding:"required"`
+	Address     string     `json:"address"`
+	Timezone    string     `json:"timezone"`
+	Latitude    float64    `json:"latitude"`
+	Longitude   float64    `json:"longitude"`
+	RadiusMeter int        `json:"radiusMeter"`
 }
 
 func NewBranchUseCase(repo repository.BranchRepository) BranchUseCase {
@@ -83,6 +84,7 @@ func (u *branchUseCase) UpdateBranch(id uuid.UUID, req *UpdateBranchRequest) err
 		return errors.New("branch not found")
 	}
 
+	branch.CompanyID = req.CompanyID
 	branch.Name = req.Name
 	branch.Address = req.Address
 	branch.Timezone = req.Timezone
