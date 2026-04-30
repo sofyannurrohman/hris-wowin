@@ -33,6 +33,7 @@ type AttendanceLog struct {
 
 	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;" json:"employee,omitempty"`
 	Shift    *Shift    `gorm:"foreignKey:ShiftID" json:"shift,omitempty"`
+	SalesTransactions []SalesTransaction `gorm:"foreignKey:VisitID" json:"sales_transactions,omitempty"`
 }
 
 func (a *AttendanceLog) BeforeCreate(tx *gorm.DB) (err error) {

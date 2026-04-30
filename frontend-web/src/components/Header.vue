@@ -8,16 +8,20 @@ const layoutStore = useLayoutStore()
 
 const modules = [
   { id: 'hris', name: 'HRIS', icon: Users, color: 'text-primary' },
-  { id: 'erecruitment', name: 'eRecruitment', icon: Briefcase, color: 'text-slate-600' },
-  { id: 'sales', name: 'Sales & Marketing', icon: PieChart, color: 'text-slate-600' }
+  { id: 'sales', name: 'Sales & Marketing', icon: PieChart, color: 'text-slate-600' },
+  { id: 'erecruitment', name: 'eRecruitment', icon: Briefcase, color: 'text-slate-600', url: 'https://hrd-room.wowinapps.cloud/login' }
 ]
 
 const currentModuleName = computed(() => {
   return modules.find(m => m.id === layoutStore.currentModule)?.name || 'HRIS'
 })
 
-const setModule = (moduleId: string) => {
-  layoutStore.setModule(moduleId)
+const handleModuleClick = (mod: any) => {
+  if (mod.url) {
+    window.open(mod.url, '_blank')
+    return
+  }
+  layoutStore.setModule(mod.id)
 }
 </script>
 
@@ -39,7 +43,7 @@ const setModule = (moduleId: string) => {
         <button
           v-for="mod in modules"
           :key="mod.id"
-          @click="setModule(mod.id)"
+          @click="handleModuleClick(mod)"
           class="group flex items-center gap-2.5 rounded-xl px-5 py-2 text-sm font-semibold transition-all duration-300 ease-out"
           :class="[
             layoutStore.currentModule === mod.id 

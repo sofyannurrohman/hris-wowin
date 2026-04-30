@@ -25,6 +25,10 @@ func (h *BannerOrderHandler) SetupRoutes(r *gin.RouterGroup) {
 	bannerOrders := r.Group("/banner-orders")
 	{
 		bannerOrders.POST("", h.CreateOrder)
+		bannerOrders.GET("", h.GetAllOrders)
+		bannerOrders.PUT("/:id", h.UpdateOrder)
+		bannerOrders.PATCH("/:id/status", h.UpdateStatus)
+		bannerOrders.DELETE("/:id", h.DeleteOrder)
 	}
 }
 
@@ -61,4 +65,80 @@ func (h *BannerOrderHandler) CreateOrder(c *gin.Context) {
 		"message": "Banner order created successfully",
 		"data":    req,
 	})
+}
+
+func (h *BannerOrderHandler) GetAllOrders(c *gin.Context) {
+	orders, err := h.bannerOrderUseCase.GetAllOrders()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    orders,
+	})
+}
+
+func (h *BannerOrderHandler) UpdateStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid order id"})
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.bannerOrderUseCase.UpdateStatus(id, req.Status); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Status updated successfully"})
+}
+
+func (h *BannerOrderHandler) UpdateOrder(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid order id"})
+		return
+	}
+
+	var req domain.BannerOrder
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.ID = id
+
+	if err := h.bannerOrderUseCase.UpdateOrder(&req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Order updated successfully", "data": req})
+}
+
+func (h *BannerOrderHandler) DeleteOrder(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid order id"})
+		return
+	}
+
+	if err := h.bannerOrderUseCase.DeleteOrder(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Order deleted successfully"})
 }

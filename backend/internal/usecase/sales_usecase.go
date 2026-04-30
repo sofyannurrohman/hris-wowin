@@ -20,6 +20,12 @@ type SalesUsecase interface {
 	GetPendingTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error)
 	GetHistoryTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error)
 	VerifyTransaction(id uuid.UUID, req VerifyTransactionRequest) error
+	GetPerformanceList(month, year int) ([]domain.SalesKPI, error)
+	GetAllPendingTransactions() ([]domain.SalesTransaction, error)
+	GetAllTransactions() ([]domain.SalesTransaction, error)
+	UpdateTransaction(id uuid.UUID, req ManualEntryRequest) error
+	DeleteTransaction(id uuid.UUID) error
+	SetKPITarget(employeeID uuid.UUID, month, year int, targetOmzet float64, targetNewStores int, workingTerritory string) error
 }
 
 type CreateTransactionRequest struct {
@@ -53,14 +59,15 @@ func NewSalesUsecase(salesRepo repository.SalesTransactionRepository, performanc
 }
 
 type ManualEntryRequest struct {
-	CompanyID       uuid.UUID `json:"company_id" binding:"required"`
-	StoreID         uuid.UUID `json:"store_id" binding:"required"`
+	CompanyID       uuid.UUID `json:"company_id"`
+	StoreID         uuid.UUID `json:"store_id"`
 	EmployeeID      uuid.UUID `json:"employee_id" binding:"required"`
 	ReceiptNo       string    `json:"receipt_no"`
 	ReceiptImageURL string    `json:"receipt_image_url"`
 	TotalAmount     float64   `json:"total_amount" binding:"required"`
 	StoreCategory   string    `json:"store_category" binding:"required"` // 'TOKO_LAMA' or 'TOKO_BARU'
 	TransactionDate string    `json:"transaction_date" binding:"required"` // YYYY-MM-DD
+	Status          string    `json:"status"` // 'PENDING', 'VERIFIED', 'REJECTED'
 }
 
 func (u *salesUsecase) ManualEntry(req ManualEntryRequest) (*domain.SalesTransaction, error) {
@@ -80,7 +87,11 @@ func (u *salesUsecase) ManualEntry(req ManualEntryRequest) (*domain.SalesTransac
 		TransactionDate: trxDate,
 		PeriodMonth:     int(trxDate.Month()),
 		PeriodYear:      trxDate.Year(),
-		Status:          "VERIFIED", // Auto-verified since entered by admin
+		Status:          req.Status,
+	}
+
+	if trx.Status == "" {
+		trx.Status = "VERIFIED"
 	}
 
 	err = u.salesRepo.Create(trx)
@@ -134,6 +145,9 @@ func (u *salesUsecase) CalculateKPI(employeeID uuid.UUID, month, year int) error
 	}
 
 	salesKpi.AchievedOmzet = totalOmzet
+	salesKpi.AchievedOmzetLama = report.OmzetLama
+	salesKpi.AchievedOmzetBaru = report.OmzetBaru
+	salesKpi.AchievedNewStores = report.TotalTokoBaru
 	// Calculation logic for estimated bonus could go here based on omzet_lama vs omzet_baru
 
 	return u.performanceRepo.SaveSalesKPI(salesKpi)
@@ -272,3 +286,123 @@ func (u *salesUsecase) VerifyTransaction(id uuid.UUID, req VerifyTransactionRequ
 
 	return nil
 }
+
+func (u *salesUsecase) GetPerformanceList(month, year int) ([]domain.SalesKPI, error) {
+	// In a real scenario, we might want to fetch all employees with a 'Sales' role
+	// and then join with their KPI for the period.
+	// For now, let's fetch all SalesKPI entries for the period.
+	
+	// We'll need a new repo method or just use a generic one if available.
+	// Let's assume we can use FindAll with filters or add a specialized one.
+	// Since performanceRepo has GetSalesKPIReportByMonth, we can use that to get current achievements
+	// but we also need the TARGETS which are in domain.SalesKPI.
+	
+	// Let's add a method to performanceRepo to get all SalesKPIs for a month.
+	return u.performanceRepo.GetSalesKPIsByMonth(month, year)
+}
+
+func (u *salesUsecase) GetAllPendingTransactions() ([]domain.SalesTransaction, error) {
+	all, err := u.salesRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var pending []domain.SalesTransaction
+	for _, t := range all {
+		if t.Status == "PENDING" {
+			pending = append(pending, t)
+		}
+	}
+	return pending, nil
+}
+
+func (u *salesUsecase) GetAllTransactions() ([]domain.SalesTransaction, error) {
+	return u.salesRepo.FindAll()
+}
+
+func (u *salesUsecase) UpdateTransaction(id uuid.UUID, req ManualEntryRequest) error {
+	trx, err := u.salesRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if trx == nil {
+		return errors.New("transaction not found")
+	}
+
+	trxDate, err := time.Parse("2006-01-02", req.TransactionDate)
+	if err != nil {
+		return errors.New("invalid transaction date format, expected YYYY-MM-DD")
+	}
+
+	// Store old values for KPI recalculation if period or employee changes
+	oldEmployeeID := trx.EmployeeID
+	oldMonth := trx.PeriodMonth
+	oldYear := trx.PeriodYear
+
+	trx.StoreID = req.StoreID
+	trx.EmployeeID = req.EmployeeID
+	trx.ReceiptNo = req.ReceiptNo
+	trx.ReceiptImageURL = req.ReceiptImageURL
+	trx.TotalAmount = req.TotalAmount
+	trx.StoreCategory = req.StoreCategory
+	trx.TransactionDate = trxDate
+	trx.PeriodMonth = int(trxDate.Month())
+	trx.PeriodYear = trxDate.Year()
+
+	err = u.salesRepo.Update(trx)
+	if err != nil {
+		return err
+	}
+
+	// Recalculate KPI for current (new) period/employee
+	_ = u.CalculateKPI(trx.EmployeeID, trx.PeriodMonth, trx.PeriodYear)
+
+	// If period or employee changed, recalculate the old one too
+	if oldEmployeeID != trx.EmployeeID || oldMonth != trx.PeriodMonth || oldYear != trx.PeriodYear {
+		_ = u.CalculateKPI(oldEmployeeID, oldMonth, oldYear)
+	}
+
+	return nil
+}
+
+func (u *salesUsecase) DeleteTransaction(id uuid.UUID) error {
+	trx, err := u.salesRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if trx == nil {
+		return errors.New("transaction not found")
+	}
+
+	err = u.salesRepo.Delete(id)
+	if err != nil {
+		return err
+	}
+
+	// Recalculate KPI after deletion
+	_ = u.CalculateKPI(trx.EmployeeID, trx.PeriodMonth, trx.PeriodYear)
+
+	return nil
+}
+
+func (u *salesUsecase) SetKPITarget(employeeID uuid.UUID, month, year int, targetOmzet float64, targetNewStores int, workingTerritory string) error {
+	kpi, err := u.performanceRepo.GetSalesKPIByEmployeeAndPeriod(employeeID, month, year)
+	if err != nil {
+		return err
+	}
+
+	if kpi == nil {
+		kpi = &domain.SalesKPI{
+			EmployeeID:     employeeID,
+			PeriodMonth:    month,
+			PeriodYear:     year,
+		}
+	}
+
+	kpi.TargetOmzet = targetOmzet
+	kpi.TargetNewStores = targetNewStores
+	kpi.WorkingTerritory = workingTerritory
+
+	return u.performanceRepo.SaveSalesKPI(kpi)
+}
+

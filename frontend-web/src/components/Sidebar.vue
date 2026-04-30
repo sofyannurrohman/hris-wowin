@@ -23,8 +23,9 @@ import {
   Scale, 
   History, 
   Banknote,
-  Receipt,
+  Store,
   Target,
+  Receipt,
   Megaphone,
   Timer,
   LogOut 
@@ -42,7 +43,7 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-const menuGroups = [
+const hrisGroups = [
   {
     title: 'Utama',
     items: [
@@ -60,11 +61,11 @@ const menuGroups = [
   {
     title: 'Master Data',
     items: [
-    { to: '/users', name: 'Pengguna Akun', icon: UserCircle },
-    { to: '/leave-types', name: 'Tipe Cuti', icon: Calendar },
-    { to: '/branches', name: 'Kantor Cabang', icon: MapPin },
-    { to: '/companies', name: 'Perusahaan Utama', icon: Globe },
-    { to: '/departments', name: 'Departemen', icon: Building2 },
+      { to: '/users', name: 'Pengguna Akun', icon: UserCircle },
+      { to: '/leave-types', name: 'Tipe Cuti', icon: Calendar },
+      { to: '/branches', name: 'Kantor Cabang', icon: MapPin },
+      { to: '/companies', name: 'Perusahaan Utama', icon: Globe },
+      { to: '/departments', name: 'Departemen', icon: Building2 },
       { to: '/job-positions', name: 'Jabatan', icon: Briefcase },
       { to: '/shifts', name: 'Shift Kerja', icon: Clock },
       { to: '/announcements', name: 'Pengumuman', icon: Megaphone },
@@ -79,6 +80,33 @@ const menuGroups = [
     ]
   }
 ]
+
+const salesGroups = [
+  {
+    title: 'Sales & Marketing',
+    items: [
+      { to: '/sales', name: 'Dashboard Sales', icon: LayoutDashboard },
+      { to: '/sales/salesman', name: 'Data Salesman', icon: Users },
+      { to: '/sales/stores', name: 'Toko Customer', icon: Store },
+      { to: '/sales/penjualan', name: 'Penjualan & Nota', icon: Banknote },
+      { to: '/sales/spanduk', name: 'Pemasangan Spanduk', icon: Megaphone },
+    ]
+  },
+  {
+    title: 'Reporting',
+    items: [
+      { to: '/sales/monitoring', name: 'Live Monitoring', icon: Globe },
+      { to: '/sales/kpi', name: 'KPI Manager', icon: Target },
+    ]
+  }
+]
+
+const menuGroups = computed(() => {
+  if (layoutStore.currentModule === 'sales') {
+    return salesGroups
+  }
+  return hrisGroups
+})
 </script>
 
 <template>

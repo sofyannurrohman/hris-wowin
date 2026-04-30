@@ -357,8 +357,8 @@ onMounted(() => {
     </div>
 
     <!-- ECharts KPI Section -->
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-[0_4px_25px_rgba(0,0,0,0.04)] p-8">
-      <div class="flex items-center justify-between mb-8">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-[0_4px_25px_rgba(0,0,0,0.04)] p-8 flex flex-col h-[480px]">
+      <div class="flex items-center justify-between mb-8 shrink-0">
         <div>
           <h3 class="text-lg font-extrabold text-slate-900 tracking-tight">Performa Sales Marketing</h3>
           <p class="text-sm text-slate-500 mt-1">Status capaian KPI mingguan divisi pemasaran.</p>
@@ -367,7 +367,9 @@ onMounted(() => {
           Lihat Detail <ArrowRight class="w-4 h-4" />
         </button>
       </div>
-      <v-chart class="h-80 w-full" :option="chartOption" autoresize />
+      <div class="flex-1 min-h-0 relative">
+        <v-chart class="absolute inset-0" :option="chartOption" autoresize />
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">

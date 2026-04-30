@@ -46,18 +46,23 @@ func (h *StoreHandler) GetAll(c *gin.Context) {
 	var assignedEmpID uuid.UUID
 	var errParse error
 
+	// If assigned_employee_id is explicitly provided, we always filter by it
 	if assignedEmpIDStr != "" {
 		assignedEmpID, errParse = uuid.Parse(assignedEmpIDStr)
 	} else {
-		// Resolve from token if available
-		if userIDStr, exists := c.Get("userID"); exists {
-			userID := userIDStr.(uuid.UUID)
-			employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
-			if err == nil && employee != nil {
-				assignedEmpID = employee.ID
-				errParse = nil
-			} else {
-				errParse = err
+		// Only auto-filter if role is NOT admin/superadmin
+		role, _ := c.Get("role")
+		if role != "admin" && role != "superadmin" {
+			// Resolve from token if available
+			if userIDStr, exists := c.Get("userID"); exists {
+				userID := userIDStr.(uuid.UUID)
+				employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+				if err == nil && employee != nil {
+					assignedEmpID = employee.ID
+					errParse = nil
+				} else {
+					errParse = err
+				}
 			}
 		}
 	}

@@ -72,7 +72,7 @@ func (r *attendanceRepository) FindHistoryByDateRange(employeeID uuid.UUID, star
 
 func (r *attendanceRepository) FindAllHistory(limit, offset int, branchID *uuid.UUID, month string) ([]domain.AttendanceLog, error) {
 	var attendances []domain.AttendanceLog
-	query := r.db.Preload("Employee.User").Preload("Employee.Branch")
+	query := r.db.Preload("Employee.User").Preload("Employee.Branch").Preload("SalesTransactions.Store")
 	
 	if branchID != nil && *branchID != uuid.Nil {
 		query = query.Joins("JOIN employees ON employees.id = attendance_logs.employee_id").Where("employees.branch_id = ?", *branchID)

@@ -130,6 +130,47 @@ const router = createRouter({
           path: 'announcements',
           name: 'announcements',
           component: () => import('@/views/AnnouncementView.vue'),
+        },
+        // Sales & Marketing Module
+        {
+          path: 'sales',
+          children: [
+            {
+              path: '',
+              name: 'salesDashboard',
+              component: () => import('@/views/sales/SalesDashboard.vue'),
+            },
+            {
+              path: 'salesman',
+              name: 'salesman',
+              component: () => import('@/views/sales/SalesmanView.vue'),
+            },
+            {
+              path: 'penjualan',
+              name: 'penjualan',
+              component: () => import('@/views/sales/PenjualanView.vue'),
+            },
+            {
+              path: 'spanduk',
+              name: 'spanduk',
+              component: () => import('@/views/sales/SpandukView.vue'),
+            },
+            {
+              path: 'monitoring',
+              name: 'monitoring',
+              component: () => import('@/views/sales/Live-Monitoring.vue'),
+            },
+            {
+              path: 'kpi',
+              name: 'kpi',
+              component: () => import('@/views/sales/KPI-Manager.vue'),
+            },
+            {
+              path: 'stores',
+              name: 'stores',
+              component: () => import('@/views/sales/StoreView.vue'),
+            }
+          ]
         }
       ]
     }

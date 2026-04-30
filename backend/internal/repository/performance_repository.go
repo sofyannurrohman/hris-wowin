@@ -21,6 +21,7 @@ type PerformanceRepository interface {
 	GetSalesKPIByEmployeeAndPeriod(employeeID uuid.UUID, month, year int) (*domain.SalesKPI, error)
 	GetSalesKPIHistory(employeeID uuid.UUID) ([]domain.SalesKPI, error)
 	GetSalesKPIReportByMonth(month, year int) ([]SalesKPIReport, error)
+	GetSalesKPIsByMonth(month, year int) ([]domain.SalesKPI, error)
 	SaveSalesKPI(kpi *domain.SalesKPI) error
 
 	// Single Employee KPI History
@@ -142,4 +143,12 @@ func (r *performanceRepository) GetSalesKPIReportByMonth(month, year int) ([]Sal
 	`
 	err := r.db.Raw(query, month, year).Scan(&report).Error
 	return report, err
+}
+ 
+func (r *performanceRepository) GetSalesKPIsByMonth(month, year int) ([]domain.SalesKPI, error) {
+	var kpis []domain.SalesKPI
+	err := r.db.Preload("Employee.User").Preload("Employee.JobPosition").
+		Where("period_month = ? AND period_year = ?", month, year).
+		Find(&kpis).Error
+	return kpis, err
 }

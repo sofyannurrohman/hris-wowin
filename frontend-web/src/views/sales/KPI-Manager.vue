@@ -1,100 +1,482 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import apiClient from '@/api/axios'
+import { 
+  Target, 
+  TrendingUp, 
+  Plus, 
+  Search, 
+  Edit3, 
+  BarChart3, 
+  Award, 
+  ChevronRight,
+  Filter,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  Save
+} from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { toast } from 'vue-sonner'
+
+const isLoading = ref(true)
+const showManualEntry = ref(false)
+const showEditTarget = ref(false)
+const searchQuery = ref('')
+
+const now = new Date()
+const currentMonth = ref(now.getMonth() + 1)
+const currentYear = ref(now.getFullYear())
+
+const months = [
+  { value: 1, label: 'Januari' },
+  { value: 2, label: 'Februari' },
+  { value: 3, label: 'Maret' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'Mei' },
+  { value: 6, label: 'Juni' },
+  { value: 7, label: 'Juli' },
+  { value: 8, label: 'Agustus' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'Oktober' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'Desember' }
+]
+
+const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
+
+const kpiSummary = ref({
+  totalTarget: 0,
+  totalAchieved: 0,
+  activeSalesmen: 0,
+  averageAchievement: 0
+})
+
+const salesmenKpi = ref<any[]>([])
+
+const fetchKPIs = async () => {
+  isLoading.value = true
+  const month = currentMonth.value
+  const year = currentYear.value
+
+  try {
+    // 1. Fetch Summary
+    const summaryRes = await apiClient.get(`/admin/sales/reports/summary?month=${month}&year=${year}`)
+    if (summaryRes.data?.data) {
+      const data = summaryRes.data.data
+      kpiSummary.value = {
+        totalTarget: data.total_omzet_all / (0.8), // Mocking target if not available in summary
+        totalAchieved: data.total_omzet_all,
+        activeSalesmen: 0, // Will fill from performance list
+        averageAchievement: 0
+      }
+    }
+
+    // 2. Fetch Performance List
+    const perfRes = await apiClient.get(`/admin/sales/reports/performance?month=${month}&year=${year}`)
+    if (perfRes.data?.data) {
+      salesmenKpi.value = perfRes.data.data.map((kpi: any) => ({
+        id: kpi.ID,
+        name: kpi.Employee ? `${kpi.Employee.first_name} ${kpi.Employee.last_name}` : 'Salesman',
+        role: kpi.Employee?.job_position?.title || 'Sales',
+        target: kpi.TargetOmzet,
+        achievedLama: kpi.AchievedOmzetLama,
+        achievedBaru: kpi.AchievedOmzetBaru,
+        targetNewStores: kpi.TargetNewStores,
+        achievedNewStores: kpi.AchievedNewStores,
+        employeeID: kpi.EmployeeID,
+        bonus: kpi.EstimatedBonus
+      }))
+
+      kpiSummary.value.activeSalesmen = salesmenKpi.value.length
+      const totalTarget = salesmenKpi.value.reduce((acc, curr) => acc + curr.target, 0)
+      kpiSummary.value.totalTarget = totalTarget
+      kpiSummary.value.averageAchievement = totalTarget > 0 ? Math.round((kpiSummary.value.totalAchieved / totalTarget) * 100) : 0
+    }
+  } catch (error) {
+    console.error('Failed to fetch KPIs:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+
+onMounted(() => {
+  fetchKPIs()
+})
+
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
+}
+
+const formatDate = (date: string) => {
+  if (!date) return '-'
+  return new Date(date).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+}
+
+const getAchievementPercent = (achieved: number, target: number) => {
+  return Math.round((achieved / target) * 100)
+}
+
+const manualEntryForm = ref({
+  employeeID: '',
+  storeCategory: 'TOKO_LAMA',
+  totalAmount: 0,
+  transactionDate: new Date().toISOString().split('T')[0],
+  notes: ''
+})
+
+const submitManualEntry = async () => {
+  if (!manualEntryForm.value.employeeID) {
+    toast.error('Pilih salesman terlebih dahulu')
+    return
+  }
+
+  try {
+    isLoading.value = true
+    await apiClient.post('/admin/sales/manual-entry', {
+      employee_id: manualEntryForm.value.employeeID,
+      store_category: manualEntryForm.value.storeCategory,
+      total_amount: manualEntryForm.value.totalAmount,
+      transaction_date: manualEntryForm.value.transactionDate,
+      store_id: '00000000-0000-0000-0000-000000000000', // Mocking store for manual entry
+      company_id: 'b72883e2-8bb6-438d-92bd-391edbf9e325' // Default company
+    })
+    
+    toast.success('Data berhasil disimpan dan KPI diperbarui otomatis!')
+    showManualEntry.value = false
+    fetchKPIs() // Refresh list
+  } catch (error) {
+    console.error('Failed to submit manual entry:', error)
+    toast.error('Gagal menyimpan data manual')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const editForm = ref({
+  employeeID: '',
+  name: '',
+  targetOmzet: 0,
+  targetNewStores: 0,
+  month: 0,
+  year: 0
+})
+
+const handleEditTarget = (s: any) => {
+  editForm.value = {
+    employeeID: s.employeeID || s.id,
+    name: s.name,
+    targetOmzet: s.target,
+    targetNewStores: s.targetNewStores,
+    month: currentMonth.value,
+    year: currentYear.value
+  }
+  showEditTarget.value = true
+}
+
+const submitEditTarget = async () => {
+  try {
+    isLoading.value = true
+    await apiClient.post('/admin/sales/targets', {
+      employee_id: editForm.value.employeeID,
+      month: editForm.value.month,
+      year: editForm.value.year,
+      target_omzet: editForm.value.targetOmzet,
+      target_new_stores: editForm.value.targetNewStores
+    })
+    toast.success('Target berhasil diperbarui!')
+    showEditTarget.value = false
+    fetchKPIs()
+  } catch (error) {
+    toast.error('Gagal memperbarui target')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+</script>
+
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">Sales Performance & KPI Manager</h1>
-      <button 
-        @click="showManualEntry = true" 
-        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-      >
-        + Input Nota Manual
-      </button>
+  <div class="space-y-8 pb-10">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+          <Target class="w-8 h-8 text-primary" />
+          KPI Manager
+        </h1>
+        <p class="text-[15px] font-medium text-slate-500 mt-1.5 flex items-center gap-2">
+          <Award class="w-4 h-4 text-amber-500" />
+          Atur target dan pantau performa insentif tim sales.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <Button @click="showManualEntry = true" class="bg-primary hover:bg-primary/90 text-white px-6 py-6 rounded-2xl shadow-lg shadow-primary/20 flex items-center gap-2 font-bold transition-all active:scale-95">
+          <Plus class="w-5 h-5" /> Input Nota Manual
+        </Button>
+      </div>
     </div>
 
-    <!-- Sales KPI Table -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <table class="min-w-full leading-normal">
-        <thead>
-          <tr>
-            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Nama Sales / Role
-            </th>
-            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Target Omzet (Total / Baru)
-            </th>
-            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Realisasi (Lama vs Baru)
-            </th>
-            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Progress
-            </th>
-            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Example Row -->
-          <tr>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-              <div class="flex items-center">
-                <div class="ml-3">
-                  <p class="text-gray-900 whitespace-no-wrap font-bold">Budi Santoso</p>
-                  <p class="text-gray-500 whitespace-no-wrap">Motoris</p>
-                </div>
-              </div>
-            </td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-              <p class="text-gray-900 whitespace-no-wrap">Rp 100.000.000</p>
-              <p class="text-gray-500 whitespace-no-wrap">5 Toko Baru</p>
-            </td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-              <p class="text-gray-900 whitespace-no-wrap">Lama: Rp 60.000.000</p>
-              <p class="text-green-600 whitespace-no-wrap">Baru: Rp 20.000.000</p>
-            </td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-              <div class="relative w-full bg-gray-200 rounded">
-                <div style="width: 80%" class="absolute top-0 h-4 rounded bg-blue-500"></div>
-              </div>
-              <span class="text-xs text-gray-500 mt-1 block">80% Tercapai</span>
-            </td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-right">
-              <button class="text-blue-600 hover:text-blue-900">Edit</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+        <div class="relative z-10">
+          <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Target Divisi</p>
+          <h3 class="text-2xl font-black text-slate-900 mt-2">{{ formatCurrency(kpiSummary.totalTarget) }}</h3>
+          <div class="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-primary rounded-full transition-all duration-1000" :style="`width: ${getAchievementPercent(kpiSummary.totalAchieved, kpiSummary.totalTarget)}%`"></div>
+          </div>
+        </div>
+        <TrendingUp class="absolute -right-4 -bottom-4 w-24 h-24 text-slate-50 group-hover:text-primary/5 transition-colors duration-500" />
+      </div>
 
-    <!-- Manual Entry Modal -->
-    <div v-if="showManualEntry" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Input Nota Manual</h3>
-          <div class="mt-2 text-left space-y-4">
-            <input type="text" placeholder="Sales ID" class="w-full border rounded p-2" />
-            <input type="text" placeholder="Store ID" class="w-full border rounded p-2" />
-            <select class="w-full border rounded p-2">
-              <option value="TOKO_LAMA">Toko Lama</option>
-              <option value="TOKO_BARU">Toko Baru</option>
-            </select>
-            <input type="number" placeholder="Total Omzet (Rp)" class="w-full border rounded p-2" />
-          </div>
-          <div class="items-center px-4 py-3 mt-4 flex justify-end gap-2">
-            <button @click="showManualEntry = false" class="px-4 py-2 bg-gray-200 text-gray-800 rounded">Batal</button>
-            <button @click="submitManualEntry" class="px-4 py-2 bg-blue-500 text-white rounded">Simpan</button>
-          </div>
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Realisasi Saat Ini</p>
+        <h3 class="text-2xl font-black text-emerald-600 mt-2">{{ formatCurrency(kpiSummary.totalAchieved) }}</h3>
+        <p class="text-[11px] font-bold text-slate-400 mt-4 flex items-center gap-1">
+          <CheckCircle2 class="w-3 h-3 text-emerald-500" /> {{ getAchievementPercent(kpiSummary.totalAchieved, kpiSummary.totalTarget) }}% dari target bulan ini
+        </p>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Salesman Aktif</p>
+        <h3 class="text-2xl font-black text-slate-900 mt-2">{{ kpiSummary.activeSalesmen }} Orang</h3>
+        <p class="text-[11px] font-bold text-slate-400 mt-4">Semua dalam pantauan live</p>
+      </div>
+
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Rata-rata Capaian</p>
+        <h3 class="text-2xl font-black text-primary mt-2">{{ kpiSummary.averageAchievement }}%</h3>
+        <div class="mt-4 flex gap-1">
+          <div v-for="i in 5" :key="i" class="h-1.5 flex-1 rounded-full" :class="i <= 4 ? 'bg-primary' : 'bg-slate-100'"></div>
         </div>
       </div>
     </div>
+
+    <!-- Main List Section -->
+    <div class="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <!-- Toolbar -->
+      <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/30">
+        <div class="relative w-full md:w-96">
+          <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            placeholder="Cari salesman..." 
+            class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/10 transition-all font-bold text-sm"
+          />
+        </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <select 
+            v-model="currentMonth" 
+            @change="fetchKPIs"
+            class="flex-1 md:w-32 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+          >
+            <option v-for="m in months" :key="m.value" :value="m.value">{{ m.label }}</option>
+          </select>
+          <select 
+            v-model="currentYear" 
+            @change="fetchKPIs"
+            class="flex-1 md:w-24 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+          >
+            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+          </select>
+          <button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all">
+            <Download class="w-3.5 h-3.5" /> Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Content -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50/80 uppercase text-[10px] font-black text-slate-400 tracking-[0.15em]">
+              <th class="px-8 py-5">Nama / Jabatan</th>
+              <th class="px-8 py-5">Target Omzet</th>
+              <th class="px-8 py-5">Omzet Lama</th>
+              <th class="px-8 py-5">Omzet Baru</th>
+              <th class="px-8 py-5">Total Realisasi</th>
+              <th class="px-8 py-5">Toko Baru (Titik)</th>
+              <th class="px-8 py-5">Estimasi Bonus</th>
+              <th class="px-8 py-5 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="s in salesmenKpi" :key="s.id" class="group hover:bg-slate-50/50 transition-all">
+              <td class="px-8 py-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    {{ s.name.charAt(0) }}
+                  </div>
+                  <div>
+                    <p class="font-extrabold text-slate-900 leading-none">{{ s.name }}</p>
+                    <p class="text-[11px] font-bold text-slate-400 mt-1.5 uppercase tracking-wider">{{ s.role }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-8 py-6">
+                <p class="text-sm font-black text-slate-900">{{ formatCurrency(s.target) }}</p>
+              </td>
+              <td class="px-8 py-6">
+                <p class="text-sm font-bold text-slate-600">{{ formatCurrency(s.achievedLama) }}</p>
+              </td>
+              <td class="px-8 py-6">
+                <p class="text-sm font-bold text-blue-600">{{ formatCurrency(s.achievedBaru) }}</p>
+              </td>
+              <td class="px-8 py-6">
+                <div class="space-y-1.5">
+                  <div class="flex justify-between text-[11px] font-bold">
+                    <span class="text-slate-900">{{ formatCurrency(s.achievedLama + s.achievedBaru) }}</span>
+                    <span class="text-slate-400">{{ s.target > 0 ? Math.round(((s.achievedLama + s.achievedBaru) / s.target) * 100) : 0 }}%</span>
+                  </div>
+                  <div class="h-2 w-40 bg-slate-100 rounded-full overflow-hidden flex">
+                    <div class="h-full bg-slate-400" :style="`width: ${s.target > 0 ? (s.achievedLama/s.target)*100 : 0}%`"></div>
+                    <div class="h-full bg-emerald-500" :style="`width: ${s.target > 0 ? (s.achievedBaru/s.target)*100 : 0}%`"></div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-8 py-6">
+                <div class="flex flex-col gap-1">
+                   <p class="text-sm font-black" :class="s.achievedNewStores >= s.targetNewStores ? 'text-emerald-600' : 'text-slate-900'">
+                     {{ s.achievedNewStores }} / {{ s.targetNewStores }}
+                   </p>
+                   <div v-if="s.achievedNewStores >= s.targetNewStores" class="flex items-center gap-1">
+                     <CheckCircle2 class="w-3 h-3 text-emerald-500" />
+                     <span class="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Goal Reached</span>
+                   </div>
+                </div>
+              </td>
+              <td class="px-8 py-6">
+                <div class="bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 inline-block">
+                  <p class="text-xs font-black text-amber-700">{{ formatCurrency(s.bonus) }}</p>
+                </div>
+              </td>
+              <td class="px-8 py-6 text-right">
+                <Button @click="handleEditTarget(s)" variant="ghost" size="icon" class="h-9 w-9 rounded-xl hover:bg-primary/5 hover:text-primary transition-all">
+                  <Edit3 class="w-4 h-4" />
+                </Button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Manual Entry Modal -->
+    <Transition name="fade">
+      <div v-if="showManualEntry" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+          <div class="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h3 class="text-xl font-extrabold text-slate-900">Input Nota Manual</h3>
+            <button @click="showManualEntry = false" class="p-2 hover:bg-slate-200 rounded-xl transition-all">
+              <X class="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+          
+          <div class="p-8 space-y-6">
+            <div class="space-y-2">
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Pilih Salesman</label>
+              <select v-model="manualEntryForm.employeeID" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
+                <option value="" disabled>Pilih Salesman</option>
+                <option v-for="s in salesmenKpi" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Kategori Toko</label>
+                <select v-model="manualEntryForm.storeCategory" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
+                  <option value="TOKO_LAMA">Toko Lama</option>
+                  <option value="TOKO_BARU">Toko Baru</option>
+                </select>
+              </div>
+              <div class="space-y-2">
+                <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Omzet</label>
+                <input v-model.number="manualEntryForm.totalAmount" type="number" placeholder="Rp 0" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+            </div>
+
+            <div class="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-start gap-3">
+              <AlertCircle class="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <p class="text-[11px] font-bold text-primary leading-relaxed">
+                Input manual akan langsung memperbarui KPI salesman dan perhitungan bonus bulan berjalan. Pastikan data nota fisik sudah valid.
+              </p>
+            </div>
+          </div>
+
+          <div class="p-8 bg-slate-50 flex gap-3">
+            <button @click="showManualEntry = false" class="flex-1 py-4 text-sm font-black text-slate-500 hover:text-slate-900 transition-all">BATAL</button>
+            <Button @click="submitManualEntry" class="flex-[2] py-6 rounded-2xl font-black shadow-lg shadow-primary/20">SIMPAN DATA</Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Edit Target Modal -->
+    <Transition name="fade">
+      <div v-if="showEditTarget" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+          <div class="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div>
+              <h3 class="text-xl font-extrabold text-slate-900">Edit Target Sales</h3>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{{ editForm.name }}</p>
+            </div>
+            <button @click="showEditTarget = false" class="p-2 hover:bg-slate-200 rounded-xl transition-all">
+              <X class="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+          
+          <div class="p-8 space-y-6">
+            <div class="space-y-2">
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Target Omzet (Rp)</label>
+              <input v-model.number="editForm.targetOmzet" type="number" placeholder="Rp 0" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all" />
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Target Toko Baru (Titik)</label>
+              <input v-model.number="editForm.targetNewStores" type="number" placeholder="0" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Bulan</label>
+                <div class="w-full bg-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-500 text-sm border border-slate-200">
+                  {{ months.find(m => m.value === editForm.month)?.label }}
+                </div>
+              </div>
+              <div class="space-y-2">
+                <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Tahun</label>
+                <div class="w-full bg-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-500 text-sm border border-slate-200">
+                  {{ editForm.year }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-8 bg-slate-50 flex gap-3">
+            <button @click="showEditTarget = false" class="flex-1 py-4 text-sm font-black text-slate-500 hover:text-slate-900 transition-all">BATAL</button>
+            <Button @click="submitEditTarget" class="flex-[2] py-6 rounded-2xl font-black shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+              <Save class="w-5 h-5" /> SIMPAN PERUBAHAN
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue';
-
-const showManualEntry = ref(false);
-
-const submitManualEntry = () => {
-  // Submit logic calling POST /api/v1/admin/sales/manual-entry
-  showManualEntry.value = false;
-  alert('Data berhasil disimpan dan KPI diperbarui otomatis!');
-};
-</script>
+<style scoped>
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+</style>

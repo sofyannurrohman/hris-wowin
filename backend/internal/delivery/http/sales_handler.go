@@ -26,8 +26,15 @@ func (h *SalesHandler) RegisterRoutes(router *gin.RouterGroup) {
 	sales := router.Group("/admin/sales")
 	{
 		sales.POST("/manual-entry", h.ManualEntry)
+		sales.GET("/transactions/all-pending", h.GetAllPending)
+		sales.GET("/transactions/all", h.GetAllTransactions)
+		sales.PUT("/transactions/:id", h.UpdateTransaction)
+		sales.DELETE("/transactions/:id", h.DeleteTransaction)
+		sales.POST("/targets", h.SetKPITarget)
 		sales.GET("/reports/excel", h.ExportExcel)
 		sales.GET("/reports/summary", h.GetSummary)
+		sales.GET("/reports/performance", h.GetPerformance)
+		sales.POST("/upload", h.UploadPhoto)
 	}
 }
 
@@ -92,6 +99,50 @@ func (h *SalesHandler) GetSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Success retrieving summary KPI",
 		"data":    summary,
+	})
+}
+
+func (h *SalesHandler) GetPerformance(c *gin.Context) {
+	monthStr := c.DefaultQuery("month", "1")
+	yearStr := c.DefaultQuery("year", "2024")
+	month, _ := strconv.Atoi(monthStr)
+	year, _ := strconv.Atoi(yearStr)
+
+	performance, err := h.salesUsecase.GetPerformanceList(month, year)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success retrieving performance list",
+		"data":    performance,
+	})
+}
+
+func (h *SalesHandler) GetAllPending(c *gin.Context) {
+	pending, err := h.salesUsecase.GetAllPendingTransactions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success retrieving all pending transactions",
+		"data":    pending,
+	})
+}
+
+func (h *SalesHandler) GetAllTransactions(c *gin.Context) {
+	trxs, err := h.salesUsecase.GetAllTransactions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    trxs,
 	})
 }
 
@@ -228,3 +279,92 @@ func (h *SalesHandler) VerifyTransaction(c *gin.Context) {
 	})
 }
 
+func (h *SalesHandler) UpdateTransaction(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transaction id"})
+		return
+	}
+
+	var req usecase.ManualEntryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.salesUsecase.UpdateTransaction(id, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Transaction updated successfully"})
+}
+
+func (h *SalesHandler) DeleteTransaction(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transaction id"})
+		return
+	}
+
+	err = h.salesUsecase.DeleteTransaction(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Transaction deleted successfully"})
+}
+
+func (h *SalesHandler) SetKPITarget(c *gin.Context) {
+	var req struct {
+		EmployeeID      uuid.UUID `json:"employee_id" binding:"required"`
+		Month           int       `json:"month" binding:"required"`
+		Year            int       `json:"year" binding:"required"`
+		TargetOmzet     float64   `json:"target_omzet"`
+		TargetNewStores int       `json:"target_new_stores"`
+		WorkingTerritory string   `json:"working_territory"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.salesUsecase.SetKPITarget(req.EmployeeID, req.Month, req.Year, req.TargetOmzet, req.TargetNewStores, req.WorkingTerritory)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "KPI target set successfully"})
+}
+
+func (h *SalesHandler) UploadPhoto(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file is received"})
+		return
+	}
+
+	// Create uploads directory if not exists
+	uploadDir := "./uploads/sales"
+	// For simplicity, we assume the directory exists or is created by the system
+	
+	filename := fmt.Sprintf("%s_%s", uuid.New().String(), file.Filename)
+	filePath := fmt.Sprintf("%s/%s", uploadDir, filename)
+
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to save the file"})
+		return
+	}
+
+	fileURL := fmt.Sprintf("/api/v1/uploads/sales/%s", filename)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "File uploaded successfully",
+		"url":     fileURL,
+	})
+}

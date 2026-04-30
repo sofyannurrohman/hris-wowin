@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sofyan/hris_wowin/backend/config"
 	"github.com/sofyan/hris_wowin/backend/internal/delivery/http"
+	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
 	"github.com/sofyan/hris_wowin/backend/internal/usecase"
 	"github.com/sofyan/hris_wowin/backend/pkg/utils"
@@ -18,6 +19,9 @@ func main() {
 
 	// Initialize Database
 	db := config.ConnectDB(cfg)
+
+	// Run AutoMigrate for critical models to ensure schema sync
+	db.AutoMigrate(&domain.SalesKPI{}, &domain.BannerOrder{})
 
 	// Setup Repositories
 	userRepo := repository.NewUserRepository(db)

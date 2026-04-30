@@ -10,6 +10,8 @@ type BannerOrderRepository interface {
 	Create(order *domain.BannerOrder) error
 	FindAll() ([]domain.BannerOrder, error)
 	FindByID(id uuid.UUID) (*domain.BannerOrder, error)
+	Update(order *domain.BannerOrder) error
+	Delete(id uuid.UUID) error
 }
 
 type bannerOrderRepository struct {
@@ -26,13 +28,13 @@ func (r *bannerOrderRepository) Create(order *domain.BannerOrder) error {
 
 func (r *bannerOrderRepository) FindAll() ([]domain.BannerOrder, error) {
 	var orders []domain.BannerOrder
-	err := r.db.Find(&orders).Error
+	err := r.db.Preload("Employee").Preload("Designer").Preload("Installer").Find(&orders).Error
 	return orders, err
 }
 
 func (r *bannerOrderRepository) FindByID(id uuid.UUID) (*domain.BannerOrder, error) {
 	var order domain.BannerOrder
-	err := r.db.First(&order, "id = ?", id).Error
+	err := r.db.Preload("Employee").Preload("Designer").Preload("Installer").First(&order, "id = ?", id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -40,4 +42,12 @@ func (r *bannerOrderRepository) FindByID(id uuid.UUID) (*domain.BannerOrder, err
 		return nil, err
 	}
 	return &order, nil
+}
+
+func (r *bannerOrderRepository) Update(order *domain.BannerOrder) error {
+	return r.db.Save(order).Error
+}
+
+func (r *bannerOrderRepository) Delete(id uuid.UUID) error {
+	return r.db.Delete(&domain.BannerOrder{}, "id = ?", id).Error
 }

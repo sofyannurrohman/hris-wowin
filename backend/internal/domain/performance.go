@@ -13,10 +13,14 @@ type SalesKPI struct {
 	EmployeeID     uuid.UUID `gorm:"type:uuid;not null"`
 	TargetOmzet    float64   `gorm:"type:decimal(15,2);not null"`
 	AchievedOmzet  float64   `gorm:"type:decimal(15,2);default:0"`
+	AchievedOmzetLama float64 `gorm:"type:decimal(15,2);default:0"`
+	AchievedOmzetBaru float64 `gorm:"type:decimal(15,2);default:0"`
 	TargetNewStores int      `gorm:"type:int;default:0"`
+	AchievedNewStores int    `gorm:"type:int;default:0"`
 	EstimatedBonus float64   `gorm:"type:decimal(15,2);default:0"`
-	PeriodMonth    int       `gorm:"type:int;not null"`
-	PeriodYear     int       `gorm:"type:int;not null"`
+	PeriodMonth    int       `gorm:"type:int;not null" json:"period_month"`
+	PeriodYear     int       `gorm:"type:int;not null" json:"period_year"`
+	WorkingTerritory string  `gorm:"type:varchar(200)" json:"working_territory"`
 	CreatedAt      time.Time `gorm:"default:now()"`
 	UpdatedAt      time.Time `gorm:"default:now()"`
 
