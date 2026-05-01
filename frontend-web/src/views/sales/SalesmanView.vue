@@ -12,7 +12,12 @@ import {
   Calendar,
   History,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Users,
+  MapPin,
+  TrendingUp,
+  X,
+  Mail
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
@@ -392,7 +397,7 @@ const formatCurrency = (val: number) => {
             </div>
             <div>
               <h3 class="text-2xl font-black text-slate-900 tracking-tight">Riwayat Kunjungan</h3>
-              <p class="text-sm font-bold text-slate-400 mt-0.5">{{ selectedSalesman?.name }} • {{ months[currentMonth-1].label }} {{ currentYear }}</p>
+              <p class="text-sm font-bold text-slate-400 mt-0.5">{{ selectedSalesman?.name }} • {{ months[currentMonth-1]?.label }} {{ currentYear }}</p>
             </div>
           </div>
           <button @click="showHistoryModal = false" class="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-slate-900 shadow-sm">
