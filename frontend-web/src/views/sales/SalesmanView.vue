@@ -109,16 +109,20 @@ const fetchEmployees = async () => {
 const handleEditTarget = (s: any) => {
   isEditing.value = true
   const rawData = salesmen.value.find(item => item.id === s.id)
-  currentSalesman.value = {
-    employeeID: rawData.employeeID,
-    name: s.name,
-    targetOmzet: s.target,
-    targetNewStores: rawData.targetNewStores || 0,
-    workingTerritory: rawData.workingTerritory || '',
-    month: currentMonth.value,
-    year: currentYear.value
+  if (rawData) {
+    currentSalesman.value = {
+      employeeID: rawData.employeeID,
+      name: s.name,
+      targetOmzet: s.target,
+      targetNewStores: rawData.targetNewStores || 0,
+      workingTerritory: rawData.workingTerritory || '',
+      month: currentMonth.value,
+      year: currentYear.value
+    }
+    isModalOpen.value = true
+  } else {
+    toast.error('Data salesman tidak ditemukan')
   }
-  isModalOpen.value = true
 }
 
 const handleSaveTarget = async () => {
@@ -178,6 +182,11 @@ onMounted(() => {
 
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
+}
+
+const getMonthLabel = (m: number) => {
+  const found = months.find(item => item.value === m)
+  return found ? found.label : ''
 }
 </script>
 
@@ -397,7 +406,7 @@ const formatCurrency = (val: number) => {
             </div>
             <div>
               <h3 class="text-2xl font-black text-slate-900 tracking-tight">Riwayat Kunjungan</h3>
-              <p class="text-sm font-bold text-slate-400 mt-0.5">{{ selectedSalesman?.name }} • {{ months[currentMonth-1]?.label }} {{ currentYear }}</p>
+              <p class="text-sm font-bold text-slate-400 mt-0.5">{{ selectedSalesman?.name }} • {{ getMonthLabel(currentMonth) }} {{ currentYear }}</p>
             </div>
           </div>
           <button @click="showHistoryModal = false" class="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-slate-900 shadow-sm">
