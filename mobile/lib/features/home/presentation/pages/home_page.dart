@@ -358,6 +358,9 @@ class DashboardTab extends StatelessWidget {
   }
 
   Widget _buildSalesWorkingButton(BuildContext context, AttendanceStatus status, Map<String, dynamic>? profile) {
+    // TODO: Hidden for release - Feature not ready
+    return const SizedBox.shrink();
+
     if (status != AttendanceStatus.clockedIn) return const SizedBox.shrink();
 
     final jobTitle = profile?['job_position']?['title']?.toString().toLowerCase() ?? '';

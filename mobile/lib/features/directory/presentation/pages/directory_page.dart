@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,11 +17,19 @@ class DirectoryPage extends StatefulWidget {
 
 class _DirectoryPageState extends State<DirectoryPage> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     context.read<DirectoryBloc>().add(const FetchDirectoryRequested());
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _callNumber(String phoneNumber) async {
@@ -132,7 +141,10 @@ class _DirectoryPageState extends State<DirectoryPage> {
           child: TextField(
             controller: _searchController,
             onChanged: (val) {
-              context.read<DirectoryBloc>().add(FetchDirectoryRequested(query: val));
+              if (_debounce?.isActive ?? false) _debounce!.cancel();
+              _debounce = Timer(const Duration(milliseconds: 500), () {
+                context.read<DirectoryBloc>().add(FetchDirectoryRequested(query: val));
+              });
             },
             style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
@@ -308,4 +320,3 @@ class _DirectoryPageState extends State<DirectoryPage> {
     );
   }
 }
-

@@ -8,6 +8,7 @@ import 'package:hris_app/features/reimbursement/presentation/bloc/reimbursement_
 import 'package:hris_app/injection.dart' as di;
 import 'package:intl/intl.dart';
 import 'add_reimbursement_page.dart';
+import "package:hris_app/core/utils/dialog_utils.dart";
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 
 class ReimbursementListPage extends StatefulWidget {
@@ -30,7 +31,7 @@ class _ReimbursementListPageState extends State<ReimbursementListPage> {
               SnackBarUtils.showSuccess(context, state.message);
               context.read<ReimbursementBloc>().add(const FetchReimbursementHistoryRequested());
             } else if (state is ReimbursementFailure) {
-              SnackBarUtils.showError(context, state.message);
+              DialogUtils.showError(context: context, title: "Gagal", message: state.message);
             }
           },
           child: const ReimbursementListView(),

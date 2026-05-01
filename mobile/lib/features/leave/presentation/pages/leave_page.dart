@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
+import "package:hris_app/core/utils/dialog_utils.dart";
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:hris_app/features/leave/presentation/bloc/leave_bloc.dart';
 import 'package:hris_app/features/leave/presentation/bloc/leave_event.dart';
@@ -42,7 +43,7 @@ class _LeavePageState extends State<LeavePage> {
           if (state.status == LeaveStatus.success && state.actionMessage != null) {
             SnackBarUtils.showSuccess(context, state.actionMessage!);
           } else if (state.status == LeaveStatus.failure && state.actionMessage != null) {
-            SnackBarUtils.showError(context, state.actionMessage!);
+            DialogUtils.showError(context: context, title: "Gagal", message: state.actionMessage!);
           }
         },
         child: Scaffold(

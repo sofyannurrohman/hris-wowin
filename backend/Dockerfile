@@ -10,10 +10,14 @@ RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Install migrate CLI
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+
 # Copy source and build
 COPY . .
 RUN go build -o bin/api cmd/api/main.go
 RUN go build -o bin/seeder cmd/seeder/main.go
+RUN cp /go/bin/migrate ./migrate
 
 # Stage 2: Final image
 FROM alpine:latest

@@ -148,6 +148,7 @@ func (u *salesUsecase) CalculateKPI(employeeID uuid.UUID, month, year int) error
 	salesKpi.AchievedOmzetLama = report.OmzetLama
 	salesKpi.AchievedOmzetBaru = report.OmzetBaru
 	salesKpi.AchievedNewStores = report.TotalTokoBaru
+	salesKpi.TotalVisits = report.TotalVisits
 	// Calculation logic for estimated bonus could go here based on omzet_lama vs omzet_baru
 
 	return u.performanceRepo.SaveSalesKPI(salesKpi)

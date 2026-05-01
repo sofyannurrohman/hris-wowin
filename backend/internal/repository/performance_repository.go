@@ -127,6 +127,7 @@ type SalesKPIReport struct {
 	OmzetLama     float64   `gorm:"column:omzet_lama"`
 	OmzetBaru     float64   `gorm:"column:omzet_baru"`
 	TotalTokoBaru int       `gorm:"column:total_toko_baru"`
+	TotalVisits   int       `gorm:"column:total_visits"`
 }
 
 func (r *performanceRepository) GetSalesKPIReportByMonth(month, year int) ([]SalesKPIReport, error) {
@@ -136,7 +137,8 @@ func (r *performanceRepository) GetSalesKPIReportByMonth(month, year int) ([]Sal
 			employee_id,
 			SUM(CASE WHEN store_category = 'TOKO_LAMA' THEN total_amount ELSE 0 END) as omzet_lama,
 			SUM(CASE WHEN store_category = 'TOKO_BARU' THEN total_amount ELSE 0 END) as omzet_baru,
-			COUNT(CASE WHEN store_category = 'TOKO_BARU' THEN 1 END) as total_toko_baru
+			COUNT(CASE WHEN store_category = 'TOKO_BARU' THEN 1 END) as total_toko_baru,
+			COUNT(DISTINCT visit_id) as total_visits
 		FROM sales_transactions
 		WHERE status = 'VERIFIED' AND period_month = ? AND period_year = ?
 		GROUP BY employee_id

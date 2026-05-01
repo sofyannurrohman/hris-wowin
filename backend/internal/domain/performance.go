@@ -17,6 +17,7 @@ type SalesKPI struct {
 	AchievedOmzetBaru float64 `gorm:"type:decimal(15,2);default:0"`
 	TargetNewStores int      `gorm:"type:int;default:0"`
 	AchievedNewStores int    `gorm:"type:int;default:0"`
+	TotalVisits       int    `gorm:"type:int;default:0"`
 	EstimatedBonus float64   `gorm:"type:decimal(15,2);default:0"`
 	PeriodMonth    int       `gorm:"type:int;not null" json:"period_month"`
 	PeriodYear     int       `gorm:"type:int;not null" json:"period_year"`

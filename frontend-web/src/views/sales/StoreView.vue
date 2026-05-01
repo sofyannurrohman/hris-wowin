@@ -16,9 +16,14 @@ import {
   CheckCircle2,
   AlertCircle,
   MoreVertical,
-  Navigation
+  Navigation,
+  Globe
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import 'leaflet-defaulticon-compatibility'
+import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css'
 
 const isLoading = ref(true)
 const stores = ref<any[]>([])
@@ -27,6 +32,9 @@ const searchQuery = ref('')
 const selectedStatus = ref('ALL')
 const showModal = ref(false)
 const isEditing = ref(false)
+const map = ref<any>(null)
+const marker = ref<any>(null)
+const isGeocoding = ref(false)
 
 const currentStore = ref({
   id: '',
@@ -66,6 +74,55 @@ const fetchSalesmen = async () => {
   }
 }
 
+const initMap = () => {
+  if (map.value) return
+  
+  setTimeout(() => {
+    const defaultLat = currentStore.value.latitude || -6.2088
+    const defaultLng = currentStore.value.longitude || 106.8456
+    
+    map.value = L.map('store-map').setView([defaultLat, defaultLng], 15)
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map.value)
+
+    marker.value = L.marker([defaultLat, defaultLng], {
+      draggable: true
+    }).addTo(map.value)
+
+    marker.value.on('dragend', (e: any) => {
+      const pos = e.target.getLatLng()
+      currentStore.value.latitude = pos.lat
+      currentStore.value.longitude = pos.lng
+      reverseGeocode(pos.lat, pos.lng)
+    })
+
+    map.value.on('click', (e: any) => {
+      const pos = e.latlng
+      marker.value.setLatLng(pos)
+      currentStore.value.latitude = pos.lat
+      currentStore.value.longitude = pos.lng
+      reverseGeocode(pos.lat, pos.lng)
+    })
+  }, 300)
+}
+
+const reverseGeocode = async (lat: number, lng: number) => {
+  isGeocoding.value = true
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+    const data = await res.json()
+    if (data.display_name) {
+      currentStore.value.address = data.display_name
+    }
+  } catch (error) {
+    console.error('Reverse geocoding failed:', error)
+  } finally {
+    isGeocoding.value = false
+  }
+}
+
 const openAddModal = () => {
   isEditing.value = false
   currentStore.value = {
@@ -74,12 +131,13 @@ const openAddModal = () => {
     owner_name: '',
     phone_number: '',
     address: '',
-    latitude: 0,
-    longitude: 0,
+    latitude: -6.2088,
+    longitude: 106.8456,
     assigned_employee_id: '',
     is_active: true
   }
   showModal.value = true
+  initMap()
 }
 
 const handleEdit = (store: any) => {
@@ -96,6 +154,7 @@ const handleEdit = (store: any) => {
     is_active: store.is_active
   }
   showModal.value = true
+  initMap()
 }
 
 const handleDelete = async (id: string) => {
@@ -280,7 +339,7 @@ onMounted(() => {
             <h3 class="text-2xl font-black text-slate-900 tracking-tight">{{ isEditing ? 'Edit Data Toko' : 'Daftarkan Toko Baru' }}</h3>
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Informasi Outlet Customer</p>
           </div>
-          <button @click="showModal = false" class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-slate-900">
+          <button @click="showModal = false; map = null" class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-slate-900">
             <X class="w-6 h-6" />
           </button>
         </div>
@@ -317,14 +376,24 @@ onMounted(() => {
             <textarea v-model="currentStore.address" placeholder="Masukkan alamat lengkap toko..." class="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold text-slate-900 focus:bg-white focus:border-primary/20 focus:ring-0 transition-all h-24 resize-none"></textarea>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Latitude</label>
-              <input v-model.number="currentStore.latitude" type="number" step="any" class="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold text-slate-900 focus:bg-white focus:border-primary/20 focus:ring-0 transition-all" />
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Titik Lokasi (Map Picker)</label>
+              <div v-if="isGeocoding" class="flex items-center gap-2 text-[10px] font-black text-primary animate-pulse">
+                <Globe class="w-3 h-3 animate-spin" /> MENCARI ALAMAT...
+              </div>
             </div>
-            <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Longitude</label>
-              <input v-model.number="currentStore.longitude" type="number" step="any" class="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold text-slate-900 focus:bg-white focus:border-primary/20 focus:ring-0 transition-all" />
+            <div id="store-map" class="w-full h-64 rounded-3xl border border-slate-100 shadow-inner z-10 overflow-hidden"></div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Latitude</label>
+                <input v-model.number="currentStore.latitude" type="number" step="any" class="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold text-slate-900 focus:bg-white focus:border-primary/20 focus:ring-0 transition-all" />
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Longitude</label>
+                <input v-model.number="currentStore.longitude" type="number" step="any" class="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold text-slate-900 focus:bg-white focus:border-primary/20 focus:ring-0 transition-all" />
+              </div>
             </div>
           </div>
 
@@ -336,7 +405,7 @@ onMounted(() => {
 
         <!-- Footer -->
         <div class="p-8 border-t border-slate-100 flex gap-4 bg-white shrink-0">
-          <button @click="showModal = false" class="flex-1 py-4 text-xs font-black text-slate-400 hover:text-slate-900 transition-all uppercase tracking-widest">
+          <button @click="showModal = false; map = null" class="flex-1 py-4 text-xs font-black text-slate-400 hover:text-slate-900 transition-all uppercase tracking-widest">
             BATAL
           </button>
           <button 

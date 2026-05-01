@@ -564,7 +564,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
     } catch (e) {
       debugPrint("Take picture logic error: $e");
       if (mounted) {
-        SnackBarUtils.showError(context, "Gagal memproses foto: $e");
+        DialogUtils.showError(context: context, title: "Kesalahan Sistem", message: "Gagal memproses data wajah: $e");
         setState(() => _isVerifying = false);
         _startCamera();
       }
@@ -578,7 +578,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
     _statusText = isMatched ? "Wajah diverifikasi." : "Wajah tidak sesuai.";
     
     if (!isMatched) {
-      SnackBarUtils.showError(context, "Verifikasi gagal. Pastikan wajah Anda terlihat jelas.");
+      DialogUtils.showError(context: context, title: "Verifikasi Gagal", message: "Wajah tidak dikenali atau tidak sesuai. Pastikan pencahayaan cukup dan wajah terlihat jelas.");
       _startCamera();
     }
   }

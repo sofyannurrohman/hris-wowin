@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hris_app/core/theme/app_colors.dart';
 
 class SnackBarUtils {
   static void showSuccess(BuildContext context, String message) {
     _showSnackBar(
       context,
       message,
-      const Color(0xFF10B981), // Success Green
-      Icons.check_circle_outline,
+      AppColors.success,
+      Icons.check_circle_outline_rounded,
     );
   }
 
@@ -15,8 +16,10 @@ class SnackBarUtils {
     _showSnackBar(
       context,
       message,
-      const Color(0xFFEF4444), // Error Red
-      Icons.error_outline,
+      AppColors.error,
+      Icons.error_outline_rounded,
+      duration: const Duration(seconds: 6),
+      isError: true,
     );
   }
 
@@ -24,8 +27,8 @@ class SnackBarUtils {
     _showSnackBar(
       context,
       message,
-      const Color(0xFF3B82F6), // Info Blue
-      Icons.info_outline,
+      AppColors.info,
+      Icons.info_outline_rounded,
     );
   }
 
@@ -33,9 +36,14 @@ class SnackBarUtils {
     BuildContext context,
     String message,
     Color backgroundColor,
-    IconData icon,
-  ) {
+    IconData icon, {
+    Duration duration = const Duration(seconds: 3),
+    bool isError = false,
+  }) {
+    // Only hide current if it's not an error, or if we want to force the new error to the front.
+    // For now, let's keep hideCurrentSnackBar for consistency but increase duration for errors.
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -45,10 +53,10 @@ class SnackBarUtils {
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.plusJakartaSans(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -57,11 +65,20 @@ class SnackBarUtils {
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
         ),
         margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-        elevation: 4,
+        duration: duration,
+        elevation: 8,
+        action: isError 
+            ? SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
+              )
+            : null,
       ),
     );
   }

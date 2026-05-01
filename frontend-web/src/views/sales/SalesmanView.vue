@@ -8,13 +8,11 @@ import {
   MoreVertical, 
   Edit2, 
   Trash2, 
-  Users,
-  Target,
-  TrendingUp,
-  MapPin,
-  Mail,
-  Phone,
-  Building2
+  Building2,
+  Calendar,
+  History,
+  Eye,
+  ArrowRight
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
@@ -34,6 +32,11 @@ const currentSalesman = ref({
   month: new Date().getMonth() + 1,
   year: new Date().getFullYear()
 })
+
+const showHistoryModal = ref(false)
+const visitHistory = ref<any[]>([])
+const selectedSalesman = ref<any>(null)
+const isHistoryLoading = ref(false)
 
 const currentMonth = ref(new Date().getMonth() + 1)
 const currentYear = ref(new Date().getFullYear())
@@ -76,7 +79,8 @@ const fetchSalesmen = async () => {
         branch: kpi.Employee?.branch?.name || '-',
         current: kpi.AchievedOmzet,
         currentLama: kpi.AchievedOmzetLama || 0,
-        currentBaru: kpi.AchievedOmzetBaru || 0
+        currentBaru: kpi.AchievedOmzetBaru || 0,
+        totalVisits: kpi.TotalVisits || 0
       }))
     }
   } catch (error) {
@@ -127,6 +131,23 @@ const handleSaveTarget = async () => {
     fetchSalesmen()
   } catch (error) {
     console.error('Failed to save target:', error)
+  }
+}
+
+const openVisitHistory = async (s: any) => {
+  selectedSalesman.value = s
+  showHistoryModal.value = true
+  isHistoryLoading.value = true
+  try {
+    const res = await apiClient.get(`/attendance/all?employee_id=${s.employeeID}&limit=50`)
+    if (res.data?.data) {
+      visitHistory.value = res.data.data
+    }
+  } catch (error) {
+    console.error('Failed to fetch visit history:', error)
+    toast.error('Gagal mengambil riwayat kunjungan')
+  } finally {
+    isHistoryLoading.value = false
   }
 }
 
@@ -202,6 +223,7 @@ const formatCurrency = (val: number) => {
             <th class="px-8 py-5">Target Bulanan</th>
             <th class="px-8 py-5">Omzet Toko Lama</th>
             <th class="px-8 py-5">Omzet Toko Baru</th>
+            <th class="px-8 py-5">Total Kunjungan</th>
             <th class="px-8 py-5">Total Realisasi</th>
             <th class="px-8 py-5 text-right">Aksi</th>
           </tr>
@@ -241,6 +263,13 @@ const formatCurrency = (val: number) => {
             </td>
             <td class="px-8 py-6">
               <p class="text-sm font-bold text-blue-600">{{ formatCurrency(s.currentBaru) }}</p>
+            </td>
+            <td class="px-8 py-6">
+              <button @click="openVisitHistory(s)" class="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all group/visit">
+                 <span class="text-sm font-black">{{ s.totalVisits }}</span>
+                 <span class="text-[10px] font-bold uppercase tracking-tighter opacity-70">Kunjungan</span>
+                 <Eye class="w-3.5 h-3.5 opacity-0 group-hover/visit:opacity-100 transition-all translate-x-[-4px] group-hover/visit:translate-x-0" />
+              </button>
             </td>
             <td class="px-8 py-6">
               <div class="space-y-2">
@@ -351,5 +380,123 @@ const formatCurrency = (val: number) => {
         </div>
       </div>
     </div>
+    <!-- Visit History Modal -->
+    <div v-if="showHistoryModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" @click="showHistoryModal = false"></div>
+      <div class="bg-white rounded-[40px] w-full max-w-2xl relative z-10 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <!-- Header -->
+        <div class="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div class="flex items-center gap-5">
+            <div class="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+              <History class="w-7 h-7" />
+            </div>
+            <div>
+              <h3 class="text-2xl font-black text-slate-900 tracking-tight">Riwayat Kunjungan</h3>
+              <p class="text-sm font-bold text-slate-400 mt-0.5">{{ selectedSalesman?.name }} • {{ months[currentMonth-1].label }} {{ currentYear }}</p>
+            </div>
+          </div>
+          <button @click="showHistoryModal = false" class="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-slate-900 shadow-sm">
+            <X class="w-6 h-6" />
+          </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          <div v-if="isHistoryLoading" class="flex flex-col items-center justify-center py-20">
+            <div class="w-12 h-12 border-4 border-emerald-100 border-t-emerald-500 rounded-full animate-spin"></div>
+            <p class="text-sm font-bold text-slate-400 mt-4">Mengambil data kunjungan...</p>
+          </div>
+          
+          <div v-else-if="visitHistory.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
+             <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                <MapPin class="w-10 h-10 text-slate-200" />
+             </div>
+             <h4 class="text-lg font-black text-slate-900">Belum ada kunjungan</h4>
+             <p class="text-sm font-medium text-slate-400 mt-1 max-w-[240px]">Salesman ini belum melakukan kunjungan tercatat di periode ini.</p>
+          </div>
+
+          <div v-else class="space-y-6">
+             <div v-for="visit in visitHistory" :key="visit.id" class="group/item flex gap-6 relative">
+                <!-- Timeline Line -->
+                <div class="absolute left-[27px] top-14 bottom-[-24px] w-0.5 bg-slate-100 group-last/item:hidden"></div>
+                
+                <!-- Time/Indicator -->
+                <div class="shrink-0 flex flex-col items-center">
+                   <div class="w-14 h-14 rounded-2xl bg-white border-2 border-slate-100 flex flex-col items-center justify-center group-hover/item:border-emerald-500 transition-colors z-10 shadow-sm">
+                      <span class="text-[10px] font-black text-slate-400 uppercase leading-none">{{ new Date(visit.clock_in_time).toLocaleDateString('id-ID', { day: '2-digit' }) }}</span>
+                      <span class="text-[10px] font-black text-slate-900 uppercase leading-none mt-1">{{ new Date(visit.clock_in_time).toLocaleDateString('id-ID', { month: 'short' }) }}</span>
+                   </div>
+                </div>
+
+                <!-- Card -->
+                <div class="flex-1 bg-slate-50/50 hover:bg-white rounded-[24px] p-5 border border-slate-100 hover:border-emerald-200 transition-all hover:shadow-xl hover:shadow-emerald-500/5 group-hover/item:translate-x-2">
+                   <div class="flex justify-between items-start mb-4">
+                      <div class="flex items-center gap-2">
+                         <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                         <span class="text-xs font-black text-slate-900">{{ new Date(visit.clock_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+                         <span class="text-slate-300 mx-1">—</span>
+                         <span class="text-xs font-bold text-slate-400">{{ visit.clock_out_time ? new Date(visit.clock_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Masih Berkunjung' }}</span>
+                      </div>
+                      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-100 rounded-lg shadow-sm">
+                         <MapPin class="w-3 h-3 text-emerald-500" />
+                         <span class="text-[10px] font-black text-slate-600 uppercase tracking-tighter">Lokasi Terverifikasi</span>
+                      </div>
+                   </div>
+
+                   <div v-if="visit.sales_transactions && visit.sales_transactions.length > 0">
+                      <div v-for="trx in visit.sales_transactions" :key="trx.id" class="mb-2 last:mb-0 bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                         <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                               <Building2 class="w-4 h-4" />
+                            </div>
+                            <div>
+                               <p class="text-[11px] font-black text-slate-900">{{ trx.store?.name || 'Toko Unknown' }}</p>
+                               <p class="text-[9px] font-bold text-slate-400">Transaksi Berhasil</p>
+                            </div>
+                         </div>
+                         <p class="text-xs font-black text-emerald-600">{{ formatCurrency(trx.total_amount) }}</p>
+                      </div>
+                   </div>
+                   <div v-else-if="visit.notes" class="bg-white p-3 rounded-xl border border-slate-100 border-dashed">
+                      <p class="text-[11px] font-bold text-slate-500 italic">"{{ visit.notes }}"</p>
+                   </div>
+                   <div v-else class="flex items-center gap-2 text-slate-300">
+                      <div class="h-[1px] flex-1 bg-slate-100"></div>
+                      <span class="text-[9px] font-black uppercase tracking-widest">Tidak ada catatan</span>
+                      <div class="h-[1px] flex-1 bg-slate-100"></div>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-8 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center shrink-0">
+           <div class="flex items-center gap-3">
+              <p class="text-xs font-bold text-slate-400">Total Kunjungan Bulan Ini:</p>
+              <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-black text-slate-900 shadow-sm">{{ visitHistory.length }}</span>
+           </div>
+           <Button @click="showHistoryModal = false" class="bg-slate-900 text-white rounded-2xl px-8 py-3.5 font-bold shadow-lg shadow-slate-200 hover:scale-[1.02] active:scale-[0.98] transition-all">
+              TUTUP
+           </Button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+</style>

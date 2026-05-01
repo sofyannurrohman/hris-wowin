@@ -35,7 +35,16 @@ Aplikasi sekarang berjalan secara internal:
 
 ---
 
-## Langkah 4: Konfigurasi Nginx di VPS
+## Langkah 4: Inisialisasi Database (Seeding)
+Jika ini adalah instalasi pertama, jalankan script berikut untuk membuat akun Admin default (`sofyan@sentraweb.id` / `password123`):
+
+```bash
+./seed.sh
+```
+
+---
+
+## Langkah 5: Konfigurasi Nginx di VPS
 Buat file konfigurasi baru di Nginx VPS Anda:
 
 ```bash
@@ -98,3 +107,10 @@ Akses **https://hris.wowinapps.cloud**.
 ## Pemeliharaan
 - Cek log Docker: `docker compose logs -f`
 - Update aplikasi: `git pull` -> `docker compose up -d --build`
+
+---
+
+## Catatan Keamanan
+1. **JWT Secret**: Pastikan Anda mengubah `JWT_SECRET` di file `.env` sebelum menjalankan `docker compose`.
+2. **Database Password**: Gunakan password yang kuat untuk `POSTGRES_PASSWORD`.
+3. **Admin Password**: Setelah berhasil login pertama kali, segera ubah password admin default Anda.

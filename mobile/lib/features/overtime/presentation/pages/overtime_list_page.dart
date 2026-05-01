@@ -6,6 +6,7 @@ import 'package:hris_app/features/overtime/presentation/bloc/overtime_event.dart
 import 'package:hris_app/features/overtime/presentation/bloc/overtime_state.dart';
 import 'package:hris_app/features/overtime/presentation/pages/overtime_request_page.dart';
 import 'package:intl/intl.dart';
+import "package:hris_app/core/utils/dialog_utils.dart";
 import 'package:hris_app/core/utils/snackbar_utils.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
@@ -53,7 +54,7 @@ class _OvertimeListPageState extends State<OvertimeListPage> {
             SnackBarUtils.showSuccess(context, state.message);
             context.read<OvertimeBloc>().add(FetchMyOvertimesRequested());
           } else if (state is OvertimeFailure) {
-            SnackBarUtils.showError(context, state.errorMessage);
+            DialogUtils.showError(context: context, title: "Gagal", message: state.errorMessage);
           }
         },
         builder: (context, state) {
