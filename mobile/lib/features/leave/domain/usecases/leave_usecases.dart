@@ -55,3 +55,23 @@ class GetLeaveBalancesUseCase {
     return repository.getMyBalances();
   }
 }
+
+class UpdateLeaveUseCase {
+  final LeaveRepository repository;
+
+  UpdateLeaveUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String leaveId, String leaveTypeId, String startDate, String endDate, String reason, {Uint8List? attachmentBytes, String? attachmentName}) {
+    return repository.updateLeave(leaveId, leaveTypeId, startDate, endDate, reason, attachmentBytes: attachmentBytes, attachmentName: attachmentName);
+  }
+}
+
+class DeleteLeaveUseCase {
+  final LeaveRepository repository;
+
+  DeleteLeaveUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String leaveId) {
+    return repository.deleteLeave(leaveId);
+  }
+}

@@ -52,6 +52,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               message: 'Instruksi pemulihan kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk atau folder spam Anda.',
               onConfirm: () => Navigator.pop(context),
             );
+          } else if (state is AuthError) {
+            DialogUtils.showError(
+              context: context,
+              title: 'Gagal Mengirim Email',
+              message: state.message,
+            );
           }
         },
         child: SafeArea(

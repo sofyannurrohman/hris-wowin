@@ -80,6 +80,8 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (previous, current) => 
+          current is AuthError || (previous is Authenticated && current is Unauthenticated),
       listener: (context, state) {
         if (state is AuthError) {
           DialogUtils.showError(

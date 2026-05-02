@@ -10,6 +10,8 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
   final GetAllLeavesUseCase getAllLeavesUseCase;
   final ApproveLeaveUseCase approveLeaveUseCase;
   final GetLeaveBalancesUseCase getLeaveBalancesUseCase;
+  final UpdateLeaveUseCase updateLeaveUseCase;
+  final DeleteLeaveUseCase deleteLeaveUseCase;
 
   LeaveBloc({
     required this.submitLeaveUseCase,
@@ -17,6 +19,8 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
     required this.getAllLeavesUseCase,
     required this.approveLeaveUseCase,
     required this.getLeaveBalancesUseCase,
+    required this.updateLeaveUseCase,
+    required this.deleteLeaveUseCase,
   }) : super(const LeaveState()) {
     on<SubmitLeaveRequested>(_onSubmitLeave);
     on<FetchMyLeavesRequested>(_onFetchMyLeaves);
@@ -89,7 +93,7 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
 
   Future<void> _onUpdateLeave(UpdateLeaveRequested event, Emitter<LeaveState> emit) async {
     emit(state.copyWith(status: LeaveStatus.loading, clearActionMessage: true));
-    final result = await repo.updateLeave(
+    final result = await updateLeaveUseCase(
       event.leaveId,
       event.leaveTypeId,
       event.startDate,
@@ -110,7 +114,7 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
 
   Future<void> _onDeleteLeave(DeleteLeaveRequested event, Emitter<LeaveState> emit) async {
     emit(state.copyWith(status: LeaveStatus.loading, clearActionMessage: true));
-    final result = await repo.deleteLeave(event.leaveId);
+    final result = await deleteLeaveUseCase(event.leaveId);
     result.fold(
       (failure) => emit(state.copyWith(status: LeaveStatus.failure, actionMessage: failure.message)),
       (_) {
@@ -121,5 +125,4 @@ class LeaveBloc extends Bloc<LeaveEvent, LeaveState> {
     );
   }
 
-  LeaveRepository get repo => (submitLeaveUseCase as dynamic).repository; 
 }

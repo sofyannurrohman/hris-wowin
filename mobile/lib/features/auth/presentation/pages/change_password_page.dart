@@ -5,6 +5,7 @@ import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
+import 'package:hris_app/core/utils/dialog_utils.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -44,21 +45,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is ChangePasswordSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password berhasil diperbarui'),
-              backgroundColor: AppColors.success,
-              behavior: SnackBarBehavior.floating,
-            ),
+          DialogUtils.showSuccess(
+            context: context,
+            title: 'Berhasil',
+            message: 'Kata sandi Anda telah berhasil diperbarui.',
+            onConfirm: () => Navigator.pop(context),
           );
-          Navigator.pop(context);
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-            ),
+          DialogUtils.showError(
+            context: context,
+            title: 'Gagal',
+            message: state.message,
           );
         }
       },

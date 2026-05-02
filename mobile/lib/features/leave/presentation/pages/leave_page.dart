@@ -41,7 +41,7 @@ class _LeavePageState extends State<LeavePage> {
       child: BlocListener<LeaveBloc, LeaveState>(
         listener: (context, state) {
           if (state.status == LeaveStatus.success && state.actionMessage != null) {
-            SnackBarUtils.showSuccess(context, state.actionMessage!);
+            DialogUtils.showSuccess(context: context, title: "Berhasil", message: state.actionMessage!);
           } else if (state.status == LeaveStatus.failure && state.actionMessage != null) {
             DialogUtils.showError(context: context, title: "Gagal", message: state.actionMessage!);
           }
@@ -271,9 +271,10 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
         builder: (context) {
           return CustomScrollView(
             slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-              ),
+              if (widget.leave == null)
+                SliverOverlapInjector(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.all(24),
                 sliver: SliverToBoxAdapter(
@@ -663,7 +664,21 @@ class _LeaveFormTabState extends State<LeaveFormTab> {
           children: [
             Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.attachment_rounded, size: 18, color: AppColors.primaryRed)),
             const SizedBox(width: 16),
-            Expanded(child: Text(_attachment == null ? 'Lampiran / Surat Dokter (Opsional)' : _attachment!.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _attachment == null ? AppColors.textSecondary : AppColors.textPrimary), overflow: TextOverflow.ellipsis)),
+            Expanded(
+              child: Text(
+                _attachment != null 
+                    ? _attachment!.name 
+                    : (widget.leave?.attachmentUrl != null 
+                        ? 'Lampiran: ${widget.leave!.attachmentUrl!.split('/').last}' 
+                        : 'Lampiran / Surat Dokter (Opsional)'), 
+                style: TextStyle(
+                  fontSize: 13, 
+                  fontWeight: FontWeight.w700, 
+                  color: (_attachment == null && widget.leave?.attachmentUrl == null) ? AppColors.textSecondary : AppColors.textPrimary
+                ), 
+                overflow: TextOverflow.ellipsis
+              )
+            ),
             if (_attachment != null) IconButton(icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => setState(() => _attachment = null)),
           ],
         ),
@@ -890,11 +905,22 @@ class EditLeavePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.backgroundAlt,
       appBar: AppBar(
-        title: const Text('EDIT PENGAJUAN', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 1)),
+        title: Column(
+          children: [
+            Text('EDIT PENGAJUAN', style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.5)),
+            const SizedBox(height: 2),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+              child: Text(leave.status.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.orange, letterSpacing: 0.5)),
+            ),
+          ],
+        ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
       ),

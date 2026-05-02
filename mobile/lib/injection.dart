@@ -110,6 +110,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetAllLeavesUseCase(sl()));
   sl.registerLazySingleton(() => ApproveLeaveUseCase(sl()));
   sl.registerLazySingleton(() => GetLeaveBalancesUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateLeaveUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteLeaveUseCase(sl()));
   sl.registerLazySingleton(() => GetMyPayslipHistoryUseCase(sl()));
   sl.registerLazySingleton(() => BiometricLoginUseCase(sl()));
   sl.registerLazySingleton(() => GetBiometricStatusUseCase(sl()));
@@ -156,6 +158,8 @@ Future<void> init() async {
       getAllLeavesUseCase: sl(),
       approveLeaveUseCase: sl(),
       getLeaveBalancesUseCase: sl(),
+      updateLeaveUseCase: sl(),
+      deleteLeaveUseCase: sl(),
     ),
   );
   sl.registerFactory(

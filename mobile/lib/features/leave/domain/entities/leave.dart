@@ -8,6 +8,7 @@ class Leave extends Equatable {
   final DateTime endDate;
   final String reason;
   final String status;
+  final String? attachmentUrl;
   final String? leaveTypeName;
   final String? employeeName;
   final DateTime? createdAt;
@@ -20,6 +21,7 @@ class Leave extends Equatable {
     required this.endDate,
     required this.reason,
     required this.status,
+    this.attachmentUrl,
     this.leaveTypeName,
     this.employeeName,
     this.createdAt,
@@ -38,6 +40,7 @@ class Leave extends Equatable {
                (json['EndDate'] != null ? DateTime.parse(json['EndDate']).toLocal() : DateTime.now()),
       reason: json['reason'] ?? json['Reason'] ?? '',
       status: json['status'] ?? json['Status'] ?? 'PENDING',
+      attachmentUrl: json['attachment_url'] ?? json['AttachmentURL'],
       leaveTypeName: json['leave_type_name'] ?? 
                     (json['leave_type'] != null ? json['leave_type']['name'] : 
                     (json['LeaveType'] != null ? json['LeaveType']['Name'] : null)),
@@ -48,5 +51,5 @@ class Leave extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, userId, leaveTypeId, startDate, endDate, reason, status, employeeName, createdAt];
+  List<Object?> get props => [id, userId, leaveTypeId, startDate, endDate, reason, status, attachmentUrl, employeeName, createdAt];
 }

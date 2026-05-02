@@ -121,12 +121,6 @@ class _RegisterPageState extends State<RegisterPage> {
               message: 'Akun anda telah berhasil dibuat. Silahkan login menggunakan email dan kata sandi anda.',
               onConfirm: () => Navigator.of(context).pop(),
             );
-          } else if (state is AuthError) {
-            DialogUtils.showError(
-              context: context, 
-              title: 'Pendaftaran Gagal', 
-              message: state.message,
-            );
           }
         },
         child: SafeArea(
