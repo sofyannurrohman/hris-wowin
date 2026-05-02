@@ -44,7 +44,12 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
   }
 
   void _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 70,
+    );
     if (image != null) {
       final bytes = await image.readAsBytes();
       setState(() {
@@ -105,9 +110,18 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Bukti Pembayaran / Nota',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Bukti Pembayaran / Nota',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Maks. 20MB',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   InkWell(

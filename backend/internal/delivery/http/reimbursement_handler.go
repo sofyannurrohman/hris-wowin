@@ -59,6 +59,10 @@ func (h *ReimbursementHandler) Submit(c *gin.Context) {
 	// Handle file upload
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil {
+		if err == http.ErrHandlerTimeout {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+			return
+		}
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
 		return
 	}
@@ -162,7 +166,14 @@ func (h *ReimbursementHandler) Update(c *gin.Context) {
 
 	// Handle file upload if any
 	attachmentURL, err := h.handleFileUpload(c)
-	if err == nil && attachmentURL != "" {
+	if err != nil && err != http.ErrMissingFile {
+		if err == http.ErrHandlerTimeout {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+			return
+		}
+		// Log error but continue if it's just a missing file (already handled by handleFileUpload returning empty string)
+	}
+	if attachmentURL != "" {
 		req.AttachmentURL = attachmentURL
 	}
 
@@ -209,6 +220,10 @@ func (h *ReimbursementHandler) AdminCreate(c *gin.Context) {
 	// Handle file upload
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil {
+		if err == http.ErrHandlerTimeout {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+			return
+		}
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
 		return
 	}
@@ -242,6 +257,10 @@ func (h *ReimbursementHandler) AdminUpdate(c *gin.Context) {
 	// Handle file upload
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil {
+		if err == http.ErrHandlerTimeout {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+			return
+		}
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
 		return
 	}
@@ -282,6 +301,11 @@ func (h *ReimbursementHandler) handleFileUpload(c *gin.Context) (string, error) 
 			return "", nil
 		}
 		return "", err
+	}
+
+	// Check file size (20MB limit)
+	if file.Size > 20*1024*1024 {
+		return "", http.ErrHandlerTimeout // Still using a placeholder that's easily recognizable
 	}
 
 	filename := uuid.New().String() + "-" + filepath.Base(file.Filename)

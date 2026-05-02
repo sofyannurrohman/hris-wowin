@@ -437,7 +437,10 @@ const columns = [
 
             <!-- Lampiran -->
             <div class="grid gap-2">
-              <Label class="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">Unggah Nota / Bukti Bayar</Label>
+              <div class="flex items-center justify-between pl-1">
+                <Label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Unggah Nota / Bukti Bayar</Label>
+                <span class="text-[10px] font-bold text-slate-400">MAKS. 20MB</span>
+              </div>
               <Input type="file" @change="onFileChange" accept="image/*,.pdf" class="h-12 rounded-2xl border-slate-200 pt-2.5" />
               <div v-if="form.attachment_url && !form.attachment_file" class="flex items-center gap-2 mt-1 px-2">
                 <span class="text-[11px] text-slate-500 font-bold">Nota terunggah:</span>

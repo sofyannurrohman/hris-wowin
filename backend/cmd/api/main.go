@@ -73,6 +73,7 @@ func main() {
 
 	// Initialize Gin
 	r := gin.Default()
+	r.MaxMultipartMemory = 20 << 20 // 20 MiB
 
 	// CORS Middleware
 	r.Use(cors.New(cors.Config{
