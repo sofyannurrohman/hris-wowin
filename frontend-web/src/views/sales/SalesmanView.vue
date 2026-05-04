@@ -128,7 +128,7 @@ const handleEditTarget = (s: any) => {
 const handleSaveTarget = async () => {
   try {
     await apiClient.post('/admin/sales/targets', {
-      employee_id: currentSalesman.value.employeeID,
+      employee_id: currentSalesman.value.employeeID || null,
       month: currentSalesman.value.month,
       year: currentSalesman.value.year,
       target_omzet: currentSalesman.value.targetOmzet,

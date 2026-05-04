@@ -93,7 +93,7 @@ const saveBranch = async () => {
   isSubmitting.value = true
   try {
     const payload = {
-      companyId: newBranch.value.companyId,
+      companyId: newBranch.value.companyId || null,
       name: newBranch.value.name,
       address: newBranch.value.address,
       timezone: newBranch.value.timezone,

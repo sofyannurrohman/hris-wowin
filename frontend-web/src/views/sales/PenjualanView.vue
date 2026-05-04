@@ -182,8 +182,8 @@ const handleFileUpload = async (event: any) => {
 const handleSubmit = async () => {
   try {
     const payload = {
-      employee_id: currentSale.value.employeeID,
-      store_id: currentSale.value.storeID,
+      employee_id: currentSale.value.employeeID || null,
+      store_id: currentSale.value.storeID || null,
       store_category: currentSale.value.storeCategory,
       total_amount: currentSale.value.totalAmount,
       transaction_date: currentSale.value.transactionDate,

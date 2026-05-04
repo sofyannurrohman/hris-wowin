@@ -132,7 +132,7 @@ const saveShift = async () => {
       end_time: formatTimeForBackend(newShift.value.endTime),
       break_start: formatTimeForBackend(newShift.value.breakStart),
       break_end: formatTimeForBackend(newShift.value.breakEnd),
-      branch_id: newShift.value.branchId === 'all' ? null : newShift.value.branchId,
+      branch_id: (newShift.value.branchId === 'all' || !newShift.value.branchId) ? null : newShift.value.branchId,
       is_flexible: newShift.value.isFlexible
     }
 

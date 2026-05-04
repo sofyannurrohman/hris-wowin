@@ -174,13 +174,13 @@ const handleSubmit = async () => {
   try {
     const selectedStore = allStores.value.find(s => s.id === currentBanner.value.storeID)
     const payload = {
-      store_id: currentBanner.value.storeID,
+      store_id: currentBanner.value.storeID || null,
       store_name: selectedStore?.name || 'Toko',
       location: selectedStore?.address || '',
       banner_type: currentBanner.value.bannerType,
-      employee_id: currentBanner.value.employeeID,
-      designer_id: currentBanner.value.designerID,
-      installer_id: currentBanner.value.installerID,
+      employee_id: currentBanner.value.employeeID || null,
+      designer_id: currentBanner.value.designerID || null,
+      installer_id: currentBanner.value.installerID || null,
       status: currentBanner.value.status,
       design_url: currentBanner.value.designURL,
       documentation_image_url: currentBanner.value.documentationImageURL,

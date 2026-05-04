@@ -171,7 +171,7 @@ const handleDelete = async (id: string) => {
 const handleSubmit = async () => {
   try {
     const payload = {
-      ...currentStore.value,
+      ...currentStore.value, assigned_employee_id: currentStore.value.assigned_employee_id || null,
       company_id: 'b72883e2-8bb6-438d-92bd-391edbf9e325' // Default for now
     }
 
