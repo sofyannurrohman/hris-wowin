@@ -11,6 +11,7 @@ import (
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/usecase"
 	"github.com/sofyan/hris_wowin/backend/pkg/utils"
+	"fmt"
 )
 
 type ReimbursementHandler struct {
@@ -308,7 +309,7 @@ func (h *ReimbursementHandler) handleFileUpload(c *gin.Context) (string, error) 
 	// Check file size (100MB limit)
 	if file.Size > 100*1024*1024 {
 		fmt.Printf("DEBUG: Reimbursement file size too large: %d bytes\n", file.Size)
-		return "", utils.NewError("file size too large")
+		return "", fmt.Errorf("file size too large")
 	}
 
 	filename := uuid.New().String() + "-" + filepath.Base(file.Filename)

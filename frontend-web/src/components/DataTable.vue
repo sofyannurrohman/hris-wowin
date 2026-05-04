@@ -14,20 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-const props = defineProps({
-  data: {
-    type: Array,
-    required: true
-  },
-  columns: {
-    type: Array,
-    required: true
-  },
-  isLoading: {
-    type: Boolean,
-    default: false
-  }
-})
+const props = defineProps<{
+  data: any[]
+  columns: any[]
+  isLoading?: boolean
+}>()
 
 const sorting = ref<SortingState>([])
 const filterText = ref('')

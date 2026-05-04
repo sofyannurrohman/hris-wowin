@@ -28,14 +28,14 @@
           <DataTable :columns="batchColumns" :data="deliveryStore.batches">
             <template #cell-delivery_order_no="{ row }">
               <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold">{{ row.delivery_order_no }}</span>
-                <Button size="icon" variant="ghost" class="h-8 w-8" @click="printDO(row)">
+                <span class="font-mono text-xs font-bold">{{ (row as any).delivery_order_no }}</span>
+                <Button size="icon" variant="ghost" class="h-8 w-8" @click="printDO(row as any)">
                   <Printer class="h-4 w-4" />
                 </Button>
               </div>
             </template>
             <template #cell-status="{ row }">
-               <Badge :variant="row.status === 'COMPLETED' ? 'success' : 'warning'">{{ row.status }}</Badge>
+               <Badge :variant="(row as any).status === 'COMPLETED' ? 'success' : 'warning'">{{ (row as any).status }}</Badge>
             </template>
           </DataTable>
         </CardContent>
@@ -136,7 +136,7 @@
                   </thead>
                   <tbody class="divide-y">
                     <tr v-for="(item, idx) in selectedDO.items" :key="item.id">
-                      <td class="p-3 text-slate-400">{{ idx + 1 }}</td>
+                      <td class="p-3 text-slate-400">{{ (idx as number) + 1 }}</td>
                       <td class="p-3">
                         <p class="font-bold">{{ item.sales_transaction?.store?.name }}</p>
                         <p class="text-[10px] text-slate-500">{{ item.sales_transaction?.store?.address }}</p>
