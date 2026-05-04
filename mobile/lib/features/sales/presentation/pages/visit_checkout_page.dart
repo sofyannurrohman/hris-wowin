@@ -6,6 +6,7 @@ import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:intl/intl.dart';
+import './digital_receipt_page.dart';
 
 class VisitCheckoutPage extends StatefulWidget {
   final StoreModel store;
@@ -37,7 +38,7 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
       // Note: In real app, we should upload image and get URL first.
       // Here we simulate it or pass empty.
       
-      await _apiService.createTransaction({
+      final transaction = await _apiService.createTransaction({
         'company_id': '00000000-0000-0000-0000-000000000000', // Auto resolved in backend by token
         'store_id': widget.store.id,
         'employee_id': '00000000-0000-0000-0000-000000000000', // Auto resolved in backend
@@ -50,7 +51,11 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
       });
 
       if (mounted) {
-        Navigator.of(context).popUntil((route) => route.settings.name == '/sales_dashboard');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => DigitalReceiptPage(transaction: transaction),
+          ),
+        );
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('✓ Kunjungan ${widget.store.name} tersimpan!', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
           backgroundColor: Colors.green,

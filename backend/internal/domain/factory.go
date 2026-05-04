@@ -26,10 +26,12 @@ type Product struct {
 	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
 	SKU         string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"sku"`
 	Unit        string    `gorm:"type:varchar(20);not null" json:"unit"` // e.g., PCS, BOX, KG
-	Weight      float64   `gorm:"type:decimal(10,2);default:0" json:"weight"` // Weight per unit in KG
-	Description string    `gorm:"type:text" json:"description"`
-	CreatedAt   time.Time `gorm:"default:now()" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"default:now()" json:"updated_at"`
+	Weight       float64   `gorm:"type:decimal(10,2);default:0" json:"weight"` // Weight per unit in KG
+	CostPrice    float64   `gorm:"type:decimal(15,2);default:0" json:"cost_price"` // HPP (Harga Pokok Penjualan)
+	SellingPrice float64   `gorm:"type:decimal(15,2);default:0" json:"selling_price"` // Harga Jual
+	Description  string    `gorm:"type:text" json:"description"`
+	CreatedAt    time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"default:now()" json:"updated_at"`
 }
 
 type FactoryStock struct {
@@ -65,10 +67,13 @@ type ProductTransfer struct {
 	ProductID     uuid.UUID `gorm:"type:uuid;not null" json:"product_id"`
 	Quantity      int       `gorm:"type:int;not null" json:"quantity"`
 	TotalWeight   float64   `gorm:"type:decimal(10,2)" json:"total_weight"`
-	Status        string    `gorm:"type:varchar(20);default:'REQUESTED'" json:"status"` // REQUESTED, APPROVED, SHIPPED, RECEIVED, REJECTED
-	Notes         string    `gorm:"type:text" json:"notes"`
-	CreatedAt     time.Time `gorm:"default:now()" json:"created_at"`
-	UpdatedAt     time.Time `gorm:"default:now()" json:"updated_at"`
+	Status          string    `gorm:"type:varchar(20);default:'REQUESTED'" json:"status"` // REQUESTED, APPROVED, SHIPPED, RECEIVED, REJECTED
+	DeliveryOrderNo string    `gorm:"type:varchar(100);uniqueIndex" json:"delivery_order_no"`
+	Notes           string    `gorm:"type:text" json:"notes"`
+	ShippedAt       *time.Time `json:"shipped_at,omitempty"`
+	ReceivedAt      *time.Time `json:"received_at,omitempty"`
+	CreatedAt       time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"default:now()" json:"updated_at"`
 
 	FromFactory *Factory `gorm:"foreignKey:FromFactoryID" json:"from_factory,omitempty"`
 	ToBranch    *Branch  `gorm:"foreignKey:ToBranchID" json:"to_branch,omitempty"`

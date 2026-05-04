@@ -3,6 +3,7 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
@@ -14,6 +15,8 @@ type WarehouseUsecase interface {
 	GetInventory(branchID uuid.UUID) ([]domain.WarehouseStock, error)
 	GetPendingShipments(branchID uuid.UUID) ([]domain.ProductTransfer, error)
 	ReceiveShipment(transferID uuid.UUID) error
+	GetTransferByDO(doNo string) (*domain.ProductTransfer, error)
+	ReceiveShipmentByDO(doNo string) error
 	GetWarehouseLogs(branchID uuid.UUID) ([]domain.WarehouseLog, error)
 	AdjustStock(branchID, productID uuid.UUID, quantity int, reason string) error
 	
@@ -63,6 +66,9 @@ func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID) error {
 		}
 
 		transfer.Status = "RECEIVED"
+		now := time.Now()
+		transfer.ReceivedAt = &now
+		
 		if err := repo.UpdateTransfer(transfer); err != nil {
 			return err
 		}
@@ -76,6 +82,21 @@ func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID) error {
 		}
 		return repo.CreateLog(log)
 	})
+}
+
+func (u *warehouseUsecase) GetTransferByDO(doNo string) (*domain.ProductTransfer, error) {
+	return u.repo.GetTransferByDO(doNo)
+}
+
+func (u *warehouseUsecase) ReceiveShipmentByDO(doNo string) error {
+	transfer, err := u.repo.GetTransferByDO(doNo)
+	if err != nil {
+		return err
+	}
+	if transfer == nil {
+		return errors.New("surat jalan tidak ditemukan")
+	}
+	return u.ReceiveShipment(transfer.ID)
 }
 
 func (u *warehouseUsecase) GetWarehouseLogs(branchID uuid.UUID) ([]domain.WarehouseLog, error) {

@@ -11,4 +11,6 @@ export const warehouseApi = {
   rejectShipment: (id: string) => axios.post(`${API_URL}/warehouse/transfers/${id}/reject`),
   setStockLimit: (data: any) => axios.post(`${API_URL}/warehouse/stock-limit`, data),
   adjustStock: (data: any) => axios.post(`${API_URL}/warehouse/adjust`, data),
+  getByDO: (doNo: string) => axios.get(`${API_URL}/warehouse/transfers/do/${doNo}`),
+  receiveByDO: (doNo: string) => axios.post(`${API_URL}/warehouse/transfers/do/${doNo}/receive`),
 }

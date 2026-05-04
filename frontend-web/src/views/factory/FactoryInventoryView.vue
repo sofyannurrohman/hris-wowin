@@ -32,11 +32,23 @@
       </TabsContent>
 
       <TabsContent value="transfers" class="space-y-4 pt-4">
-        <div class="flex justify-between items-center">
-          <h2 class="text-xl font-semibold">Stock Transfers to Branches</h2>
-          <Button size="sm" @click="showSendToBranch = true">Send to Branch</Button>
-        </div>
-        <DataTable :columns="transferColumns" :data="factoryStore.transferHistory" />
+        <DataTable :columns="transferColumns" :data="factoryStore.transferHistory">
+          <template #headerTitle>
+            <h2 class="text-xl font-semibold">Stock Transfers to Branches</h2>
+          </template>
+          <template #headerActions>
+            <Button size="sm" @click="showSendToBranch = true">Send to Branch</Button>
+          </template>
+          <template #cell-delivery_order_no="{ row }">
+            <div v-if="(row as any).delivery_order_no" class="flex items-center gap-2">
+              <span class="font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded">{{ (row as any).delivery_order_no }}</span>
+              <Button size="icon" variant="ghost" class="h-8 w-8 text-primary" @click="printSJ(row)">
+                <Printer class="h-4 w-4" />
+              </Button>
+            </div>
+            <span v-else class="text-slate-400 text-xs">-</span>
+          </template>
+        </DataTable>
       </TabsContent>
     </Tabs>
 
@@ -110,7 +122,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs/index'
 import DataTable from '@/components/DataTable.vue'
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, Printer } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,6 +131,7 @@ const factoryId = route.params.id as string
 
 const showLogProduction = ref(false)
 const showSendToBranch = ref(false)
+const selectedSJ = ref<any>(null)
 
 const productionForm = reactive({
   product_id: '',
@@ -165,6 +178,14 @@ const handleTransferSubmit = async () => {
   }
 }
 
+const printSJ = (row: any) => {
+  selectedSJ.value = row
+}
+
+const handlePrint = () => {
+  window.print()
+}
+
 const stockColumns = [
   { key: 'product.name', label: 'Product' },
   { key: 'product.sku', label: 'SKU' },
@@ -184,6 +205,7 @@ const transferColumns = [
   { key: 'product.name', label: 'Product' },
   { key: 'quantity', label: 'Qty' },
   { key: 'to_branch.name', label: 'Target Branch' },
+  { key: 'delivery_order_no', label: 'No. Surat Jalan' },
   { key: 'status', label: 'Status' }
 ]
 </script>

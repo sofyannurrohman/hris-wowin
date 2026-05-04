@@ -12,6 +12,7 @@ type StoreRepository interface {
 	FindByID(id uuid.UUID) (*domain.Store, error)
 	Update(store *domain.Store) error
 	Delete(id uuid.UUID) error
+	FindByVisitDay(day int, employeeID uuid.UUID) ([]domain.Store, error)
 }
 
 type storeRepository struct {
@@ -51,4 +52,12 @@ func (r *storeRepository) Update(store *domain.Store) error {
 
 func (r *storeRepository) Delete(id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&domain.Store{}).Error
+}
+
+func (r *storeRepository) FindByVisitDay(day int, employeeID uuid.UUID) ([]domain.Store, error) {
+	var stores []domain.Store
+	if err := r.db.Where("? = ANY(visit_days) AND assigned_employee_id = ?", day, employeeID).Find(&stores).Error; err != nil {
+		return nil, err
+	}
+	return stores, nil
 }

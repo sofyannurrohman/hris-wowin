@@ -23,6 +23,8 @@ func (h *WarehouseHandler) RegisterRoutes(r *gin.RouterGroup) {
 		warehouse.GET("/logs", h.GetLogs)
 		warehouse.GET("/transfers/pending", h.GetPendingShipments)
 		warehouse.POST("/transfers/:id/receive", h.ReceiveShipment)
+		warehouse.GET("/transfers/do/:do_no", h.GetByDO)
+		warehouse.POST("/transfers/do/:do_no/receive", h.ReceiveByDO)
 		warehouse.POST("/transfers/:id/approve", h.ApproveShipment)
 		warehouse.POST("/transfers/:id/reject", h.RejectShipment)
 		warehouse.POST("/adjust", h.AdjustStock)
@@ -134,4 +136,23 @@ func (h *WarehouseHandler) AdjustStock(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Stock adjusted successfully"})
+}
+
+func (h *WarehouseHandler) GetByDO(c *gin.Context) {
+	doNo := c.Param("do_no")
+	transfer, err := h.usecase.GetTransferByDO(doNo)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Surat jalan tidak ditemukan"})
+		return
+	}
+	c.JSON(http.StatusOK, transfer)
+}
+
+func (h *WarehouseHandler) ReceiveByDO(c *gin.Context) {
+	doNo := c.Param("do_no")
+	if err := h.usecase.ReceiveShipmentByDO(doNo); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Barang telah diterima dan stok gudang diperbarui"})
 }

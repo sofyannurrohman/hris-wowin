@@ -34,6 +34,8 @@ func main() {
 		&domain.WarehouseLog{},
 		&domain.Vehicle{},
 		&domain.Notification{},
+		&domain.DeliveryBatch{},
+		&domain.DeliveryItem{},
 	)
 
 	// Setup Repositories
@@ -62,6 +64,8 @@ func main() {
 	warehouseRepo := repository.NewWarehouseRepository(db)
 	vehicleRepo := repository.NewVehicleRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
+	financeRepo := repository.NewFinanceRepository(db)
+	deliveryRepo := repository.NewDeliveryRepository(db)
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
@@ -85,15 +89,17 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
-	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo)
+	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
 	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, db)
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
+	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
+	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo)
 
 	// Initialize Gin
 	r := gin.Default()
-	r.MaxMultipartMemory = 20 << 20 // 20 MiB
+	r.MaxMultipartMemory = 100 << 20 // 100 MiB
 
 	// CORS Middleware
 	r.Use(cors.New(cors.Config{
@@ -134,6 +140,8 @@ func main() {
 	warehouseHandler := http.NewWarehouseHandler(warehouseUseCase)
 	vehicleHandler := http.NewVehicleHandler(vehicleUseCase)
 	notificationHandler := http.NewNotificationHandler(notificationRepo)
+	financeHandler := http.NewFinanceHandler(financeUsecase)
+	deliveryHandler := http.NewDeliveryHandler(deliveryUsecase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -174,6 +182,8 @@ func main() {
 			warehouseHandler.RegisterRoutes(protected)
 			vehicleHandler.RegisterRoutes(protected)
 			notificationHandler.RegisterRoutes(protected)
+			financeHandler.RegisterRoutes(protected)
+			deliveryHandler.RegisterRoutes(protected)
 		}
 	}
 

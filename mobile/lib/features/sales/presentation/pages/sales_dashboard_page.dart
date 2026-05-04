@@ -10,6 +10,7 @@ import './store_list_page.dart';
 import './order_banner_page.dart';
 import './route_planning_page.dart';
 import './product_catalog_page.dart';
+import './visit_schedule_page.dart';
 
 import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
@@ -93,6 +94,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                   children: [
                     const SizedBox(height: 14),
                     _buildTargetCard(),
+                    const SizedBox(height: 32),
+                    _buildVisitProgressCard(),
                     const SizedBox(height: 32),
                     _buildQuickAccess(),
                     const SizedBox(height: 40),
@@ -193,6 +196,54 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       ),
     );
   }
+  Widget _buildVisitProgressCard() {
+    // We calculate this based on _pendingTransactions vs a hypothetical total
+    // But since we have the new VisitPlan API, ideally we'd fetch it here too.
+    // For now, let's show a beautiful summary card that links to VisitSchedulePage.
+    
+    return InkWell(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage())),
+      borderRadius: BorderRadius.circular(32),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+              child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('JADWAL KUNJUNGAN', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1)),
+                  const SizedBox(height: 4),
+                  Text('Lihat Rencana Hari Ini', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                  const SizedBox(height: 4),
+                  Text('Tetap on-track dengan rute PJP Anda.', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildStatItem(String label, String value, Color color) {
     return Column(
@@ -241,7 +292,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     return InkWell(
       onTap: () {
         if (label == 'Kunjungan') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SelectStorePage()));
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage()));
         } else if (label == 'Buat Order') {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SelectStorePage(isQuickOrder: true)));
         } else if (label == 'Daftar Toko') {

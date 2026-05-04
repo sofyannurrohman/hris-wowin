@@ -55,4 +55,14 @@ class SalesApiService {
       throw Exception('Failed to verify transaction: $e');
     }
   }
+
+  // GET /api/v1/sales/visit-plans
+  Future<List<dynamic>> getVisitPlans({String? date}) async {
+    try {
+      final response = await apiClient.client.get('sales/visit-plans', queryParameters: date != null ? {'date': date} : null);
+      return response.data['data'] as List<dynamic>;
+    } catch (e) {
+      throw Exception('Failed to load visit plans: $e');
+    }
+  }
 }

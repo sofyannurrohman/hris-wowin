@@ -174,6 +174,11 @@ const router = createRouter({
               path: 'stores',
               name: 'stores',
               component: () => import('@/views/sales/StoreView.vue'),
+            },
+            {
+              path: 'delivery',
+              name: 'deliveryManagement',
+              component: () => import('@/views/sales/DeliveryManagement.vue'),
             }
           ]
         },
@@ -185,6 +190,11 @@ const router = createRouter({
               path: '',
               name: 'factoryDashboard',
               component: () => import('@/views/factory/FactoryDashboard.vue'),
+            },
+            {
+              path: 'products',
+              name: 'factoryProducts',
+              component: () => import('@/views/factory/FactoryProductView.vue'),
             },
             {
               path: ':id',

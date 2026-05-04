@@ -28,6 +28,8 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 
 		factory.GET("/products", h.GetProducts)
 		factory.POST("/products", h.CreateProduct)
+		factory.PUT("/products/:id", h.UpdateProduct)
+		factory.DELETE("/products/:id", h.DeleteProduct)
 
 		factory.GET("/:id/inventory", h.GetInventory)
 		factory.GET("/:id/inventory/logs", h.GetInventoryLogs)
@@ -113,6 +115,30 @@ func (h *FactoryHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, product)
+}
+
+func (h *FactoryHandler) UpdateProduct(c *gin.Context) {
+	id := uuid.MustParse(c.Param("id"))
+	var product domain.Product
+	if err := c.ShouldBindJSON(&product); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	product.ID = id
+	if err := h.usecase.UpdateProduct(&product); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, product)
+}
+
+func (h *FactoryHandler) DeleteProduct(c *gin.Context) {
+	id := uuid.MustParse(c.Param("id"))
+	if err := h.usecase.DeleteProduct(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Product deleted"})
 }
 
 func (h *FactoryHandler) GetProducts(c *gin.Context) {

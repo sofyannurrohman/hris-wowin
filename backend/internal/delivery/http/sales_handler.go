@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -45,6 +46,8 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 		sales.GET("/transactions/pending", h.GetPendingTransactions)
 		sales.GET("/transactions/history", h.GetHistoryTransactions)
 		sales.PATCH("/transactions/:id/verify", h.VerifyTransaction)
+		sales.GET("/visit-plans", h.GetVisitPlan)
+		sales.GET("/transactions/receipt/:receipt_no", h.GetByReceipt)
 	}
 }
 
@@ -366,5 +369,64 @@ func (h *SalesHandler) UploadPhoto(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "File uploaded successfully",
 		"url":     fileURL,
+	})
+}
+
+func (h *SalesHandler) GetVisitPlan(c *gin.Context) {
+	var employeeID uuid.UUID
+	if userIDStr, exists := c.Get("userID"); exists {
+		userID := userIDStr.(uuid.UUID)
+		employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+		if err == nil && employee != nil {
+			employeeID = employee.ID
+		}
+	}
+
+	if employeeID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unauthorized employee"})
+		return
+	}
+
+	dateStr := c.Query("date")
+	date := time.Now()
+	if dateStr != "" {
+		if parsed, err := time.Parse("2006-01-02", dateStr); err == nil {
+			date = parsed
+		}
+	}
+
+	plan, err := h.salesUsecase.GetVisitPlan(employeeID, date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    plan,
+	})
+}
+
+func (h *SalesHandler) GetByReceipt(c *gin.Context) {
+	receiptNo := c.Param("receipt_no")
+	if receiptNo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "receipt_no is required"})
+		return
+	}
+
+	trx, err := h.salesUsecase.GetTransactionByReceipt(receiptNo)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if trx == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    trx,
 	})
 }

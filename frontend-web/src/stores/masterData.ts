@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import apiClient from '@/api/axios'
 
 export const useMasterDataStore = defineStore('masterData', () => {
@@ -15,6 +15,11 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const isJobPositionsLoading = ref(false)
   const isLeaveTypesLoading = ref(false)
   const isEmployeesLoading = ref(false)
+  
+  const selectedBranchCompanyId = computed(() => {
+    const branch = branches.value.find(b => b.id === selectedBranchId.value)
+    return branch?.company_id || ''
+  })
 
   function setSelectedBranchId(id: string | null) {
     selectedBranchId.value = id
@@ -101,6 +106,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     fetchJobPositions,
     fetchLeaveTypes,
     fetchEmployees,
-    setSelectedBranchId
+    setSelectedBranchId,
+    selectedBranchCompanyId
   }
 })

@@ -125,6 +125,16 @@ export const useWarehouseStore = defineStore('warehouse', {
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to adjust stock'
       }
+    },
+
+    async receiveByDO(doNo: string) {
+      try {
+        await warehouseApi.receiveByDO(doNo)
+        await this.fetchInventory()
+        await this.fetchPendingShipments()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to receive by DO'
+      }
     }
   }
 })

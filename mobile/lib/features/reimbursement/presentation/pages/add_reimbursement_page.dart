@@ -43,9 +43,9 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
     }
   }
 
-  void _pickImage() async {
+  void _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       maxWidth: 1280,
       maxHeight: 1280,
       imageQuality: 70,
@@ -58,6 +58,47 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
         _attachmentName = image.name;
       });
     }
+  }
+
+  void _showImageSourceActionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 16),
+              const Text(
+                'Pilih Sumber Foto',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Kamera'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Galeri'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -118,14 +159,14 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Maks. 20MB',
+                        'Maks. 100MB',
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   InkWell(
-                    onTap: _pickImage,
+                    onTap: () => _showImageSourceActionSheet(context),
                     child: Container(
                       height: 150,
                       decoration: BoxDecoration(

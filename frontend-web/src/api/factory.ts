@@ -13,6 +13,8 @@ export const factoryApi = {
   // Products
   getProducts: () => axios.get(`${API_URL}/factory/products`),
   createProduct: (data: any) => axios.post(`${API_URL}/factory/products`, data),
+  updateProduct: (id: string, data: any) => axios.put(`${API_URL}/factory/products/${id}`, data),
+  deleteProduct: (id: string) => axios.delete(`${API_URL}/factory/products/${id}`),
 
   // Inventory
   getInventory: (factoryId: string) => axios.get(`${API_URL}/factory/${factoryId}/inventory`),

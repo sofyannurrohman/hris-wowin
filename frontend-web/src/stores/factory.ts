@@ -98,6 +98,33 @@ export const useFactoryStore = defineStore('factory', {
       }
     },
 
+    async createProduct(data: any) {
+      try {
+        await factoryApi.createProduct(data)
+        await this.fetchProducts()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to create product'
+      }
+    },
+
+    async updateProduct(id: string, data: any) {
+      try {
+        await factoryApi.updateProduct(id, data)
+        await this.fetchProducts()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to update product'
+      }
+    },
+
+    async deleteProduct(id: string) {
+      try {
+        await factoryApi.deleteProduct(id)
+        await this.fetchProducts()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to delete product'
+      }
+    },
+
     async fetchFactoryDetail(id: string) {
       this.loading = true
       try {

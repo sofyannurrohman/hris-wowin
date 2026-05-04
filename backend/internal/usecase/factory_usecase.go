@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,8 @@ type FactoryUsecase interface {
 	// Product
 	CreateProduct(product *domain.Product) error
 	GetProducts(companyID uuid.UUID) ([]domain.Product, error)
+	UpdateProduct(product *domain.Product) error
+	DeleteProduct(id uuid.UUID) error
 
 	// Production
 	LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error
@@ -71,6 +74,14 @@ func (u *factoryUsecase) CreateProduct(product *domain.Product) error {
 
 func (u *factoryUsecase) GetProducts(companyID uuid.UUID) ([]domain.Product, error) {
 	return u.repo.GetProductsByCompanyID(companyID)
+}
+
+func (u *factoryUsecase) UpdateProduct(product *domain.Product) error {
+	return u.repo.UpdateProduct(product)
+}
+
+func (u *factoryUsecase) DeleteProduct(id uuid.UUID) error {
+	return u.repo.DeleteProduct(id)
 }
 
 func (u *factoryUsecase) LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error {
@@ -170,8 +181,13 @@ func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 			return err
 		}
 
-		// 4. Update Status to SHIPPED
+		// 4. Update Status to SHIPPED and Generate DO No
+		now := time.Now()
 		transfer.Status = "SHIPPED"
+		transfer.ShippedAt = &now
+		// Format: DO-[YYYYMMDD]-[UUID8]
+		transfer.DeliveryOrderNo = fmt.Sprintf("DO-%s-%s", now.Format("20060102"), uuid.New().String()[:8])
+
 		if err := repo.UpdateTransfer(transfer); err != nil {
 			return err
 		}

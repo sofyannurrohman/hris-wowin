@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +23,8 @@ type Store struct {
 	CreatedAt            time.Time  `gorm:"default:now()" json:"created_at"`
 	UpdatedAt            time.Time  `gorm:"default:now()" json:"updated_at"`
 
+	VisitDays            pq.Int64Array `gorm:"type:integer[]" json:"visit_days"`
+	VisitFrequency       string        `gorm:"type:varchar(10)" json:"visit_frequency"` // F8, F4, F2
 	Company          *Company  `gorm:"foreignKey:CompanyID;constraint:OnDelete:CASCADE;" json:"company,omitempty"`
 	AssignedEmployee *Employee `gorm:"foreignKey:AssignedEmployeeID;constraint:OnDelete:SET NULL;" json:"assigned_employee,omitempty"`
 }

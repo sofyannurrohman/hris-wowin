@@ -12,17 +12,7 @@ class StoreApiService {
     try {
       final response = await apiClient.client.get('stores');
       final data = response.data['data'] as List<dynamic>;
-      return data.map((json) {
-        return StoreModel(
-          id: json['id'],
-          name: json['name'] ?? '',
-          ownerName: json['owner_name'] ?? '',
-          address: json['address'] ?? '',
-          isNew: json['is_new'] ?? false,
-          latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
-          longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-        );
-      }).toList();
+      return data.map((json) => StoreModel.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Failed to load stores: $e');
     }
@@ -33,15 +23,7 @@ class StoreApiService {
     try {
       final response = await apiClient.client.post('stores', data: data);
       final json = response.data['data'];
-      return StoreModel(
-        id: json['id'],
-        name: json['name'] ?? '',
-        ownerName: json['owner_name'] ?? '',
-        address: json['address'] ?? '',
-        isNew: json['is_new'] ?? true,
-        latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
-        longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      );
+      return StoreModel.fromJson(json);
     } catch (e) {
       throw Exception('Failed to create store: $e');
     }
@@ -72,6 +54,17 @@ class StoreApiService {
       await apiClient.client.delete('stores/$id');
     } catch (e) {
       throw Exception('Failed to delete store: $e');
+    }
+  }
+
+  // GET /api/v1/stores/:id
+  Future<StoreModel> getStoreByID(String id) async {
+    try {
+      final response = await apiClient.client.get('stores/$id');
+      final json = response.data['data'];
+      return StoreModel.fromJson(json);
+    } catch (e) {
+      throw Exception('Failed to get store details: $e');
     }
   }
 }

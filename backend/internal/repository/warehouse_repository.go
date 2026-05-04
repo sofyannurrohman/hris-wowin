@@ -16,6 +16,7 @@ type WarehouseRepository interface {
 	GetTransfersByBranch(branchID uuid.UUID) ([]domain.ProductTransfer, error)
 	GetPendingTransfers(branchID uuid.UUID) ([]domain.ProductTransfer, error)
 	GetTransferByID(id uuid.UUID) (*domain.ProductTransfer, error)
+	GetTransferByDO(doNo string) (*domain.ProductTransfer, error)
 	UpdateTransfer(transfer *domain.ProductTransfer) error
 
 	// Logs
@@ -74,6 +75,15 @@ func (r *warehouseRepository) GetTransferByID(id uuid.UUID) (*domain.ProductTran
 	var transfer domain.ProductTransfer
 	err := r.db.First(&transfer, "id = ?", id).Error
 	return &transfer, err
+}
+
+func (r *warehouseRepository) GetTransferByDO(doNo string) (*domain.ProductTransfer, error) {
+	var transfer domain.ProductTransfer
+	err := r.db.Preload("Product").Preload("FromFactory").Where("delivery_order_no = ?", doNo).First(&transfer).Error
+	if err != nil {
+		return nil, err
+	}
+	return &transfer, nil
 }
 
 func (r *warehouseRepository) UpdateTransfer(transfer *domain.ProductTransfer) error {

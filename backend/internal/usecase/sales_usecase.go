@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,17 @@ type SalesUsecase interface {
 	UpdateTransaction(id uuid.UUID, req ManualEntryRequest) error
 	DeleteTransaction(id uuid.UUID) error
 	SetKPITarget(employeeID uuid.UUID, month, year int, targetOmzet float64, targetNewStores int, workingTerritory string) error
+	GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]VisitPlanItem, error)
+	GetTransactionByReceipt(receiptNo string) (*domain.SalesTransaction, error)
+}
+
+type VisitPlanItem struct {
+	StoreID   uuid.UUID  `json:"store_id"`
+	StoreName string     `json:"store_name"`
+	Address   string     `json:"address"`
+	Status    string     `json:"status"` // PLANNED, COMPLETED, EXTRA
+	IsExtra   bool       `json:"is_extra"`
+	VisitID   *uuid.UUID `json:"visit_id,omitempty"`
 }
 
 type CreateTransactionRequest struct {
@@ -49,12 +61,21 @@ type VerifyTransactionRequest struct {
 type salesUsecase struct {
 	salesRepo       repository.SalesTransactionRepository
 	performanceRepo repository.PerformanceRepository
+	storeRepo       repository.StoreRepository
+	attendanceRepo  repository.AttendanceRepository
 }
 
-func NewSalesUsecase(salesRepo repository.SalesTransactionRepository, performanceRepo repository.PerformanceRepository) SalesUsecase {
+func NewSalesUsecase(
+	salesRepo repository.SalesTransactionRepository,
+	performanceRepo repository.PerformanceRepository,
+	storeRepo repository.StoreRepository,
+	attendanceRepo repository.AttendanceRepository,
+) SalesUsecase {
 	return &salesUsecase{
 		salesRepo:       salesRepo,
 		performanceRepo: performanceRepo,
+		storeRepo:       storeRepo,
+		attendanceRepo:  attendanceRepo,
 	}
 }
 
@@ -203,11 +224,19 @@ func (u *salesUsecase) GetSummaryKPI(month, year int) (map[string]interface{}, e
 }
 
 func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.SalesTransaction, error) {
+	receiptNo := req.ReceiptNo
+	if receiptNo == "" {
+		// Format: WOW-[YYYYMMDD]-[RANDOM]
+		now := time.Now()
+		randomPart := uuid.New().String()[:4]
+		receiptNo = fmt.Sprintf("WOW-%s-%s", now.Format("20060102"), randomPart)
+	}
+
 	trx := &domain.SalesTransaction{
 		CompanyID:       req.CompanyID,
 		StoreID:         req.StoreID,
 		EmployeeID:      req.EmployeeID,
-		ReceiptNo:       req.ReceiptNo,
+		ReceiptNo:       receiptNo,
 		ReceiptImageURL: req.ReceiptImageURL,
 		TotalAmount:     req.TotalAmount,
 		StoreCategory:   req.StoreCategory,
@@ -221,6 +250,12 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 	err := u.salesRepo.Create(trx)
 	if err != nil {
 		return nil, err
+	}
+
+	// Fetch Store info to include in response
+	store, _ := u.storeRepo.FindByID(trx.StoreID)
+	if store != nil {
+		trx.Store = store
 	}
 
 	return trx, nil
@@ -405,5 +440,82 @@ func (u *salesUsecase) SetKPITarget(employeeID uuid.UUID, month, year int, targe
 	kpi.WorkingTerritory = workingTerritory
 
 	return u.performanceRepo.SaveSalesKPI(kpi)
+}
+
+func (u *salesUsecase) GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]VisitPlanItem, error) {
+	// 1. Get Day Number (Monday=1, Sunday=7)
+	day := int(date.Weekday())
+	if day == 0 {
+		day = 7
+	}
+
+	// 2. Fetch Scheduled Stores
+	scheduledStores, err := u.storeRepo.FindByVisitDay(day, employeeID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Fetch Actual Visits for today (via transactions)
+	// Better approach: Get all transactions for today and their VisitID (AttendanceLog).
+	allTrxs, err := u.salesRepo.FindAll() // Should filter by date in real app
+	if err != nil {
+		return nil, err
+	}
+
+	trxVisitedMap := make(map[uuid.UUID]*uuid.UUID) // StoreID -> VisitID
+	for _, trx := range allTrxs {
+		if trx.EmployeeID == employeeID && trx.TransactionDate.Format("2006-01-02") == date.Format("2006-01-02") {
+			trxVisitedMap[trx.StoreID] = trx.VisitID
+		}
+	}
+
+	var result []VisitPlanItem
+
+	// Add Scheduled Stores
+	scheduledMap := make(map[uuid.UUID]bool)
+	for _, store := range scheduledStores {
+		status := "PLANNED"
+		var visitID *uuid.UUID
+		if vid, exists := trxVisitedMap[store.ID]; exists {
+			status = "COMPLETED"
+			visitID = vid
+		}
+
+		result = append(result, VisitPlanItem{
+			StoreID:   store.ID,
+			StoreName: store.Name,
+			Address:   store.Address,
+			Status:    status,
+			IsExtra:   false,
+			VisitID:   visitID,
+		})
+		scheduledMap[store.ID] = true
+	}
+
+	// Add Extra Visits (Visited but not in schedule)
+	for storeID, visitID := range trxVisitedMap {
+		if !scheduledMap[storeID] {
+			// Fetch store info
+			store, err := u.storeRepo.FindByID(storeID)
+			if err != nil || store == nil {
+				continue
+			}
+
+			result = append(result, VisitPlanItem{
+				StoreID:   store.ID,
+				StoreName: store.Name,
+				Address:   store.Address,
+				Status:    "EXTRA",
+				IsExtra:   true,
+				VisitID:   visitID,
+			})
+		}
+	}
+
+	return result, nil
+}
+
+func (u *salesUsecase) GetTransactionByReceipt(receiptNo string) (*domain.SalesTransaction, error) {
+	return u.salesRepo.FindByReceiptNo(receiptNo)
 }
 

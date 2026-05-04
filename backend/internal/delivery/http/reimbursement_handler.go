@@ -59,11 +59,11 @@ func (h *ReimbursementHandler) Submit(c *gin.Context) {
 	// Handle file upload
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil {
-		if err == http.ErrHandlerTimeout {
-			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+		if err.Error() == "file size too large" {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 100MB)")
 			return
 		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment: "+err.Error())
 		return
 	}
 	if attachmentURL != "" {
@@ -167,11 +167,12 @@ func (h *ReimbursementHandler) Update(c *gin.Context) {
 	// Handle file upload if any
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil && err != http.ErrMissingFile {
-		if err == http.ErrHandlerTimeout {
-			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+		if err.Error() == "file size too large" {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 100MB)")
 			return
 		}
-		// Log error but continue if it's just a missing file (already handled by handleFileUpload returning empty string)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment: "+err.Error())
+		return
 	}
 	if attachmentURL != "" {
 		req.AttachmentURL = attachmentURL
@@ -220,11 +221,11 @@ func (h *ReimbursementHandler) AdminCreate(c *gin.Context) {
 	// Handle file upload
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil {
-		if err == http.ErrHandlerTimeout {
-			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+		if err.Error() == "file size too large" {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 100MB)")
 			return
 		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment: "+err.Error())
 		return
 	}
 	if attachmentURL != "" {
@@ -257,11 +258,11 @@ func (h *ReimbursementHandler) AdminUpdate(c *gin.Context) {
 	// Handle file upload
 	attachmentURL, err := h.handleFileUpload(c)
 	if err != nil {
-		if err == http.ErrHandlerTimeout {
-			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 20MB)")
+		if err.Error() == "file size too large" {
+			utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "File size too large (max 100MB)")
 			return
 		}
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save attachment: "+err.Error())
 		return
 	}
 	if attachmentURL != "" {
@@ -300,21 +301,25 @@ func (h *ReimbursementHandler) handleFileUpload(c *gin.Context) (string, error) 
 		if err == http.ErrMissingFile {
 			return "", nil
 		}
+		fmt.Printf("DEBUG: Reimbursement FormFile error: %v\n", err)
 		return "", err
 	}
 
-	// Check file size (20MB limit)
-	if file.Size > 20*1024*1024 {
-		return "", http.ErrHandlerTimeout // Still using a placeholder that's easily recognizable
+	// Check file size (100MB limit)
+	if file.Size > 100*1024*1024 {
+		fmt.Printf("DEBUG: Reimbursement file size too large: %d bytes\n", file.Size)
+		return "", utils.NewError("file size too large")
 	}
 
 	filename := uuid.New().String() + "-" + filepath.Base(file.Filename)
 	uploadDir := "uploads/attachments"
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		fmt.Printf("DEBUG: Reimbursement MkdirAll error: %v\n", err)
 		return "", err
 	}
 	savePath := uploadDir + "/" + filename
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		fmt.Printf("DEBUG: Reimbursement SaveUploadedFile error: %v\n", err)
 		return "", err
 	}
 

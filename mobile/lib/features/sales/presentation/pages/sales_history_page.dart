@@ -5,6 +5,7 @@ import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:intl/intl.dart';
+import './digital_receipt_page.dart';
 
 class SalesHistoryPage extends StatefulWidget {
   const SalesHistoryPage({super.key});
@@ -131,7 +132,14 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
               ),
             ),
           ],
-        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DigitalReceiptPage(transaction: txn),
+            ),
+          );
+        },
       ),
     );
   }

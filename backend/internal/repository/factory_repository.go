@@ -18,6 +18,8 @@ type FactoryRepository interface {
 	CreateProduct(product *domain.Product) error
 	GetProductsByCompanyID(companyID uuid.UUID) ([]domain.Product, error)
 	GetProductByID(id uuid.UUID) (*domain.Product, error)
+	UpdateProduct(product *domain.Product) error
+	DeleteProduct(id uuid.UUID) error
 
 	// Stock
 	GetStock(factoryID, productID uuid.UUID) (*domain.FactoryStock, error)
@@ -84,6 +86,14 @@ func (r *factoryRepository) GetProductByID(id uuid.UUID) (*domain.Product, error
 	var product domain.Product
 	err := r.db.First(&product, "id = ?", id).Error
 	return &product, err
+}
+
+func (r *factoryRepository) UpdateProduct(product *domain.Product) error {
+	return r.db.Save(product).Error
+}
+
+func (r *factoryRepository) DeleteProduct(id uuid.UUID) error {
+	return r.db.Delete(&domain.Product{}, "id = ?", id).Error
 }
 
 func (r *factoryRepository) GetStock(factoryID, productID uuid.UUID) (*domain.FactoryStock, error) {

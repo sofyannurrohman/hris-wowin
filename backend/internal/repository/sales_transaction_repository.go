@@ -13,6 +13,7 @@ type SalesTransactionRepository interface {
 	Update(transaction *domain.SalesTransaction) error
 	Delete(id uuid.UUID) error
 	GetTransactionsByEmployeeAndPeriod(employeeID uuid.UUID, month, year int) ([]domain.SalesTransaction, error)
+	FindByReceiptNo(receiptNo string) (*domain.SalesTransaction, error)
 }
 
 type salesTransactionRepository struct {
@@ -60,4 +61,15 @@ func (r *salesTransactionRepository) GetTransactionsByEmployeeAndPeriod(employee
 		return nil, err
 	}
 	return transactions, nil
+}
+
+func (r *salesTransactionRepository) FindByReceiptNo(receiptNo string) (*domain.SalesTransaction, error) {
+	var transaction domain.SalesTransaction
+	if err := r.db.Preload("Company").Preload("Store").Preload("Employee").Where("receipt_no = ?", receiptNo).First(&transaction).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &transaction, nil
 }
