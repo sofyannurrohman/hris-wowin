@@ -159,7 +159,7 @@ class _AddReimbursementPageState extends State<AddReimbursementPage> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Maks. 100MB',
+                        'Maks. 5MB',
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
