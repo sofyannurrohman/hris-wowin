@@ -8,6 +8,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const jobPositions = ref<any[]>([])
   const leaveTypes = ref<any[]>([])
   const employees = ref<any[]>([])
+  const selectedBranchId = ref<string | null>(localStorage.getItem('selectedBranchId'))
   
   const isBranchesLoading = ref(false)
   const isDepartmentsLoading = ref(false)
@@ -15,12 +16,26 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const isLeaveTypesLoading = ref(false)
   const isEmployeesLoading = ref(false)
 
+  function setSelectedBranchId(id: string | null) {
+    selectedBranchId.value = id
+    if (id) {
+      localStorage.setItem('selectedBranchId', id)
+    } else {
+      localStorage.removeItem('selectedBranchId')
+    }
+  }
+
   async function fetchBranches(force = false) {
     if (branches.value.length > 0 && !force) return
     isBranchesLoading.value = true
     try {
       const res = await apiClient.get('/branches')
       branches.value = res.data.data || []
+      
+      // If no branch is selected and we have branches, select the first one
+      if (!selectedBranchId.value && branches.value.length > 0) {
+        setSelectedBranchId(branches.value[0].id)
+      }
     } finally {
       isBranchesLoading.value = false
     }
@@ -75,7 +90,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     departments,
     jobPositions,
     leaveTypes,
-    employees,
+    selectedBranchId,
     isBranchesLoading,
     isDepartmentsLoading,
     isJobPositionsLoading,
@@ -85,6 +100,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     fetchDepartments,
     fetchJobPositions,
     fetchLeaveTypes,
-    fetchEmployees
+    fetchEmployees,
+    setSelectedBranchId
   }
 })

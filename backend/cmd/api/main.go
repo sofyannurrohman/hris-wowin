@@ -21,7 +21,20 @@ func main() {
 	db := config.ConnectDB(cfg)
 
 	// Run AutoMigrate for critical models to ensure schema sync
-	db.AutoMigrate(&domain.SalesKPI{}, &domain.BannerOrder{})
+	db.AutoMigrate(
+		&domain.SalesKPI{},
+		&domain.BannerOrder{},
+		&domain.Factory{},
+		&domain.Product{},
+		&domain.FactoryStock{},
+		&domain.ProductionLog{},
+		&domain.ProductTransfer{},
+		&domain.FactoryInventoryLog{},
+		&domain.WarehouseStock{},
+		&domain.WarehouseLog{},
+		&domain.Vehicle{},
+		&domain.Notification{},
+	)
 
 	// Setup Repositories
 	userRepo := repository.NewUserRepository(db)
@@ -45,6 +58,10 @@ func main() {
 	storeRepo := repository.NewStoreRepository(db)
 	salesRepo := repository.NewSalesTransactionRepository(db)
 	bannerOrderRepo := repository.NewBannerOrderRepository(db)
+	factoryRepo := repository.NewFactoryRepository(db)
+	warehouseRepo := repository.NewWarehouseRepository(db)
+	vehicleRepo := repository.NewVehicleRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
@@ -70,6 +87,9 @@ func main() {
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
 	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
+	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
+	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, db)
+	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -110,6 +130,10 @@ func main() {
 	storeHandler := http.NewStoreHandler(storeRepo, employeeUseCase)
 	salesHandler := http.NewSalesHandler(salesUseCase, employeeUseCase)
 	bannerOrderHandler := http.NewBannerOrderHandler(bannerOrderUseCase, employeeUseCase)
+	factoryHandler := http.NewFactoryHandler(factoryUseCase)
+	warehouseHandler := http.NewWarehouseHandler(warehouseUseCase)
+	vehicleHandler := http.NewVehicleHandler(vehicleUseCase)
+	notificationHandler := http.NewNotificationHandler(notificationRepo)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -146,6 +170,10 @@ func main() {
 			salesHandler.SetupMobileRoutes(protected)
 			salesHandler.RegisterRoutes(protected)
 			bannerOrderHandler.SetupRoutes(protected)
+			factoryHandler.RegisterRoutes(protected)
+			warehouseHandler.RegisterRoutes(protected)
+			vehicleHandler.RegisterRoutes(protected)
+			notificationHandler.RegisterRoutes(protected)
 		}
 	}
 

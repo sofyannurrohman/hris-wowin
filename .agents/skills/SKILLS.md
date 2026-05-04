@@ -1,6 +1,6 @@
-# Project Skills: HRIS Wowin
+# Project Skills: Super App Wowin
 
-This document outlines the core competencies and technologies necessary to maintain and develop the HRIS Wowin project.
+This document outlines the core competencies and technologies necessary to maintain and develop the Super App Wowin project, covering HRIS, Factory, Warehouse, and Sales operations.
 
 ## Backend Development (Go)
 - **Language**: Go (Golang)
@@ -36,11 +36,28 @@ This document outlines the core competencies and technologies necessary to maint
 - **Spatial**: Basic GIS logic for Geofencing (radius-based attendance).
 - **Mobile Assets**: TFLite models for edge-side face recognition.
 
-## Domain Knowledge (HRIS)
+## Domain Knowledge
+
+### HRIS (Human Resource Information System)
 - **Organizational Structure**: Multi-tenant companies, branches, departments, and job positions.
 - **Time Management**: Shifts, employee rosters, and live attendance with GPS validation.
 - **Leave Management**: Leave types, annual quotas, and approval workflows.
 - **Payroll**: Dynamic payroll components (earning/deduction), tax calculations (PPh21), and payslip generation.
+
+### Factory Operations (Pabrik Utama)
+- **Production Tracking**: Monitoring manufacturing processes, output, and efficiency.
+- **Machine Maintenance**: Scheduling and logging maintenance for factory equipment.
+- **Quality Control**: Managing QC checklists and reporting for manufactured goods.
+
+### Warehouse Operations (Gudang Cabang)
+- **Inventory Management**: Stock tracking, SKU management, and branch-specific inventory levels.
+- **Stock Movement**: Handling receiving, transfers (mutasi), and stock opname across branches.
+- **Logistics**: Coordinating distribution and branch fulfillment.
+
+### Sales Operations (Sales Cabang)
+- **CRM & Customer Management**: Managing customer data and relationship history at the branch level.
+- **Order Management**: Processing sales orders, invoicing, and tracking delivery status.
+- **Sales Performance**: Monitoring sales targets, quotas, and branch-specific revenue metrics.
 
 ## Coding Conventions
 

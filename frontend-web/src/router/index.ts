@@ -131,6 +131,11 @@ const router = createRouter({
           name: 'announcements',
           component: () => import('@/views/AnnouncementView.vue'),
         },
+        {
+          path: 'vehicles',
+          name: 'vehicles',
+          component: () => import('@/views/VehicleView.vue'),
+        },
         // Sales & Marketing Module
         {
           path: 'sales',
@@ -169,6 +174,43 @@ const router = createRouter({
               path: 'stores',
               name: 'stores',
               component: () => import('@/views/sales/StoreView.vue'),
+            }
+          ]
+        },
+        // Factory & Logistics Module
+        {
+          path: 'factory',
+          children: [
+            {
+              path: '',
+              name: 'factoryDashboard',
+              component: () => import('@/views/factory/FactoryDashboard.vue'),
+            },
+            {
+              path: ':id',
+              name: 'factoryInventory',
+              component: () => import('@/views/factory/FactoryInventoryView.vue'),
+            }
+          ]
+        },
+        // Warehouse Module (Gudang Cabang)
+        {
+          path: 'warehouse',
+          children: [
+            {
+              path: '',
+              name: 'warehouseStock',
+              component: () => import('@/views/warehouse/WarehouseStockView.vue'),
+            },
+            {
+              path: 'receiving',
+              name: 'warehouseReceiving',
+              component: () => import('@/views/warehouse/ReceivingView.vue'),
+            },
+            {
+              path: 'logs',
+              name: 'warehouseLogs',
+              component: () => import('@/views/warehouse/WarehouseLogView.vue'),
             }
           ]
         }

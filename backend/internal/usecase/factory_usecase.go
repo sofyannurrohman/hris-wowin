@@ -1,0 +1,193 @@
+package usecase
+
+import (
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/sofyan/hris_wowin/backend/internal/domain"
+	"github.com/sofyan/hris_wowin/backend/internal/repository"
+	"gorm.io/gorm"
+)
+
+type FactoryUsecase interface {
+	// Factory
+	CreateFactory(factory *domain.Factory) error
+	GetAllFactories(companyID uuid.UUID) ([]domain.Factory, error)
+	GetFactoryDetail(id uuid.UUID) (*domain.Factory, error)
+	UpdateFactory(factory *domain.Factory) error
+	DeleteFactory(id uuid.UUID) error
+
+	// Product
+	CreateProduct(product *domain.Product) error
+	GetProducts(companyID uuid.UUID) ([]domain.Product, error)
+
+	// Production
+	LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error
+	GetProductionHistory(factoryID uuid.UUID) ([]domain.ProductionLog, error)
+
+	// Inventory
+	GetFactoryInventory(factoryID uuid.UUID) ([]domain.FactoryStock, error)
+	GetInventoryLogs(factoryID uuid.UUID) ([]domain.FactoryInventoryLog, error)
+
+	// Transfer & Logistics
+	RequestShipment(fromFactoryID, toBranchID, productID uuid.UUID, quantity int, notes string) error
+	ExecuteApprovedShipment(transferID uuid.UUID) error
+	GetTransferHistory(factoryID uuid.UUID) ([]domain.ProductTransfer, error)
+}
+
+type factoryUsecase struct {
+	repo repository.FactoryRepository
+	db   *gorm.DB
+}
+
+func NewFactoryUsecase(repo repository.FactoryRepository, db *gorm.DB) FactoryUsecase {
+	return &factoryUsecase{repo, db}
+}
+
+func (u *factoryUsecase) CreateFactory(factory *domain.Factory) error {
+	return u.repo.CreateFactory(factory)
+}
+
+func (u *factoryUsecase) GetAllFactories(companyID uuid.UUID) ([]domain.Factory, error) {
+	return u.repo.GetFactoriesByCompanyID(companyID)
+}
+
+func (u *factoryUsecase) GetFactoryDetail(id uuid.UUID) (*domain.Factory, error) {
+	return u.repo.GetFactoryByID(id)
+}
+
+func (u *factoryUsecase) UpdateFactory(factory *domain.Factory) error {
+	return u.repo.UpdateFactory(factory)
+}
+
+func (u *factoryUsecase) DeleteFactory(id uuid.UUID) error {
+	return u.repo.DeleteFactory(id)
+}
+
+func (u *factoryUsecase) CreateProduct(product *domain.Product) error {
+	return u.repo.CreateProduct(product)
+}
+
+func (u *factoryUsecase) GetProducts(companyID uuid.UUID) ([]domain.Product, error) {
+	return u.repo.GetProductsByCompanyID(companyID)
+}
+
+func (u *factoryUsecase) LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+
+		productionLog := &domain.ProductionLog{
+			FactoryID:      factoryID,
+			ProductID:      productID,
+			EmployeeID:     employeeID,
+			Quantity:       quantity,
+			ProductionDate: time.Now(),
+			Notes:          notes,
+		}
+		if err := repo.CreateProductionLog(productionLog); err != nil {
+			return err
+		}
+
+		stock, err := repo.GetStock(factoryID, productID)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		stock.Quantity += quantity
+		if err := repo.UpdateStock(stock); err != nil {
+			return err
+		}
+
+		inventoryLog := &domain.FactoryInventoryLog{
+			FactoryID: factoryID,
+			ProductID: productID,
+			Type:      "IN",
+			Source:    "PRODUCTION",
+			Quantity:  quantity,
+		}
+		return repo.CreateInventoryLog(inventoryLog)
+	})
+}
+
+func (u *factoryUsecase) GetProductionHistory(factoryID uuid.UUID) ([]domain.ProductionLog, error) {
+	return u.repo.GetProductionLogsByFactoryID(factoryID)
+}
+
+func (u *factoryUsecase) GetFactoryInventory(factoryID uuid.UUID) ([]domain.FactoryStock, error) {
+	return u.repo.GetStocksByFactoryID(factoryID)
+}
+
+func (u *factoryUsecase) GetInventoryLogs(factoryID uuid.UUID) ([]domain.FactoryInventoryLog, error) {
+	return u.repo.GetInventoryLogsByFactoryID(factoryID)
+}
+
+func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID, productID uuid.UUID, quantity int, notes string) error {
+	// 1. Get Product for weight calculation
+	product, err := u.repo.GetProductByID(productID)
+	if err != nil {
+		return err
+	}
+
+	totalWeight := float64(quantity) * product.Weight
+
+	transfer := &domain.ProductTransfer{
+		FromFactoryID: fromFactoryID,
+		ToBranchID:    toBranchID,
+		ProductID:     productID,
+		Quantity:      quantity,
+		TotalWeight:   totalWeight,
+		Status:        "REQUESTED",
+		Notes:         notes,
+	}
+	return u.repo.CreateTransfer(transfer)
+}
+
+func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+
+		// 1. Get Transfer
+		transfer, err := repo.GetTransferByID(transferID)
+		if err != nil {
+			return err
+		}
+		if transfer.Status != "APPROVED" {
+			return errors.New("only APPROVED transfers can be shipped")
+		}
+
+		// 2. Check Factory Stock
+		stock, err := repo.GetStock(transfer.FromFactoryID, transfer.ProductID)
+		if err != nil {
+			return err
+		}
+		if stock.Quantity < transfer.Quantity {
+			return errors.New("insufficient stock in factory for this shipment")
+		}
+
+		// 3. Reduce Factory Stock
+		stock.Quantity -= transfer.Quantity
+		if err := repo.UpdateStock(stock); err != nil {
+			return err
+		}
+
+		// 4. Update Status to SHIPPED
+		transfer.Status = "SHIPPED"
+		if err := repo.UpdateTransfer(transfer); err != nil {
+			return err
+		}
+
+		// 5. Create Inventory Log
+		inventoryLog := &domain.FactoryInventoryLog{
+			FactoryID: transfer.FromFactoryID,
+			ProductID: transfer.ProductID,
+			Type:      "OUT",
+			Source:    "TRANSFER TO BRANCH",
+			Quantity:  transfer.Quantity,
+		}
+		return repo.CreateInventoryLog(inventoryLog)
+	})
+}
+
+func (u *factoryUsecase) GetTransferHistory(factoryID uuid.UUID) ([]domain.ProductTransfer, error) {
+	return u.repo.GetTransfersByFactoryID(factoryID)
+}

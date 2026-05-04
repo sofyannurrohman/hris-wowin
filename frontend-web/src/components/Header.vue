@@ -1,13 +1,29 @@
 <script setup lang="ts">
 import { useLayoutStore } from '@/stores/layout'
-import { Menu, Search, Bell, Briefcase, Users, PieChart, ChevronDown } from 'lucide-vue-next'
+import { useMasterDataStore } from '@/stores/masterData'
+import { Menu, Search, Bell, Briefcase, Users, PieChart, ChevronDown, Factory, Warehouse, Building2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import { computed } from 'vue'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { computed, onMounted } from 'vue'
+import NotificationDropdown from '@/components/NotificationDropdown.vue'
 
 const layoutStore = useLayoutStore()
+const masterDataStore = useMasterDataStore()
+
+onMounted(() => {
+  masterDataStore.fetchBranches()
+})
 
 const modules = [
   { id: 'hris', name: 'HRIS', icon: Users, color: 'text-primary' },
+  { id: 'factory', name: 'Pabrik', icon: Factory, color: 'text-slate-600' },
+  { id: 'warehouse', name: 'Gudang', icon: Warehouse, color: 'text-slate-600' },
   { id: 'sales', name: 'Sales & Marketing', icon: PieChart, color: 'text-slate-600' },
   { id: 'erecruitment', name: 'eRecruitment', icon: Briefcase, color: 'text-slate-600', url: 'https://hrd-room.wowinapps.cloud/login' }
 ]
@@ -70,13 +86,29 @@ const handleModuleClick = (mod: any) => {
     </div>
 
     <div class="flex items-center gap-3 md:gap-6">
-      <Button variant="ghost" size="icon" class="relative h-11 w-11 rounded-2xl border border-transparent hover:border-slate-200 hover:bg-white hover:shadow-sm text-slate-500 transition-all duration-300">
-        <Bell class="h-5.5 w-5.5" />
-        <span class="absolute right-3 top-3 flex h-3 w-3">
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40 opacity-75"></span>
-          <span class="relative inline-flex h-3 w-3 rounded-full bg-primary border-2 border-white"></span>
-        </span>
-      </Button>
+      <!-- Branch Selector -->
+      <div v-if="masterDataStore.branches.length > 0" class="hidden sm:block">
+        <Select :model-value="masterDataStore.selectedBranchId || undefined" @update:model-value="(val) => masterDataStore.setSelectedBranchId(val as string)">
+          <SelectTrigger class="w-[180px] h-10 bg-slate-100/50 border-slate-200/50 rounded-xl focus:ring-primary/20">
+            <div class="flex items-center gap-2 text-slate-700">
+              <Building2 class="h-4 w-4 text-slate-400" />
+              <SelectValue placeholder="Pilih Cabang" />
+            </div>
+          </SelectTrigger>
+          <SelectContent class="rounded-xl border-slate-200 shadow-xl">
+            <SelectItem 
+              v-for="branch in masterDataStore.branches" 
+              :key="branch.id" 
+              :value="branch.id"
+              class="rounded-lg m-1"
+            >
+              {{ branch.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <NotificationDropdown />
       
       <div class="h-10 w-px bg-slate-200/80 mx-1"></div>
       

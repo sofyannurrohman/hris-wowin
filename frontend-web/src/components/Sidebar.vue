@@ -28,6 +28,11 @@ import {
   Receipt,
   Megaphone,
   Timer,
+  Factory,
+  Package,
+  Truck,
+  Warehouse,
+  Boxes,
   LogOut 
 } from 'lucide-vue-next'
 
@@ -69,6 +74,7 @@ const hrisGroups = [
       { to: '/job-positions', name: 'Jabatan', icon: Briefcase },
       { to: '/shifts', name: 'Shift Kerja', icon: Clock },
       { to: '/announcements', name: 'Pengumuman', icon: Megaphone },
+      { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
     ]
   },
   {
@@ -101,9 +107,45 @@ const salesGroups = [
   }
 ]
 
+const factoryGroups = [
+  {
+    title: 'Operasional Pabrik',
+    items: [
+      { to: '/factory', name: 'Dashboard Pabrik', icon: LayoutDashboard },
+      { to: '/factory/products', name: 'Produk Wowin', icon: Package },
+    ]
+  },
+  {
+    title: 'Logistik & Stok',
+    items: [
+      { to: '/factory', name: 'Manajemen Stok', icon: Factory },
+      { to: '/factory/transfers', name: 'Kirim ke Cabang', icon: Truck },
+      { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
+    ]
+  }
+]
+
+const warehouseGroups = [
+  {
+    title: 'Gudang Cabang',
+    items: [
+      { to: '/warehouse', name: 'Stok Gudang', icon: Boxes },
+      { to: '/warehouse/receiving', name: 'Penerimaan Barang', icon: Truck },
+      { to: '/warehouse/logs', name: 'Log Mutasi', icon: History },
+      { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
+    ]
+  }
+]
+
 const menuGroups = computed(() => {
   if (layoutStore.currentModule === 'sales') {
     return salesGroups
+  }
+  if (layoutStore.currentModule === 'factory') {
+    return factoryGroups
+  }
+  if (layoutStore.currentModule === 'warehouse') {
+    return warehouseGroups
   }
   return hrisGroups
 })
