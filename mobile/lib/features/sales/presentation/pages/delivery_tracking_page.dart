@@ -28,7 +28,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      final baseUrl = 'http://localhost:8080/api/v1'; // Should use env config
+      final baseUrl = 'http://localhost:8081/api/v1'; // Should use env config
 
       final response = await Dio().get(
         '$baseUrl/delivery/batch/$doNo',
@@ -52,7 +52,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      final baseUrl = 'http://localhost:8080/api/v1';
+      final baseUrl = 'http://localhost:8081/api/v1';
 
       await Dio().post(
         '$baseUrl/delivery/items/$itemID/confirm',

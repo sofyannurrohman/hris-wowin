@@ -29,6 +29,11 @@ type SalesUsecase interface {
 	SetKPITarget(employeeID uuid.UUID, month, year int, targetOmzet float64, targetNewStores int, workingTerritory string) error
 	GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]VisitPlanItem, error)
 	GetTransactionByReceipt(receiptNo string) (*domain.SalesTransaction, error)
+
+	// Payment & Debt Management
+	RecordPayment(req RecordPaymentRequest) error
+	GetOutstandingTransactionsByStore(storeID uuid.UUID) ([]domain.SalesTransaction, error)
+	GetTransactionsByDueDate(date time.Time, employeeID uuid.UUID) ([]domain.SalesTransaction, error)
 }
 
 type VisitPlanItem struct {
@@ -41,15 +46,26 @@ type VisitPlanItem struct {
 }
 
 type CreateTransactionRequest struct {
-	CompanyID       uuid.UUID `json:"company_id"`
-	StoreID         uuid.UUID `json:"store_id"`
-	EmployeeID      uuid.UUID `json:"employee_id"`
-	ReceiptNo       string    `json:"receipt_no"`
-	ReceiptImageURL string    `json:"receipt_image_url"`
-	TotalAmount     float64   `json:"total_amount"`
-	StoreCategory   string    `json:"store_category"`
-	TransactionDate time.Time `json:"transaction_date"`
-	Notes           string    `json:"notes"`
+	CompanyID       uuid.UUID  `json:"company_id"`
+	StoreID         uuid.UUID  `json:"store_id"`
+	EmployeeID      uuid.UUID  `json:"employee_id"`
+	ReceiptNo       string     `json:"receipt_no"`
+	ReceiptImageURL string     `json:"receipt_image_url"`
+	TotalAmount     float64    `json:"total_amount"`
+	PaidAmount      float64    `json:"paid_amount"`
+	PaymentDueDate  *time.Time `json:"payment_due_date"`
+	StoreCategory   string     `json:"store_category"`
+	TransactionDate time.Time  `json:"transaction_date"`
+	Notes           string     `json:"notes"`
+}
+
+type RecordPaymentRequest struct {
+	TransactionID  uuid.UUID  `json:"transaction_id" binding:"required"`
+	EmployeeID     uuid.UUID  `json:"employee_id"`
+	Amount         float64    `json:"amount" binding:"required"`
+	PaymentDate    time.Time  `json:"payment_date"`
+	NextDueDate    *time.Time `json:"next_due_date"`
+	Notes          string     `json:"notes"`
 }
 
 type VerifyTransactionRequest struct {
@@ -232,6 +248,13 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		receiptNo = fmt.Sprintf("WOW-%s-%s", now.Format("20060102"), randomPart)
 	}
 
+	paymentStatus := string(domain.PaymentStatusUnpaid)
+	if req.PaidAmount >= req.TotalAmount {
+		paymentStatus = string(domain.PaymentStatusPaid)
+	} else if req.PaidAmount > 0 {
+		paymentStatus = string(domain.PaymentStatusPartial)
+	}
+
 	trx := &domain.SalesTransaction{
 		CompanyID:       req.CompanyID,
 		StoreID:         req.StoreID,
@@ -239,6 +262,9 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		ReceiptNo:       receiptNo,
 		ReceiptImageURL: req.ReceiptImageURL,
 		TotalAmount:     req.TotalAmount,
+		PaidAmount:      req.PaidAmount,
+		PaymentStatus:   paymentStatus,
+		PaymentDueDate:  req.PaymentDueDate,
 		StoreCategory:   req.StoreCategory,
 		TransactionDate: req.TransactionDate,
 		PeriodMonth:     int(req.TransactionDate.Month()),
@@ -252,6 +278,18 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		return nil, err
 	}
 
+	// Create initial payment record if paid
+	if req.PaidAmount > 0 {
+		payment := &domain.SalesPayment{
+			SalesTransactionID: trx.ID,
+			EmployeeID:         req.EmployeeID,
+			Amount:             req.PaidAmount,
+			PaymentDate:        req.TransactionDate,
+			Notes:              "Pembayaran awal saat transaksi",
+		}
+		_ = u.salesRepo.CreatePayment(payment)
+	}
+
 	// Fetch Store info to include in response
 	store, _ := u.storeRepo.FindByID(trx.StoreID)
 	if store != nil {
@@ -259,6 +297,60 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 	}
 
 	return trx, nil
+}
+
+func (u *salesUsecase) RecordPayment(req RecordPaymentRequest) error {
+	trx, err := u.salesRepo.FindByID(req.TransactionID)
+	if err != nil {
+		return err
+	}
+	if trx == nil {
+		return errors.New("transaksi tidak ditemukan")
+	}
+
+	newPaidAmount := trx.PaidAmount + req.Amount
+	if newPaidAmount > trx.TotalAmount {
+		return errors.New("jumlah pembayaran melebihi total tagihan")
+	}
+
+	paymentStatus := string(domain.PaymentStatusPartial)
+	if newPaidAmount >= trx.TotalAmount {
+		paymentStatus = string(domain.PaymentStatusPaid)
+		trx.PaymentDueDate = nil // Clear due date if fully paid
+	} else if req.NextDueDate != nil {
+		trx.PaymentDueDate = req.NextDueDate
+	}
+
+	trx.PaidAmount = newPaidAmount
+	trx.PaymentStatus = paymentStatus
+
+	if err := u.salesRepo.Update(trx); err != nil {
+		return err
+	}
+
+	paymentDate := req.PaymentDate
+	if paymentDate.IsZero() {
+		paymentDate = time.Now()
+	}
+
+	payment := &domain.SalesPayment{
+		SalesTransactionID: trx.ID,
+		EmployeeID:         req.EmployeeID,
+		Amount:             req.Amount,
+		PaymentDate:        paymentDate,
+		Notes:              req.Notes,
+	}
+
+	return u.salesRepo.CreatePayment(payment)
+}
+
+func (u *salesUsecase) GetOutstandingTransactionsByStore(storeID uuid.UUID) ([]domain.SalesTransaction, error) {
+	return u.salesRepo.GetOutstandingByStore(storeID)
+}
+
+func (u *salesUsecase) GetTransactionsByDueDate(date time.Time, employeeID uuid.UUID) ([]domain.SalesTransaction, error) {
+	dateStr := date.Format("2006-01-02")
+	return u.salesRepo.GetByDueDate(dateStr, employeeID)
 }
 
 func (u *salesUsecase) GetPendingTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error) {

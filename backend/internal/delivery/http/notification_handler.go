@@ -25,13 +25,19 @@ func (h *NotificationHandler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *NotificationHandler) GetNotifications(c *gin.Context) {
-	companyIDStr, _ := c.Get("company_id")
-	branchIDStr, _ := c.Get("branch_id")
-	
-	companyID := uuid.MustParse(companyIDStr.(string))
+	val, _ := c.Get("companyID")
+	if val == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: company ID missing"})
+		return
+	}
+	companyID := val.(uuid.UUID)
+
 	branchID := uuid.Nil
-	if branchIDStr != nil && branchIDStr != "" {
-		branchID = uuid.MustParse(branchIDStr.(string))
+	branchIDStr := c.Query("branch_id")
+	if branchIDStr != "" {
+		if bid, err := uuid.Parse(branchIDStr); err == nil {
+			branchID = bid
+		}
 	}
 
 	notifications, err := h.repo.GetByBranch(companyID, branchID)

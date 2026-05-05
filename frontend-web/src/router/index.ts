@@ -197,6 +197,16 @@ const router = createRouter({
               component: () => import('@/views/factory/FactoryProductView.vue'),
             },
             {
+              path: 'stock',
+              name: 'factoryStockGlobal',
+              component: () => import('@/views/factory/FactoryStockListView.vue'),
+            },
+            {
+              path: 'transfers',
+              name: 'factoryTransfersGlobal',
+              component: () => import('@/views/factory/FactoryTransferListView.vue'),
+            },
+            {
               path: ':id',
               name: 'factoryInventory',
               component: () => import('@/views/factory/FactoryInventoryView.vue'),

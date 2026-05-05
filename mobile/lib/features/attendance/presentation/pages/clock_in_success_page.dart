@@ -27,7 +27,7 @@ class ClockInSuccessPage extends StatelessWidget {
 
     final bool hasSelfie = attendance.selfiePath.isNotEmpty;
     // Base URL should ideally come from a config, but for now we follow the existing pattern
-    final String selfieUrl = hasSelfie ? 'http://localhost:8080${attendance.selfiePath}' : '';
+    final String selfieUrl = hasSelfie ? 'http://localhost:8081${attendance.selfiePath}' : '';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundAlt,

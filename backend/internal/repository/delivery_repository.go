@@ -30,6 +30,7 @@ func (r *deliveryRepository) CreateBatch(batch *domain.DeliveryBatch) error {
 func (r *deliveryRepository) GetBatchByDO(doNo string) (*domain.DeliveryBatch, error) {
 	var batch domain.DeliveryBatch
 	err := r.db.Preload("Driver").Preload("Vehicle").
+		Preload("AdminNota").Preload("Supervisor").
 		Preload("Items.SalesTransaction.Store").
 		Where("delivery_order_no = ?", doNo).First(&batch).Error
 	return &batch, err
@@ -38,6 +39,7 @@ func (r *deliveryRepository) GetBatchByDO(doNo string) (*domain.DeliveryBatch, e
 func (r *deliveryRepository) GetBatchByID(id uuid.UUID) (*domain.DeliveryBatch, error) {
 	var batch domain.DeliveryBatch
 	err := r.db.Preload("Driver").Preload("Vehicle").
+		Preload("AdminNota").Preload("Supervisor").
 		Preload("Items.SalesTransaction.Store").
 		First(&batch, id).Error
 	return &batch, err

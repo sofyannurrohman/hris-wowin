@@ -29,8 +29,8 @@ func (h *VehicleHandler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *VehicleHandler) GetAllVehicles(c *gin.Context) {
-	companyIDStr, _ := c.Get("company_id")
-	companyID := uuid.MustParse(companyIDStr.(string))
+	val, _ := c.Get("companyID")
+	companyID := val.(uuid.UUID)
 	
 	vehicles, err := h.usecase.GetVehicles(companyID)
 	if err != nil {
@@ -47,8 +47,8 @@ func (h *VehicleHandler) CreateVehicle(c *gin.Context) {
 		return
 	}
 
-	companyIDStr, _ := c.Get("company_id")
-	vehicle.CompanyID = uuid.MustParse(companyIDStr.(string))
+	val, _ := c.Get("companyID")
+	vehicle.CompanyID = val.(uuid.UUID)
 
 	if err := h.usecase.CreateVehicle(&vehicle); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

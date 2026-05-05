@@ -25,16 +25,22 @@ type FactoryRepository interface {
 	GetStock(factoryID, productID uuid.UUID) (*domain.FactoryStock, error)
 	UpdateStock(stock *domain.FactoryStock) error
 	GetStocksByFactoryID(factoryID uuid.UUID) ([]domain.FactoryStock, error)
+	GetAllStocksByCompanyID(companyID uuid.UUID) ([]domain.FactoryStock, error)
 
 	// Logs
 	CreateProductionLog(log *domain.ProductionLog) error
+	GetProductionLogByID(id uuid.UUID) (*domain.ProductionLog, error)
 	GetProductionLogsByFactoryID(factoryID uuid.UUID) ([]domain.ProductionLog, error)
+	GetAllProductionLogsByCompanyID(companyID uuid.UUID) ([]domain.ProductionLog, error)
+	UpdateProductionLog(log *domain.ProductionLog) error
+	DeleteProductionLog(id uuid.UUID) error
 	CreateInventoryLog(log *domain.FactoryInventoryLog) error
 	GetInventoryLogsByFactoryID(factoryID uuid.UUID) ([]domain.FactoryInventoryLog, error)
 
 	// Transfer
 	CreateTransfer(transfer *domain.ProductTransfer) error
 	GetTransfersByFactoryID(factoryID uuid.UUID) ([]domain.ProductTransfer, error)
+	GetAllTransfersByCompanyID(companyID uuid.UUID) ([]domain.ProductTransfer, error)
 	GetTransferByID(id uuid.UUID) (*domain.ProductTransfer, error)
 	UpdateTransfer(transfer *domain.ProductTransfer) error
 	UpdateTransferStatus(id uuid.UUID, status string) error
@@ -65,7 +71,7 @@ func (r *factoryRepository) GetFactoriesByCompanyID(companyID uuid.UUID) ([]doma
 }
 
 func (r *factoryRepository) UpdateFactory(factory *domain.Factory) error {
-	return r.db.Save(factory).Error
+	return r.db.Model(factory).Select("Name", "Location", "BranchID").Updates(factory).Error
 }
 
 func (r *factoryRepository) DeleteFactory(id uuid.UUID) error {
@@ -89,7 +95,7 @@ func (r *factoryRepository) GetProductByID(id uuid.UUID) (*domain.Product, error
 }
 
 func (r *factoryRepository) UpdateProduct(product *domain.Product) error {
-	return r.db.Save(product).Error
+	return r.db.Model(product).Select("Name", "SKU", "Unit", "Category", "Brand", "Weight", "WeightUnit", "CostPrice", "SellingPrice", "Description", "Specs", "ImageURL").Updates(product).Error
 }
 
 func (r *factoryRepository) DeleteProduct(id uuid.UUID) error {
@@ -118,14 +124,46 @@ func (r *factoryRepository) GetStocksByFactoryID(factoryID uuid.UUID) ([]domain.
 	return stocks, err
 }
 
+func (r *factoryRepository) GetAllStocksByCompanyID(companyID uuid.UUID) ([]domain.FactoryStock, error) {
+	var stocks []domain.FactoryStock
+	err := r.db.Preload("Product").Preload("Factory").
+		Joins("JOIN factories ON factories.id = factory_stocks.factory_id").
+		Where("factories.company_id = ?", companyID).
+		Find(&stocks).Error
+	return stocks, err
+}
+
 func (r *factoryRepository) CreateProductionLog(log *domain.ProductionLog) error {
 	return r.db.Create(log).Error
+}
+
+func (r *factoryRepository) GetProductionLogByID(id uuid.UUID) (*domain.ProductionLog, error) {
+	var log domain.ProductionLog
+	err := r.db.First(&log, "id = ?", id).Error
+	return &log, err
 }
 
 func (r *factoryRepository) GetProductionLogsByFactoryID(factoryID uuid.UUID) ([]domain.ProductionLog, error) {
 	var logs []domain.ProductionLog
 	err := r.db.Preload("Product").Preload("Employee").Where("factory_id = ?", factoryID).Order("production_date desc").Find(&logs).Error
 	return logs, err
+}
+
+func (r *factoryRepository) GetAllProductionLogsByCompanyID(companyID uuid.UUID) ([]domain.ProductionLog, error) {
+	var logs []domain.ProductionLog
+	err := r.db.Preload("Product").Preload("Employee").Preload("Factory").
+		Joins("JOIN factories ON factories.id = production_logs.factory_id").
+		Where("factories.company_id = ?", companyID).
+		Order("production_date desc").Find(&logs).Error
+	return logs, err
+}
+
+func (r *factoryRepository) UpdateProductionLog(log *domain.ProductionLog) error {
+	return r.db.Save(log).Error
+}
+
+func (r *factoryRepository) DeleteProductionLog(id uuid.UUID) error {
+	return r.db.Delete(&domain.ProductionLog{}, "id = ?", id).Error
 }
 
 func (r *factoryRepository) CreateInventoryLog(log *domain.FactoryInventoryLog) error {
@@ -145,6 +183,15 @@ func (r *factoryRepository) CreateTransfer(transfer *domain.ProductTransfer) err
 func (r *factoryRepository) GetTransfersByFactoryID(factoryID uuid.UUID) ([]domain.ProductTransfer, error) {
 	var transfers []domain.ProductTransfer
 	err := r.db.Preload("Product").Preload("ToBranch").Where("from_factory_id = ?", factoryID).Order("created_at desc").Find(&transfers).Error
+	return transfers, err
+}
+
+func (r *factoryRepository) GetAllTransfersByCompanyID(companyID uuid.UUID) ([]domain.ProductTransfer, error) {
+	var transfers []domain.ProductTransfer
+	err := r.db.Preload("Product").Preload("ToBranch").Preload("FromFactory").
+		Joins("JOIN factories ON factories.id = product_transfers.from_factory_id").
+		Where("factories.company_id = ?", companyID).
+		Order("created_at desc").Find(&transfers).Error
 	return transfers, err
 }
 

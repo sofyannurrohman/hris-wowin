@@ -20,6 +20,41 @@ const props = defineProps<{
   isLoading?: boolean
 }>()
 
+// --- Column Normalization ---
+// Converts simple {key, label} columns to TanStack format internally
+const normalizedColumns = computed(() => {
+  if (!props.columns) return []
+  
+  return props.columns.map(col => {
+    // If it's already in TanStack format, keep it
+    if (col.accessorKey || col.id || col.header) return col
+
+    // Otherwise, convert from legacy format
+    const newCol: any = {
+      accessorKey: col.key,
+      id: col.key,
+      header: col.label,
+    }
+
+    // Handle custom render if provided in legacy format
+    if (col.render) {
+      newCol.cell = (info: any) => col.render(info.getValue())
+    } else if (col.type === 'datetime') {
+      newCol.cell = (info: any) => {
+        const val = info.getValue()
+        return val ? new Date(val).toLocaleString('id-ID') : '-'
+      }
+    } else if (col.type === 'currency') {
+      newCol.cell = (info: any) => {
+        const val = info.getValue()
+        return val ? `Rp ${Number(val).toLocaleString('id-ID')}` : '-'
+      }
+    }
+
+    return newCol
+  })
+})
+
 const sorting = ref<SortingState>([])
 const filterText = ref('')
 const globalFilter = ref('')
@@ -32,8 +67,8 @@ watchDebounced(
 )
 
 const table = useVueTable({
-  get data() { return props.data },
-  get columns() { return props.columns as any },
+  get data() { return props.data || [] },
+  get columns() { return normalizedColumns.value },
   state: {
     get sorting() { return sorting.value },
     get globalFilter() { return globalFilter.value },

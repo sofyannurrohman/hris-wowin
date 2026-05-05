@@ -180,9 +180,9 @@ import {
   Truck, RefreshCw, Printer, PackagePlus, 
   PackageOpen, MapPin, Search 
 } from 'lucide-vue-next'
-import axios from 'axios'
+import apiClient from '@/api/axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1'
 const deliveryStore = useDeliveryStore()
 const masterDataStore = useMasterDataStore()
 
@@ -211,9 +211,9 @@ const fetchData = async () => {
     await deliveryStore.fetchBatches()
     
     // Fetch drivers & vehicles (simplified)
-    const dRes = await axios.get(`${API_URL}/employees?job_title=DRIVER`)
+    const dRes = await apiClient.get('/employees?job_title=DRIVER')
     drivers.value = dRes.data
-    const vRes = await axios.get(`${API_URL}/vehicles`)
+    const vRes = await apiClient.get('/vehicles')
     vehicles.value = vRes.data
   } finally {
     loading.value = false

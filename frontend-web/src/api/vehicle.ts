@@ -1,11 +1,9 @@
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+import apiClient from './axios'
 
 export const vehicleApi = {
-  getVehicles: () => axios.get(`${API_URL}/vehicles`),
-  getVehicle: (id: string) => axios.get(`${API_URL}/vehicles/${id}`),
-  createVehicle: (data: any) => axios.post(`${API_URL}/vehicles`, data),
-  updateVehicle: (id: string, data: any) => axios.put(`${API_URL}/vehicles/${id}`, data),
-  deleteVehicle: (id: string) => axios.delete(`${API_URL}/vehicles/${id}`),
+  getVehicles: () => apiClient.get('/vehicles'),
+  getVehicle: (id: string) => apiClient.get(`/vehicles/${id}`),
+  createVehicle: (data: any) => apiClient.post('/vehicles', data),
+  updateVehicle: (id: string, data: any) => apiClient.put(`/vehicles/${id}`, data),
+  deleteVehicle: (id: string) => apiClient.delete(`/vehicles/${id}`),
 }

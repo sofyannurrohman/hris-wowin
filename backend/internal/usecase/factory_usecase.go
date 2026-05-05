@@ -3,6 +3,7 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,15 +29,21 @@ type FactoryUsecase interface {
 	// Production
 	LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error
 	GetProductionHistory(factoryID uuid.UUID) ([]domain.ProductionLog, error)
+	GetAllProductionHistory(companyID uuid.UUID) ([]domain.ProductionLog, error)
+	UpdateProductionLog(id uuid.UUID, quantity int, notes string) error
+	DeleteProductionLog(id uuid.UUID) error
 
 	// Inventory
 	GetFactoryInventory(factoryID uuid.UUID) ([]domain.FactoryStock, error)
+	GetAllInventory(companyID uuid.UUID) ([]domain.FactoryStock, error)
 	GetInventoryLogs(factoryID uuid.UUID) ([]domain.FactoryInventoryLog, error)
+	AdjustStock(factoryID, productID uuid.UUID, quantity int, reason string) error
 
 	// Transfer & Logistics
-	RequestShipment(fromFactoryID, toBranchID, productID uuid.UUID, quantity int, notes string) error
+	RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string) error
 	ExecuteApprovedShipment(transferID uuid.UUID) error
 	GetTransferHistory(factoryID uuid.UUID) ([]domain.ProductTransfer, error)
+	GetAllTransfers(companyID uuid.UUID) ([]domain.ProductTransfer, error)
 }
 
 type factoryUsecase struct {
@@ -124,33 +131,130 @@ func (u *factoryUsecase) GetProductionHistory(factoryID uuid.UUID) ([]domain.Pro
 	return u.repo.GetProductionLogsByFactoryID(factoryID)
 }
 
+func (u *factoryUsecase) GetAllProductionHistory(companyID uuid.UUID) ([]domain.ProductionLog, error) {
+	return u.repo.GetAllProductionLogsByCompanyID(companyID)
+}
+
+func (u *factoryUsecase) UpdateProductionLog(id uuid.UUID, quantity int, notes string) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+		log, err := repo.GetProductionLogByID(id)
+		if err != nil {
+			return err
+		}
+
+		// Adjust Stock (diff)
+		diff := quantity - log.Quantity
+		stock, err := repo.GetStock(log.FactoryID, log.ProductID)
+		if err != nil {
+			return err
+		}
+		stock.Quantity += diff
+		if err := repo.UpdateStock(stock); err != nil {
+			return err
+		}
+
+		log.Quantity = quantity
+		log.Notes = notes
+		return repo.UpdateProductionLog(log)
+	})
+}
+
+func (u *factoryUsecase) DeleteProductionLog(id uuid.UUID) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+		log, err := repo.GetProductionLogByID(id)
+		if err != nil {
+			return err
+		}
+
+		// Reverse Stock
+		stock, err := repo.GetStock(log.FactoryID, log.ProductID)
+		if err != nil {
+			return err
+		}
+		stock.Quantity -= log.Quantity
+		if err := repo.UpdateStock(stock); err != nil {
+			return err
+		}
+
+		return repo.DeleteProductionLog(id)
+	})
+}
+
 func (u *factoryUsecase) GetFactoryInventory(factoryID uuid.UUID) ([]domain.FactoryStock, error) {
 	return u.repo.GetStocksByFactoryID(factoryID)
+}
+
+func (u *factoryUsecase) GetAllInventory(companyID uuid.UUID) ([]domain.FactoryStock, error) {
+	return u.repo.GetAllStocksByCompanyID(companyID)
 }
 
 func (u *factoryUsecase) GetInventoryLogs(factoryID uuid.UUID) ([]domain.FactoryInventoryLog, error) {
 	return u.repo.GetInventoryLogsByFactoryID(factoryID)
 }
 
-func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID, productID uuid.UUID, quantity int, notes string) error {
-	// 1. Get Product for weight calculation
-	product, err := u.repo.GetProductByID(productID)
-	if err != nil {
-		return err
-	}
+func (u *factoryUsecase) AdjustStock(factoryID, productID uuid.UUID, quantity int, reason string) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+		stock, err := repo.GetStock(factoryID, productID)
+		if err != nil {
+			return err
+		}
 
-	totalWeight := float64(quantity) * product.Weight
+		stock.Quantity = quantity
+		if err := repo.UpdateStock(stock); err != nil {
+			return err
+		}
 
-	transfer := &domain.ProductTransfer{
-		FromFactoryID: fromFactoryID,
-		ToBranchID:    toBranchID,
-		ProductID:     productID,
-		Quantity:      quantity,
-		TotalWeight:   totalWeight,
-		Status:        "REQUESTED",
-		Notes:         notes,
-	}
-	return u.repo.CreateTransfer(transfer)
+		inventoryLog := &domain.FactoryInventoryLog{
+			FactoryID: factoryID,
+			ProductID: productID,
+			Type:      "ADJUST",
+			Source:    reason,
+			Quantity:  quantity,
+		}
+		return repo.CreateInventoryLog(inventoryLog)
+	})
+}
+
+type ShipmentItem struct {
+	ProductID uuid.UUID
+	Quantity  int
+}
+
+func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+
+		// Generate a common DO number for this shipment
+		doNo := fmt.Sprintf("SJ/%s/%s", time.Now().Format("20060102"), strings.ToUpper(uuid.New().String()[:6]))
+
+		for _, item := range items {
+			// Get Product for weight calculation
+			product, err := repo.GetProductByID(item.ProductID)
+			if err != nil {
+				return err
+			}
+
+			totalWeight := float64(item.Quantity) * product.Weight
+
+			transfer := &domain.ProductTransfer{
+				FromFactoryID:   fromFactoryID,
+				ToBranchID:      toBranchID,
+				ProductID:       item.ProductID,
+				Quantity:        item.Quantity,
+				TotalWeight:     totalWeight,
+				Status:          "REQUESTED",
+				DeliveryOrderNo: doNo,
+				Notes:           notes,
+			}
+			if err := repo.CreateTransfer(transfer); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
@@ -206,4 +310,8 @@ func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 
 func (u *factoryUsecase) GetTransferHistory(factoryID uuid.UUID) ([]domain.ProductTransfer, error) {
 	return u.repo.GetTransfersByFactoryID(factoryID)
+}
+
+func (u *factoryUsecase) GetAllTransfers(companyID uuid.UUID) ([]domain.ProductTransfer, error) {
+	return u.repo.GetAllTransfersByCompanyID(companyID)
 }

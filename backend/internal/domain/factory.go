@@ -21,15 +21,20 @@ type Factory struct {
 }
 
 type Product struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	CompanyID   uuid.UUID `gorm:"type:uuid;not null" json:"company_id"`
-	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
-	SKU         string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"sku"`
-	Unit        string    `gorm:"type:varchar(20);not null" json:"unit"` // e.g., PCS, BOX, KG
-	Weight       float64   `gorm:"type:decimal(10,2);default:0" json:"weight"` // Weight per unit in KG
-	CostPrice    float64   `gorm:"type:decimal(15,2);default:0" json:"cost_price"` // HPP (Harga Pokok Penjualan)
-	SellingPrice float64   `gorm:"type:decimal(15,2);default:0" json:"selling_price"` // Harga Jual
-	Description  string    `gorm:"type:text" json:"description"`
+	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id" form:"id"`
+	CompanyID   uuid.UUID `gorm:"type:uuid;not null" json:"company_id" form:"company_id"`
+	Name        string    `gorm:"type:varchar(255);not null" json:"name" form:"name"`
+	SKU         string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"sku" form:"sku"`
+	Unit        string    `gorm:"type:varchar(20);not null" json:"unit" form:"unit"` // e.g., PCS, BOX, KG
+	Category     string    `gorm:"type:varchar(100)" json:"category" form:"category"`
+	Brand        string    `gorm:"type:varchar(100)" json:"brand" form:"brand"`
+	Weight       float64   `gorm:"type:decimal(10,2);default:0" json:"weight" form:"weight"`
+	WeightUnit   string    `gorm:"type:varchar(10);default:'KG'" json:"weight_unit" form:"weight_unit"` // GR, KG, TON
+	CostPrice    float64   `gorm:"type:decimal(15,2);default:0" json:"cost_price" form:"cost_price"` // HPP (Harga Pokok Penjualan)
+	SellingPrice float64   `gorm:"type:decimal(15,2);default:0" json:"selling_price" form:"selling_price"` // Harga Jual
+	Description  string    `gorm:"type:text" json:"description" form:"description"`
+	Specs        string    `gorm:"type:text" json:"specs" form:"specs"` // Detailed technical specs
+	ImageURL     string    `gorm:"type:text" json:"image_url" form:"image_url"`
 	CreatedAt    time.Time `gorm:"default:now()" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"default:now()" json:"updated_at"`
 }
@@ -78,6 +83,11 @@ type ProductTransfer struct {
 	FromFactory *Factory `gorm:"foreignKey:FromFactoryID" json:"from_factory,omitempty"`
 	ToBranch    *Branch  `gorm:"foreignKey:ToBranchID" json:"to_branch,omitempty"`
 	Product     *Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+}
+
+type ProductTransferItem struct {
+	ProductID uuid.UUID `json:"product_id"`
+	Quantity  int       `json:"quantity"`
 }
 
 type WarehouseStock struct {

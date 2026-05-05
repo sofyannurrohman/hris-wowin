@@ -33,13 +33,18 @@ func (h *WarehouseHandler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *WarehouseHandler) GetInventory(c *gin.Context) {
-	branchIDStr, _ := c.Get("branch_id")
-	if branchIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session"})
+	branchID := uuid.Nil
+	if val, ok := c.Get("branch_id"); ok && val != "" {
+		branchID = uuid.MustParse(val.(string))
+	} else if bid := c.Query("branch_id"); bid != "" {
+		branchID = uuid.MustParse(bid)
+	}
+
+	if branchID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session or query"})
 		return
 	}
 	
-	branchID := uuid.MustParse(branchIDStr.(string))
 	inventory, err := h.usecase.GetInventory(branchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -49,8 +54,18 @@ func (h *WarehouseHandler) GetInventory(c *gin.Context) {
 }
 
 func (h *WarehouseHandler) GetLogs(c *gin.Context) {
-	branchIDStr, _ := c.Get("branch_id")
-	branchID := uuid.MustParse(branchIDStr.(string))
+	branchID := uuid.Nil
+	if val, ok := c.Get("branch_id"); ok && val != "" {
+		branchID = uuid.MustParse(val.(string))
+	} else if bid := c.Query("branch_id"); bid != "" {
+		branchID = uuid.MustParse(bid)
+	}
+
+	if branchID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session or query"})
+		return
+	}
+
 	logs, err := h.usecase.GetWarehouseLogs(branchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -60,8 +75,18 @@ func (h *WarehouseHandler) GetLogs(c *gin.Context) {
 }
 
 func (h *WarehouseHandler) GetPendingShipments(c *gin.Context) {
-	branchIDStr, _ := c.Get("branch_id")
-	branchID := uuid.MustParse(branchIDStr.(string))
+	branchID := uuid.Nil
+	if val, ok := c.Get("branch_id"); ok && val != "" {
+		branchID = uuid.MustParse(val.(string))
+	} else if bid := c.Query("branch_id"); bid != "" {
+		branchID = uuid.MustParse(bid)
+	}
+
+	if branchID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session or query"})
+		return
+	}
+
 	transfers, err := h.usecase.GetPendingShipments(branchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -107,8 +132,17 @@ func (h *WarehouseHandler) SetStockLimit(c *gin.Context) {
 		return
 	}
 
-	branchIDStr, _ := c.Get("branch_id")
-	branchID := uuid.MustParse(branchIDStr.(string))
+	branchID := uuid.Nil
+	if val, ok := c.Get("branch_id"); ok && val != "" {
+		branchID = uuid.MustParse(val.(string))
+	} else if bid := c.Query("branch_id"); bid != "" {
+		branchID = uuid.MustParse(bid)
+	}
+
+	if branchID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session or query"})
+		return
+	}
 
 	if err := h.usecase.SetStockLimit(branchID, req.ProductID, req.Limit); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -128,8 +162,17 @@ func (h *WarehouseHandler) AdjustStock(c *gin.Context) {
 		return
 	}
 
-	branchIDStr, _ := c.Get("branch_id")
-	branchID := uuid.MustParse(branchIDStr.(string))
+	branchID := uuid.Nil
+	if val, ok := c.Get("branch_id"); ok && val != "" {
+		branchID = uuid.MustParse(val.(string))
+	} else if bid := c.Query("branch_id"); bid != "" {
+		branchID = uuid.MustParse(bid)
+	}
+
+	if branchID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session or query"})
+		return
+	}
 
 	if err := h.usecase.AdjustStock(branchID, req.ProductID, req.Quantity, req.Reason); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

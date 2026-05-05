@@ -15,6 +15,7 @@ const (
 	RoleEmployee   Role = "employee"
 	RoleManager    Role = "manager"
 	RoleAdminNota  Role = "admin_nota"
+	RoleSupervisorSales Role = "supervisor_sales"
 )
 
 type User struct {

@@ -13,6 +13,8 @@ import (
 
 type DeliveryUsecase interface {
 	CreateBatch(req CreateBatchRequest) (*domain.DeliveryBatch, error)
+	ApproveBatch(batchID uuid.UUID, adminID uuid.UUID) error
+	AssignArmada(batchID uuid.UUID, driverID uuid.UUID, vehicleID uuid.UUID, supervisorID uuid.UUID) error
 	StartDelivery(doNo string) error
 	ConfirmItemDelivery(itemID uuid.UUID, status domain.DeliveryItemStatus, notes string) error
 	GetDriverTasks(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
@@ -21,8 +23,8 @@ type DeliveryUsecase interface {
 
 type CreateBatchRequest struct {
 	CompanyID   uuid.UUID   `json:"company_id"`
-	DriverID    uuid.UUID   `json:"driver_id"`
-	VehicleID   uuid.UUID   `json:"vehicle_id"`
+	DriverID    *uuid.UUID  `json:"driver_id"`
+	VehicleID   *uuid.UUID  `json:"vehicle_id"`
 	SalesTrxIDs []uuid.UUID `json:"sales_transaction_ids"`
 }
 
@@ -36,15 +38,11 @@ func NewDeliveryUsecase(repo repository.DeliveryRepository, salesRepo repository
 }
 
 func (u *deliveryUsecase) CreateBatch(req CreateBatchRequest) (*domain.DeliveryBatch, error) {
-	now := time.Now()
-	doNo := fmt.Sprintf("SJ-%s-%s", now.Format("20060102"), uuid.New().String()[:6])
-
 	batch := &domain.DeliveryBatch{
-		CompanyID:       req.CompanyID,
-		DriverID:        req.DriverID,
-		VehicleID:       req.VehicleID,
-		DeliveryOrderNo: doNo,
-		Status:          domain.DeliveryBatchPending,
+		CompanyID: req.CompanyID,
+		DriverID:  req.DriverID,
+		VehicleID: req.VehicleID,
+		Status:    domain.DeliveryBatchWaitingApproval,
 	}
 
 	for i, trxID := range req.SalesTrxIDs {
@@ -60,6 +58,52 @@ func (u *deliveryUsecase) CreateBatch(req CreateBatchRequest) (*domain.DeliveryB
 	}
 
 	return batch, nil
+}
+
+func (u *deliveryUsecase) ApproveBatch(batchID uuid.UUID, adminID uuid.UUID) error {
+	batch, err := u.repo.GetBatchByID(batchID)
+	if err != nil {
+		return err
+	}
+
+	if batch.Status != domain.DeliveryBatchWaitingApproval {
+		return errors.New("surat jalan tidak dalam status menunggu persetujuan")
+	}
+
+	now := time.Now()
+	batch.Status = domain.DeliveryBatchWaitingAssignment
+	batch.AdminNotaID = &adminID
+	batch.ApprovedAt = &now
+
+	return u.repo.UpdateBatch(batch)
+}
+
+func (u *deliveryUsecase) AssignArmada(batchID uuid.UUID, driverID uuid.UUID, vehicleID uuid.UUID, supervisorID uuid.UUID) error {
+	batch, err := u.repo.GetBatchByID(batchID)
+	if err != nil {
+		return err
+	}
+
+	// Allow revision if status is WAITING_ASSIGNMENT or PENDING
+	if batch.Status != domain.DeliveryBatchWaitingAssignment && batch.Status != domain.DeliveryBatchPending {
+		return errors.New("surat jalan tidak dalam status yang bisa ditugaskan atau direvisi armada")
+	}
+
+	now := time.Now()
+	
+	// Only generate DO number and change status if it's the first assignment
+	if batch.Status == domain.DeliveryBatchWaitingAssignment {
+		doNo := fmt.Sprintf("SJ-%s-%s", now.Format("20060102"), uuid.New().String()[:6])
+		batch.Status = domain.DeliveryBatchPending
+		batch.DeliveryOrderNo = &doNo
+	}
+
+	batch.DriverID = &driverID
+	batch.VehicleID = &vehicleID
+	batch.SupervisorID = &supervisorID
+	batch.AssignedAt = &now
+
+	return u.repo.UpdateBatch(batch)
 }
 
 func (u *deliveryUsecase) StartDelivery(doNo string) error {

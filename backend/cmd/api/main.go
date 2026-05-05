@@ -36,6 +36,7 @@ func main() {
 		&domain.Notification{},
 		&domain.DeliveryBatch{},
 		&domain.DeliveryItem{},
+		&domain.SalesPayment{},
 	)
 
 	// Setup Repositories

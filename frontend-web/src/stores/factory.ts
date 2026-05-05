@@ -20,7 +20,14 @@ export interface Product {
   sku: string
   unit: string
   weight: number
+  weight_unit: string
+  cost_price: number
+  selling_price: number
+  category?: string
+  brand?: string
+  specs?: string
   description: string
+  image_url?: string
 }
 
 export interface FactoryStock {
@@ -55,9 +62,13 @@ export interface ProductTransfer {
   quantity: number
   total_weight: number
   status: string
+  delivery_order_no?: string
   notes: string
   created_at: string
   product?: Product
+  from_factory?: {
+    name: string
+  }
   to_branch?: {
     name: string
   }
@@ -69,9 +80,12 @@ export const useFactoryStore = defineStore('factory', {
     products: [] as Product[],
     currentFactory: null as Factory | null,
     inventory: [] as FactoryStock[],
+    allInventory: [] as FactoryStock[],
     inventoryLogs: [] as any[],
     productionHistory: [] as ProductionLog[],
+    allProductionHistory: [] as ProductionLog[],
     transferHistory: [] as ProductTransfer[],
+    allTransfers: [] as ProductTransfer[],
     loading: false,
     error: null as string | null,
   }),
@@ -86,6 +100,33 @@ export const useFactoryStore = defineStore('factory', {
         this.error = err.response?.data?.error || 'Failed to fetch factories'
       } finally {
         this.loading = false
+      }
+    },
+
+    async createFactory(data: any) {
+      try {
+        await factoryApi.createFactory(data)
+        await this.fetchFactories()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to create factory'
+      }
+    },
+
+    async updateFactory(id: string, data: any) {
+      try {
+        await factoryApi.updateFactory(id, data)
+        await this.fetchFactories()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to update factory'
+      }
+    },
+
+    async deleteFactory(id: string) {
+      try {
+        await factoryApi.deleteFactory(id)
+        await this.fetchFactories()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to delete factory'
       }
     },
 
@@ -146,12 +187,36 @@ export const useFactoryStore = defineStore('factory', {
       }
     },
 
+    async fetchAllInventory() {
+      this.loading = true
+      try {
+        const response = await factoryApi.getAllInventory()
+        this.allInventory = response.data
+      } catch (err: any) {
+        this.error = err.response?.data?.error || 'Failed to fetch all inventory'
+      } finally {
+        this.loading = false
+      }
+    },
+
     async fetchProductionHistory(factoryId: string) {
       try {
         const response = await factoryApi.getProductionHistory(factoryId)
         this.productionHistory = response.data
       } catch (err: any) {
         this.error = err.response?.data?.error || 'Failed to fetch production history'
+      }
+    },
+
+    async fetchAllProductionHistory() {
+      this.loading = true
+      try {
+        const response = await factoryApi.getAllProductionHistory()
+        this.allProductionHistory = response.data
+      } catch (err: any) {
+        this.error = err.response?.data?.error || 'Failed to fetch all production history'
+      } finally {
+        this.loading = false
       }
     },
 
@@ -164,13 +229,54 @@ export const useFactoryStore = defineStore('factory', {
       }
     },
 
+    async fetchAllTransfers() {
+      this.loading = true
+      try {
+        const response = await factoryApi.getAllTransfers()
+        this.allTransfers = response.data
+      } catch (err: any) {
+        this.error = err.response?.data?.error || 'Failed to fetch all transfers'
+      } finally {
+        this.loading = false
+      }
+    },
+
     async logProduction(factoryId: string, data: any) {
       try {
         await factoryApi.logProduction(factoryId, data)
         await this.fetchInventory(factoryId)
         await this.fetchProductionHistory(factoryId)
       } catch (err: any) {
-        throw err.response?.data?.error || 'Failed to log production'
+        throw err
+      }
+    },
+
+    async updateProductionLog(factoryId: string, id: string, data: any) {
+      try {
+        await factoryApi.updateProductionLog(id, data)
+        await this.fetchInventory(factoryId)
+        await this.fetchProductionHistory(factoryId)
+      } catch (err: any) {
+        throw err
+      }
+    },
+
+    async deleteProductionLog(factoryId: string, id: string) {
+      try {
+        await factoryApi.deleteProductionLog(id)
+        await this.fetchInventory(factoryId)
+        await this.fetchProductionHistory(factoryId)
+      } catch (err: any) {
+        throw err
+      }
+    },
+
+    async adjustStock(factoryId: string, data: any) {
+      try {
+        await factoryApi.adjustStock(factoryId, data)
+        await this.fetchInventory(factoryId)
+      } catch (err: any) {
+        throw err
       }
     },
 

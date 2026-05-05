@@ -118,8 +118,8 @@ const factoryGroups = [
   {
     title: 'Logistik & Stok',
     items: [
-      { to: '/factory', name: 'Manajemen Stok', icon: Factory },
-      { to: '/factory/transfers', name: 'Kirim ke Cabang', icon: Truck },
+      { to: '/factory/stock', name: 'Manajemen Stok', icon: Factory },
+      { to: '/factory/transfers', name: 'Manajemen Pengiriman', icon: Truck },
       { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
     ]
   }

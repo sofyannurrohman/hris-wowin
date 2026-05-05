@@ -1,16 +1,14 @@
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+import apiClient from './axios'
 
 export const warehouseApi = {
-  getInventory: (branchId?: string | null) => axios.get(`${API_URL}/warehouse/stock`, { params: { branch_id: branchId } }),
-  getLogs: (branchId?: string | null) => axios.get(`${API_URL}/warehouse/logs`, { params: { branch_id: branchId } }),
-  getPendingShipments: (branchId?: string | null) => axios.get(`${API_URL}/warehouse/transfers/pending`, { params: { branch_id: branchId } }),
-  receiveShipment: (id: string) => axios.post(`${API_URL}/warehouse/transfers/${id}/receive`),
-  approveShipment: (id: string) => axios.post(`${API_URL}/warehouse/transfers/${id}/approve`),
-  rejectShipment: (id: string) => axios.post(`${API_URL}/warehouse/transfers/${id}/reject`),
-  setStockLimit: (data: any) => axios.post(`${API_URL}/warehouse/stock-limit`, data),
-  adjustStock: (data: any) => axios.post(`${API_URL}/warehouse/adjust`, data),
-  getByDO: (doNo: string) => axios.get(`${API_URL}/warehouse/transfers/do/${doNo}`),
-  receiveByDO: (doNo: string) => axios.post(`${API_URL}/warehouse/transfers/do/${doNo}/receive`),
+  getInventory: (branchId?: string | null) => apiClient.get('/warehouse/stock', { params: { branch_id: branchId } }),
+  getLogs: (branchId?: string | null) => apiClient.get('/warehouse/logs', { params: { branch_id: branchId } }),
+  getPendingShipments: (branchId?: string | null) => apiClient.get('/warehouse/transfers/pending', { params: { branch_id: branchId } }),
+  receiveShipment: (id: string) => apiClient.post(`/warehouse/transfers/${id}/receive`),
+  approveShipment: (id: string) => apiClient.post(`/warehouse/transfers/${id}/approve`),
+  rejectShipment: (id: string) => apiClient.post(`/warehouse/transfers/${id}/reject`),
+  setStockLimit: (data: any) => apiClient.post('/warehouse/stock-limit', data),
+  adjustStock: (data: any) => apiClient.post('/warehouse/adjust', data),
+  getByDO: (doNo: string) => apiClient.get(`/warehouse/transfers/do/${doNo}`),
+  receiveByDO: (doNo: string) => apiClient.post(`/warehouse/transfers/do/${doNo}/receive`),
 }

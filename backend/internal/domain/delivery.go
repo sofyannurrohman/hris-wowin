@@ -10,26 +10,37 @@ import (
 type DeliveryBatchStatus string
 
 const (
-	DeliveryBatchPending    DeliveryBatchStatus = "PENDING"
-	DeliveryBatchOnDelivery DeliveryBatchStatus = "ON_DELIVERY"
-	DeliveryBatchCompleted  DeliveryBatchStatus = "COMPLETED"
+	DeliveryBatchWaitingApproval   DeliveryBatchStatus = "WAITING_APPROVAL"
+	DeliveryBatchWaitingAssignment DeliveryBatchStatus = "WAITING_ASSIGNMENT"
+	DeliveryBatchPending           DeliveryBatchStatus = "PENDING"
+	DeliveryBatchOnDelivery        DeliveryBatchStatus = "ON_DELIVERY"
+	DeliveryBatchCompleted         DeliveryBatchStatus = "COMPLETED"
 )
 
 type DeliveryBatch struct {
 	ID              uuid.UUID           `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	CompanyID       uuid.UUID           `gorm:"type:uuid;not null" json:"company_id"`
-	DriverID        uuid.UUID           `gorm:"type:uuid;not null" json:"driver_id"`
-	VehicleID       uuid.UUID           `gorm:"type:uuid;not null" json:"vehicle_id"`
-	DeliveryOrderNo string              `gorm:"type:varchar(100);uniqueIndex" json:"delivery_order_no"`
-	Status          DeliveryBatchStatus `gorm:"type:varchar(20);default:'PENDING'" json:"status"`
+	DriverID        *uuid.UUID          `gorm:"type:uuid" json:"driver_id"`
+	VehicleID       *uuid.UUID          `gorm:"type:uuid" json:"vehicle_id"`
+	DeliveryOrderNo *string             `gorm:"type:varchar(100);uniqueIndex" json:"delivery_order_no"`
+	Status          DeliveryBatchStatus `gorm:"type:varchar(20);default:'WAITING_APPROVAL'" json:"status"`
+	
+	// Approval & Assignment
+	AdminNotaID     *uuid.UUID `gorm:"type:uuid" json:"admin_nota_id"`
+	ApprovedAt      *time.Time `json:"approved_at,omitempty"`
+	SupervisorID    *uuid.UUID `gorm:"type:uuid" json:"supervisor_id"`
+	AssignedAt      *time.Time `json:"assigned_at,omitempty"`
+
 	StartedAt       *time.Time          `json:"started_at,omitempty"`
 	FinishedAt      *time.Time          `json:"finished_at,omitempty"`
 	CreatedAt       time.Time           `gorm:"default:now()" json:"created_at"`
 	UpdatedAt       time.Time           `gorm:"default:now()" json:"updated_at"`
 
-	Driver  *Employee       `gorm:"foreignKey:DriverID" json:"driver,omitempty"`
-	Vehicle *Vehicle        `gorm:"foreignKey:VehicleID" json:"vehicle,omitempty"`
-	Items   []DeliveryItem  `gorm:"foreignKey:DeliveryBatchID" json:"items,omitempty"`
+	Driver      *Employee `gorm:"foreignKey:DriverID" json:"driver,omitempty"`
+	Vehicle     *Vehicle  `gorm:"foreignKey:VehicleID" json:"vehicle,omitempty"`
+	AdminNota   *Employee `gorm:"foreignKey:AdminNotaID" json:"admin_nota,omitempty"`
+	Supervisor  *Employee `gorm:"foreignKey:SupervisorID" json:"supervisor,omitempty"`
+	Items       []DeliveryItem `gorm:"foreignKey:DeliveryBatchID" json:"items,omitempty"`
 }
 
 type DeliveryItemStatus string

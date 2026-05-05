@@ -43,11 +43,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import axios from 'axios'
+import apiClient from '@/api/axios'
 import { Bell, AlertCircle, Truck } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 const isOpen = ref(false)
 const notifications = ref<any[]>([])
 
@@ -55,7 +54,7 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).l
 
 const fetchNotifications = async () => {
   try {
-    const response = await axios.get(`${API_URL}/notifications`)
+    const response = await apiClient.get('/notifications')
     notifications.value = response.data
   } catch (err) {
     console.error('Failed to fetch notifications', err)
@@ -64,7 +63,7 @@ const fetchNotifications = async () => {
 
 const markAsRead = async (id: string) => {
   try {
-    await axios.post(`${API_URL}/notifications/${id}/read`)
+    await apiClient.post(`/notifications/${id}/read`)
     fetchNotifications()
   } catch (err) {
     console.error('Failed to mark notification as read', err)

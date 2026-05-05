@@ -14,6 +14,9 @@ type SalesTransactionRepository interface {
 	Delete(id uuid.UUID) error
 	GetTransactionsByEmployeeAndPeriod(employeeID uuid.UUID, month, year int) ([]domain.SalesTransaction, error)
 	FindByReceiptNo(receiptNo string) (*domain.SalesTransaction, error)
+	CreatePayment(payment *domain.SalesPayment) error
+	GetOutstandingByStore(storeID uuid.UUID) ([]domain.SalesTransaction, error)
+	GetByDueDate(date string, employeeID uuid.UUID) ([]domain.SalesTransaction, error)
 }
 
 type salesTransactionRepository struct {
@@ -72,4 +75,24 @@ func (r *salesTransactionRepository) FindByReceiptNo(receiptNo string) (*domain.
 		return nil, err
 	}
 	return &transaction, nil
+}
+
+func (r *salesTransactionRepository) CreatePayment(payment *domain.SalesPayment) error {
+	return r.db.Create(payment).Error
+}
+
+func (r *salesTransactionRepository) GetOutstandingByStore(storeID uuid.UUID) ([]domain.SalesTransaction, error) {
+	var transactions []domain.SalesTransaction
+	err := r.db.Preload("Store").Preload("Employee").
+		Where("store_id = ? AND payment_status != ?", storeID, domain.PaymentStatusPaid).
+		Order("transaction_date ASC").Find(&transactions).Error
+	return transactions, err
+}
+
+func (r *salesTransactionRepository) GetByDueDate(date string, employeeID uuid.UUID) ([]domain.SalesTransaction, error) {
+	var transactions []domain.SalesTransaction
+	err := r.db.Preload("Store").Preload("Employee").
+		Where("employee_id = ? AND payment_due_date = ? AND payment_status != ?", employeeID, date, domain.PaymentStatusPaid).
+		Order("transaction_date ASC").Find(&transactions).Error
+	return transactions, err
 }

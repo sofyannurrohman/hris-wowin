@@ -7,6 +7,14 @@ import (
 	"gorm.io/gorm"
 )
 
+type PaymentStatus string
+
+const (
+	PaymentStatusUnpaid  PaymentStatus = "UNPAID"
+	PaymentStatusPartial PaymentStatus = "PARTIAL"
+	PaymentStatusPaid    PaymentStatus = "PAID"
+)
+
 type SalesTransaction struct {
 	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	VisitID         *uuid.UUID `gorm:"type:uuid" json:"visit_id"` // Mengikat transaksi ke log check-in
@@ -21,6 +29,9 @@ type SalesTransaction struct {
 	PeriodYear      int        `gorm:"type:int;not null" json:"period_year"`
 	TransactionDate time.Time  `gorm:"type:date;not null" json:"transaction_date"`
 	Status          string     `gorm:"type:varchar(50);default:'PENDING'" json:"status"` // 'PENDING', 'VERIFIED'
+	PaidAmount      float64    `gorm:"type:decimal(15,2);default:0" json:"paid_amount"`
+	PaymentStatus   string     `gorm:"type:varchar(20);default:'UNPAID'" json:"payment_status"`
+	PaymentDueDate  *time.Time `gorm:"type:date" json:"payment_due_date"`
 	Notes           *string    `gorm:"type:text" json:"notes"`
 	CreatedAt       time.Time  `gorm:"default:now()" json:"created_at"`
 	UpdatedAt       time.Time  `gorm:"default:now()" json:"updated_at"`

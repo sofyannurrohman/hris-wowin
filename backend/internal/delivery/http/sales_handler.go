@@ -48,6 +48,9 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 		sales.PATCH("/transactions/:id/verify", h.VerifyTransaction)
 		sales.GET("/visit-plans", h.GetVisitPlan)
 		sales.GET("/transactions/receipt/:receipt_no", h.GetByReceipt)
+		sales.POST("/transactions/:id/payments", h.RecordPayment)
+		sales.GET("/stores/:id/outstanding", h.GetOutstandingByStore)
+		sales.GET("/transactions/due-date", h.GetByDueDate)
 	}
 }
 
@@ -428,5 +431,79 @@ func (h *SalesHandler) GetByReceipt(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Success",
 		"data":    trx,
+	})
+}
+
+func (h *SalesHandler) RecordPayment(c *gin.Context) {
+	trxID := uuid.MustParse(c.Param("id"))
+	
+	var req usecase.RecordPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.TransactionID = trxID
+
+	// Resolve EmployeeID from token if empty
+	if req.EmployeeID == uuid.Nil {
+		if userIDStr, exists := c.Get("userID"); exists {
+			userID := userIDStr.(uuid.UUID)
+			employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+			if err == nil && employee != nil {
+				req.EmployeeID = employee.ID
+			}
+		}
+	}
+
+	if err := h.salesUsecase.RecordPayment(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pembayaran berhasil dicatat"})
+}
+
+func (h *SalesHandler) GetOutstandingByStore(c *gin.Context) {
+	storeID := uuid.MustParse(c.Param("id"))
+	
+	trxs, err := h.salesUsecase.GetOutstandingTransactionsByStore(storeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    trxs,
+	})
+}
+
+func (h *SalesHandler) GetByDueDate(c *gin.Context) {
+	dateStr := c.Query("date")
+	date := time.Now()
+	if dateStr != "" {
+		if parsed, err := time.Parse("2006-01-02", dateStr); err == nil {
+			date = parsed
+		}
+	}
+
+	var employeeID uuid.UUID
+	if userIDStr, exists := c.Get("userID"); exists {
+		userID := userIDStr.(uuid.UUID)
+		employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+		if err == nil && employee != nil {
+			employeeID = employee.ID
+		}
+	}
+
+	trxs, err := h.salesUsecase.GetTransactionsByDueDate(date, employeeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    trxs,
 	})
 }

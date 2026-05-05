@@ -42,8 +42,9 @@ func AuthMiddleware(secret string) gin.HandlerFunc {
 		}
 
 		c.Set("userID", claims.UserID)
-		c.Set("user_id", claims.UserID.String()) // Compatibility for handlers expecting string
+		c.Set("user_id", claims.UserID.String()) // Compatibility
 		c.Set("companyID", claims.CompanyID)
+		c.Set("company_id", claims.CompanyID.String()) // Compatibility
 		c.Set("role", claims.Role)
 		c.Next()
 	}
