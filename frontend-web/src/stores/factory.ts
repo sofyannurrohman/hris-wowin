@@ -284,9 +284,27 @@ export const useFactoryStore = defineStore('factory', {
       try {
         await factoryApi.sendToBranch(factoryId, data)
         await this.fetchInventory(factoryId)
-        await this.fetchTransferHistory(factoryId)
+        await this.fetchAllTransfers()
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to initiate transfer'
+      }
+    },
+    
+    async shipTransfer(id: string) {
+      try {
+        await factoryApi.shipTransfer(id)
+        await this.fetchAllTransfers()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to execute shipment'
+      }
+    },
+    
+    async approveTransfer(id: string) {
+      try {
+        await factoryApi.approveTransfer(id)
+        await this.fetchAllTransfers()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to approve transfer'
       }
     }
   }

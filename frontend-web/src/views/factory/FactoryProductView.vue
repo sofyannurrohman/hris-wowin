@@ -37,7 +37,7 @@
           </template>
           <template #cell-image="{ row }">
             <div class="h-12 w-12 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-100 shadow-sm group">
-              <img v-if="(row as any).image_url" :src="`${apiBaseUrl}${(row as any).image_url}`" class="h-full w-full object-cover transition-transform group-hover:scale-110" />
+              <img v-if="(row as any).image_url" :src="`${apiBaseUrl}/v1${(row as any).image_url}`" class="h-full w-full object-cover transition-transform group-hover:scale-110" />
               <Package v-else class="h-6 w-6 text-slate-300" />
             </div>
           </template>
@@ -110,7 +110,7 @@
             <div class="flex flex-col md:flex-row gap-8 items-start">
               <div class="relative group h-40 w-40 shrink-0">
                 <div class="h-40 w-40 rounded-[2rem] bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-primary/50 group-hover:bg-primary/5">
-                  <img v-if="imagePreview || form.image_url" :src="imagePreview || `${apiBaseUrl}${form.image_url}`" class="h-full w-full object-cover" />
+                  <img v-if="imagePreview || form.image_url" :src="imagePreview || `${apiBaseUrl}/v1${form.image_url}`" class="h-full w-full object-cover" />
                   <div v-else class="flex flex-col items-center gap-2 text-slate-400">
                     <Plus class="h-8 w-8" />
                     <span class="text-[10px] font-bold uppercase tracking-wider">Upload Foto</span>

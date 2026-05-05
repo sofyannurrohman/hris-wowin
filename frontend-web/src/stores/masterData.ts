@@ -83,7 +83,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     if (employees.value.length > 0 && !force) return
     isEmployeesLoading.value = true
     try {
-      const res = await apiClient.get('/employees?limit=200')
+      const res = await apiClient.get('/employees?limit=1000')
       employees.value = res.data.data || []
     } finally {
       isEmployeesLoading.value = false
@@ -95,6 +95,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     departments,
     jobPositions,
     leaveTypes,
+    employees,
     selectedBranchId,
     isBranchesLoading,
     isDepartmentsLoading,

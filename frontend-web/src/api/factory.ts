@@ -28,7 +28,9 @@ export const factoryApi = {
   deleteProductionLog: (id: string) => apiClient.delete(`/factory/production/${id}`),
 
   // Transfers
-  sendToBranch: (factoryId: string, data: any) => apiClient.post(`/factory/${factoryId}/transfer`, data),
+  sendToBranch: (factoryId: string, data: any) => apiClient.post(`/factory/${factoryId}/transfer/request`, data),
   getTransferHistory: (factoryId: string) => apiClient.get(`/factory/${factoryId}/transfer`),
   getAllTransfers: () => apiClient.get('/factory/stock/transfers'),
+  shipTransfer: (id: string) => apiClient.post(`/factory/transfer/${id}/ship`),
+  approveTransfer: (id: string) => apiClient.put(`/factory/transfer/${id}/approve`),
 }

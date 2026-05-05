@@ -12,6 +12,7 @@ type VehicleUsecase interface {
 	GetVehicleDetail(id uuid.UUID) (*domain.Vehicle, error)
 	UpdateVehicle(vehicle *domain.Vehicle) error
 	DeleteVehicle(id uuid.UUID) error
+	GetVehicleLogs(vehicleID uuid.UUID) ([]domain.DeliveryBatch, error)
 }
 
 type vehicleUsecase struct {
@@ -40,4 +41,8 @@ func (u *vehicleUsecase) UpdateVehicle(vehicle *domain.Vehicle) error {
 
 func (u *vehicleUsecase) DeleteVehicle(id uuid.UUID) error {
 	return u.repo.Delete(id)
+}
+
+func (u *vehicleUsecase) GetVehicleLogs(vehicleID uuid.UUID) ([]domain.DeliveryBatch, error) {
+	return u.repo.GetLogs(vehicleID)
 }

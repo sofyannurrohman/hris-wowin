@@ -47,6 +47,7 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		factory.POST("/:id/inventory/adjust", h.AdjustStock)
 		factory.POST("/:id/transfer/request", h.RequestShipment)
 		factory.POST("/transfer/:id/ship", h.ExecuteShipment)
+		factory.PUT("/transfer/:id/approve", h.ApproveTransfer)
 		factory.GET("/:id/transfer", h.GetTransferHistory)
 	}
 }
@@ -217,16 +218,18 @@ func (h *FactoryHandler) GetInventoryLogs(c *gin.Context) {
 func (h *FactoryHandler) LogProduction(c *gin.Context) {
 	factoryID := uuid.MustParse(c.Param("id"))
 	var req struct {
-		ProductID  uuid.UUID `json:"product_id" binding:"required"`
-		EmployeeID uuid.UUID `json:"employee_id" binding:"required"`
-		Quantity   int       `json:"quantity" binding:"required"`
-		Notes      string    `json:"notes"`
+		ProductID       uuid.UUID `json:"product_id" binding:"required"`
+		EmployeeID      uuid.UUID `json:"employee_id" binding:"required"`
+		Quantity        int       `json:"quantity" binding:"required"`
+		CartonCount     int       `json:"carton_count"`
+		PiecesPerCarton int       `json:"pieces_per_carton"`
+		Notes           string    `json:"notes"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.LogProduction(factoryID, req.ProductID, req.EmployeeID, req.Quantity, req.Notes); err != nil {
+	if err := h.usecase.LogProduction(factoryID, req.ProductID, req.EmployeeID, req.Quantity, req.CartonCount, req.PiecesPerCarton, req.Notes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -281,17 +284,28 @@ func (h *FactoryHandler) ExecuteShipment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Shipment executed and factory stock reduced"})
 }
 
+func (h *FactoryHandler) ApproveTransfer(c *gin.Context) {
+	transferID := uuid.MustParse(c.Param("id"))
+	if err := h.usecase.ApproveTransfer(transferID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Transfer approved"})
+}
+
 func (h *FactoryHandler) UpdateProductionLog(c *gin.Context) {
 	id := uuid.MustParse(c.Param("id"))
 	var req struct {
-		Quantity int    `json:"quantity" binding:"required"`
-		Notes    string `json:"notes"`
+		Quantity        int    `json:"quantity" binding:"required"`
+		CartonCount     int    `json:"carton_count"`
+		PiecesPerCarton int    `json:"pieces_per_carton"`
+		Notes           string `json:"notes"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.UpdateProductionLog(id, req.Quantity, req.Notes); err != nil {
+	if err := h.usecase.UpdateProductionLog(id, req.Quantity, req.CartonCount, req.PiecesPerCarton, req.Notes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

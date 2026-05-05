@@ -27,10 +27,10 @@ type FactoryUsecase interface {
 	DeleteProduct(id uuid.UUID) error
 
 	// Production
-	LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error
+	LogProduction(factoryID, productID, employeeID uuid.UUID, quantity, cartonCount, piecesPerCarton int, notes string) error
 	GetProductionHistory(factoryID uuid.UUID) ([]domain.ProductionLog, error)
 	GetAllProductionHistory(companyID uuid.UUID) ([]domain.ProductionLog, error)
-	UpdateProductionLog(id uuid.UUID, quantity int, notes string) error
+	UpdateProductionLog(id uuid.UUID, quantity, cartonCount, piecesPerCarton int, notes string) error
 	DeleteProductionLog(id uuid.UUID) error
 
 	// Inventory
@@ -41,6 +41,7 @@ type FactoryUsecase interface {
 
 	// Transfer & Logistics
 	RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string) error
+	ApproveTransfer(transferID uuid.UUID) error
 	ExecuteApprovedShipment(transferID uuid.UUID) error
 	GetTransferHistory(factoryID uuid.UUID) ([]domain.ProductTransfer, error)
 	GetAllTransfers(companyID uuid.UUID) ([]domain.ProductTransfer, error)
@@ -91,17 +92,19 @@ func (u *factoryUsecase) DeleteProduct(id uuid.UUID) error {
 	return u.repo.DeleteProduct(id)
 }
 
-func (u *factoryUsecase) LogProduction(factoryID, productID, employeeID uuid.UUID, quantity int, notes string) error {
+func (u *factoryUsecase) LogProduction(factoryID, productID, employeeID uuid.UUID, quantity, cartonCount, piecesPerCarton int, notes string) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewFactoryRepository(tx)
 
 		productionLog := &domain.ProductionLog{
-			FactoryID:      factoryID,
-			ProductID:      productID,
-			EmployeeID:     employeeID,
-			Quantity:       quantity,
-			ProductionDate: time.Now(),
-			Notes:          notes,
+			FactoryID:       factoryID,
+			ProductID:       productID,
+			EmployeeID:      employeeID,
+			Quantity:        quantity,
+			CartonCount:     cartonCount,
+			PiecesPerCarton: piecesPerCarton,
+			ProductionDate:  time.Now(),
+			Notes:           notes,
 		}
 		if err := repo.CreateProductionLog(productionLog); err != nil {
 			return err
@@ -135,7 +138,7 @@ func (u *factoryUsecase) GetAllProductionHistory(companyID uuid.UUID) ([]domain.
 	return u.repo.GetAllProductionLogsByCompanyID(companyID)
 }
 
-func (u *factoryUsecase) UpdateProductionLog(id uuid.UUID, quantity int, notes string) error {
+func (u *factoryUsecase) UpdateProductionLog(id uuid.UUID, quantity, cartonCount, piecesPerCarton int, notes string) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewFactoryRepository(tx)
 		log, err := repo.GetProductionLogByID(id)
@@ -155,6 +158,8 @@ func (u *factoryUsecase) UpdateProductionLog(id uuid.UUID, quantity int, notes s
 		}
 
 		log.Quantity = quantity
+		log.CartonCount = cartonCount
+		log.PiecesPerCarton = piecesPerCarton
 		log.Notes = notes
 		return repo.UpdateProductionLog(log)
 	})
@@ -257,6 +262,10 @@ func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID uuid.UUID, it
 	})
 }
 
+func (u *factoryUsecase) ApproveTransfer(transferID uuid.UUID) error {
+	return u.repo.UpdateTransferStatus(transferID, "APPROVED")
+}
+
 func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewFactoryRepository(tx)
@@ -266,8 +275,8 @@ func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 		if err != nil {
 			return err
 		}
-		if transfer.Status != "APPROVED" {
-			return errors.New("only APPROVED transfers can be shipped")
+		if transfer.Status != "APPROVED" && transfer.Status != "REQUESTED" {
+			return errors.New("only APPROVED or REQUESTED transfers can be shipped")
 		}
 
 		// 2. Check Factory Stock

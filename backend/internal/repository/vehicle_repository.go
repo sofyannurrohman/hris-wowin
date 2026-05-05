@@ -12,6 +12,7 @@ type VehicleRepository interface {
 	GetByID(id uuid.UUID) (*domain.Vehicle, error)
 	Update(vehicle *domain.Vehicle) error
 	Delete(id uuid.UUID) error
+	GetLogs(vehicleID uuid.UUID) ([]domain.DeliveryBatch, error)
 }
 
 type vehicleRepository struct {
@@ -44,4 +45,15 @@ func (r *vehicleRepository) Update(vehicle *domain.Vehicle) error {
 
 func (r *vehicleRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&domain.Vehicle{}, "id = ?", id).Error
+}
+
+func (r *vehicleRepository) GetLogs(vehicleID uuid.UUID) ([]domain.DeliveryBatch, error) {
+	var logs []domain.DeliveryBatch
+	err := r.db.Preload("Driver").
+		Preload("Items.SalesTransaction.Store").
+		Where("vehicle_id = ?", vehicleID).
+		Order("created_at desc").
+		Limit(50).
+		Find(&logs).Error
+	return logs, err
 }

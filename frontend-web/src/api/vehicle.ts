@@ -6,4 +6,5 @@ export const vehicleApi = {
   createVehicle: (data: any) => apiClient.post('/vehicles', data),
   updateVehicle: (id: string, data: any) => apiClient.put(`/vehicles/${id}`, data),
   deleteVehicle: (id: string) => apiClient.delete(`/vehicles/${id}`),
+  getVehicleLogs: (id: string) => apiClient.get(`/vehicles/${id}/logs`),
 }

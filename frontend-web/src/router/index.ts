@@ -192,6 +192,11 @@ const router = createRouter({
               component: () => import('@/views/factory/FactoryDashboard.vue'),
             },
             {
+              path: 'management',
+              name: 'factoryManagement',
+              component: () => import('@/views/factory/FactoryManagementView.vue'),
+            },
+            {
               path: 'products',
               name: 'factoryProducts',
               component: () => import('@/views/factory/FactoryProductView.vue'),

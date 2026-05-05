@@ -12,6 +12,8 @@ export interface Vehicle {
   status: 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'BROKEN'
   year: number
   mileage: number
+  capacity: number
+  image_url?: string
   branch?: {
     id: string
     name: string
@@ -21,6 +23,7 @@ export interface Vehicle {
 export const useVehicleStore = defineStore('vehicle', {
   state: () => ({
     vehicles: [] as Vehicle[],
+    logs: [] as any[],
     loading: false,
     error: null as string | null,
   }),
@@ -38,7 +41,7 @@ export const useVehicleStore = defineStore('vehicle', {
       }
     },
 
-    async addVehicle(data: any) {
+    async addVehicle(data: FormData) {
       try {
         await vehicleApi.createVehicle(data)
         await this.fetchVehicles()
@@ -47,7 +50,7 @@ export const useVehicleStore = defineStore('vehicle', {
       }
     },
 
-    async updateVehicle(id: string, data: any) {
+    async updateVehicle(id: string, data: FormData) {
       try {
         await vehicleApi.updateVehicle(id, data)
         await this.fetchVehicles()
@@ -62,6 +65,15 @@ export const useVehicleStore = defineStore('vehicle', {
         await this.fetchVehicles()
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to delete vehicle'
+      }
+    },
+
+    async fetchVehicleLogs(id: string) {
+      try {
+        const response = await vehicleApi.getVehicleLogs(id)
+        this.logs = response.data
+      } catch (err: any) {
+        console.error('Failed to fetch vehicle logs:', err)
       }
     }
   }

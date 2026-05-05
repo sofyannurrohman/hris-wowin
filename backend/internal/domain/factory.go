@@ -56,6 +56,8 @@ type ProductionLog struct {
 	ProductID      uuid.UUID `gorm:"type:uuid;not null" json:"product_id"`
 	EmployeeID     uuid.UUID `gorm:"type:uuid;not null" json:"employee_id"`
 	Quantity       int       `gorm:"type:int;not null" json:"quantity"`
+	CartonCount    int       `gorm:"type:int" json:"carton_count"`
+	PiecesPerCarton int      `gorm:"type:int" json:"pieces_per_carton"`
 	ProductionDate time.Time `gorm:"type:timestamptz;default:now()" json:"production_date"`
 	Notes          string    `gorm:"type:text" json:"notes"`
 	CreatedAt      time.Time `gorm:"default:now()" json:"created_at"`

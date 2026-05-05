@@ -112,14 +112,15 @@ const factoryGroups = [
     title: 'Operasional Pabrik',
     items: [
       { to: '/factory', name: 'Dashboard Pabrik', icon: LayoutDashboard },
-      { to: '/factory/products', name: 'Produk Wowin', icon: Package },
+      { to: '/factory/stock', name: 'Manajemen Stok', icon: Factory },
+      { to: '/factory/transfers', name: 'Manajemen Pengiriman', icon: Truck },
     ]
   },
   {
-    title: 'Logistik & Stok',
+    title: 'Master Data',
     items: [
-      { to: '/factory/stock', name: 'Manajemen Stok', icon: Factory },
-      { to: '/factory/transfers', name: 'Manajemen Pengiriman', icon: Truck },
+      { to: '/factory/management', name: 'Manajemen Pabrik', icon: Building2 },
+      { to: '/factory/products', name: 'Produk Wowin', icon: Package },
       { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
     ]
   }
