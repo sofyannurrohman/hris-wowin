@@ -5,7 +5,7 @@
         <h1 class="text-3xl font-bold tracking-tight">Perpindahan Barang (Sales)</h1>
         <p class="text-muted-foreground">Manajemen transfer barang ke sales dan retur barang dari sales.</p>
       </div>
-      <Button @click="showForm = true" class="flex gap-2">
+      <Button @click="openForm" class="flex gap-2">
         <Plus class="h-5 w-5" />
         Buat Perpindahan
       </Button>
@@ -27,6 +27,9 @@
               <span v-else class="flex items-center gap-1 text-amber-600 font-bold">
                 <ArrowLeft class="h-3 w-3" /> RETUR
               </span>
+            </template>
+            <template #cell-employee_name="{ row }">
+              {{ row.employee?.first_name }} {{ row.employee?.last_name }}
             </template>
             <template #cell-quantity="{ row }">
               <strong>{{ row.quantity }} {{ row.product?.unit }}</strong>
@@ -70,7 +73,7 @@
               <select v-model="selectedSalesman" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" @change="fetchSalesStock">
                 <option value="">Pilih Salesman</option>
                 <option v-for="emp in masterStore.employees" :key="emp.id" :value="emp.id">
-                  {{ emp.name }}
+                  {{ emp.first_name }} {{ emp.last_name }}
                 </option>
               </select>
             </div>
@@ -115,7 +118,7 @@
                <select v-model="form.employee_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                  <option value="">Pilih Salesman</option>
                  <option v-for="emp in masterStore.employees" :key="emp.id" :value="emp.id">
-                   {{ emp.name }}
+                   {{ emp.first_name }} {{ emp.last_name }} ({{ emp.employee_id_number }})
                  </option>
                </select>
              </div>
@@ -158,7 +161,7 @@ import { useMasterDataStore } from '@/stores/masterData'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card/index'
 import DataTable from '@/components/DataTable.vue'
-import { Plus, History, UserSquare2, ArrowRight, ArrowLeft, Trash2 } from 'lucide-vue-next'
+import { Plus, History, UserSquare2, ArrowRight, ArrowLeft, Trash2, Search, X } from 'lucide-vue-next'
 
 const transferStore = useSalesTransferStore()
 const warehouseStore = useWarehouseStore()
@@ -171,14 +174,27 @@ const selectedSalesman = ref('')
 const form = reactive({
   employee_id: '',
   product_id: '',
-  quantity: 0,
+  quantity: 1,
   type: 'TRANSFER',
   notes: ''
 })
 
+const openForm = async () => {
+  showForm.value = true
+  loading.value = true
+  try {
+    await Promise.all([
+      masterStore.fetchEmployees(true),
+      warehouseStore.fetchInventory()
+    ])
+  } finally {
+    loading.value = false
+  }
+}
+
 const columns = [
   { key: 'type', label: 'Tipe' },
-  { key: 'employee.name', label: 'Salesman' },
+  { key: 'employee_name', label: 'Salesman' },
   { key: 'product.name', label: 'Produk' },
   { key: 'quantity', label: 'Jumlah' },
   { key: 'status', label: 'Status' },
