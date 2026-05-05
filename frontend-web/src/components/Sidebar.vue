@@ -33,6 +33,7 @@ import {
   Truck,
   Warehouse,
   Boxes,
+  ArrowLeftRight,
   LogOut 
 } from 'lucide-vue-next'
 
@@ -130,8 +131,8 @@ const warehouseGroups = [
   {
     title: 'Gudang Cabang',
     items: [
-      { to: '/warehouse', name: 'Stok Gudang', icon: Boxes },
-      { to: '/warehouse/receiving', name: 'Penerimaan Barang', icon: Truck },
+      { to: '/warehouse', name: 'Stok & Penerimaan', icon: Boxes },
+      { to: '/warehouse/sales-transfers', name: 'Perpindahan Barang', icon: ArrowLeftRight },
       { to: '/warehouse/logs', name: 'Log Mutasi', icon: History },
       { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
     ]

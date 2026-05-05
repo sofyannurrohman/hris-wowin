@@ -225,17 +225,17 @@ const router = createRouter({
             {
               path: '',
               name: 'warehouseStock',
-              component: () => import('@/views/warehouse/WarehouseStockView.vue'),
-            },
-            {
-              path: 'receiving',
-              name: 'warehouseReceiving',
-              component: () => import('@/views/warehouse/ReceivingView.vue'),
+              component: () => import('@/views/warehouse/WarehouseManagementView.vue'),
             },
             {
               path: 'logs',
               name: 'warehouseLogs',
               component: () => import('@/views/warehouse/WarehouseLogView.vue'),
+            },
+            {
+              path: 'sales-transfers',
+              name: 'salesTransfers',
+              component: () => import('@/views/warehouse/SalesTransferView.vue'),
             }
           ]
         }

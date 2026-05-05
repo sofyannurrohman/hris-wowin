@@ -37,6 +37,8 @@ func main() {
 		&domain.DeliveryBatch{},
 		&domain.DeliveryItem{},
 		&domain.SalesPayment{},
+		&domain.SalesStock{},
+		&domain.SalesTransfer{},
 	)
 
 	// Setup Repositories
@@ -67,6 +69,7 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(db)
 	financeRepo := repository.NewFinanceRepository(db)
 	deliveryRepo := repository.NewDeliveryRepository(db)
+	salesTransferRepo := repository.NewSalesTransferRepository(db)
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
@@ -97,6 +100,7 @@ func main() {
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
 	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo)
+	salesTransferUsecase := usecase.NewSalesTransferUsecase(salesTransferRepo, warehouseRepo, db)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -143,6 +147,7 @@ func main() {
 	notificationHandler := http.NewNotificationHandler(notificationRepo)
 	financeHandler := http.NewFinanceHandler(financeUsecase)
 	deliveryHandler := http.NewDeliveryHandler(deliveryUsecase)
+	salesTransferHandler := http.NewSalesTransferHandler(salesTransferUsecase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -185,6 +190,7 @@ func main() {
 			notificationHandler.RegisterRoutes(protected)
 			financeHandler.RegisterRoutes(protected)
 			deliveryHandler.RegisterRoutes(protected)
+			salesTransferHandler.RegisterRoutes(protected)
 		}
 	}
 
