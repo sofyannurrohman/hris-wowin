@@ -84,8 +84,8 @@ const currentForm = ref({
   id: '',
   employee_id: '',
   date: new Date().toISOString().split('T')[0],
-  clock_in_time: '08:00',
-  clock_out_time: '17:00',
+  clock_in_time: '08.00',
+  clock_out_time: '17.00',
   status: 'PRESENT',
   notes: ''
 })
@@ -212,8 +212,8 @@ const openAddModal = () => {
     id: '',
     employee_id: '',
     date: new Date().toISOString().split('T')[0],
-    clock_in_time: '08:00',
-    clock_out_time: '17:00',
+    clock_in_time: '08.00',
+    clock_out_time: '17.00',
     status: 'PRESENT',
     notes: ''
   }
@@ -258,11 +258,14 @@ const deleteAttendance = async (id: string) => {
 const saveManualData = async () => {
   isSubmitting.value = true
   try {
-    // combine Date + HH:mm strings into RFC3339
-    const inDateObj = new Date(`${currentForm.value.date}T${currentForm.value.clock_in_time}:00Z`)
+    // combine Date + HH.mm strings into local Date object
+    const inTimeFormatted = (currentForm.value.clock_in_time || '08.00').replace('.', ':')
+    const inDateObj = new Date(`${currentForm.value.date}T${inTimeFormatted}:00`)
+    
     let outDateObj: Date | null = null
     if (currentForm.value.clock_out_time) {
-      outDateObj = new Date(`${currentForm.value.date}T${currentForm.value.clock_out_time}:00Z`)
+      const outTimeFormatted = currentForm.value.clock_out_time.replace('.', ':')
+      outDateObj = new Date(`${currentForm.value.date}T${outTimeFormatted}:00`)
     }
 
     const payload = {
@@ -576,12 +579,12 @@ onMounted(() => {
 
           <div class="grid grid-cols-2 gap-4">
              <div class="grid gap-2">
-                <label class="text-[13px] font-medium text-gray-700">Jam Masuk</label>
-                <Input v-model="currentForm.clock_in_time" type="time" />
+                <label class="text-[13px] font-medium text-gray-700 uppercase tracking-wider">Jam Masuk (HH.mm)</label>
+                <Input v-model="currentForm.clock_in_time" type="text" placeholder="contoh: 07.30" />
               </div>
               <div class="grid gap-2">
-                <label class="text-[13px] font-medium text-gray-700">Jam Keluar</label>
-                <Input v-model="currentForm.clock_out_time" type="time" />
+                <label class="text-[13px] font-medium text-gray-700 uppercase tracking-wider">Jam Keluar (HH.mm)</label>
+                <Input v-model="currentForm.clock_out_time" type="text" placeholder="contoh: 16.30" />
               </div>
           </div>
 
