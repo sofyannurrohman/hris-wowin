@@ -330,7 +330,7 @@ const formatCurrency = (val: number) => {
           </h3>
           <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total {{ stores.length }} titik distribusi aktif</p>
         </div>
-        <button @click="initMap" class="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-primary rounded-xl transition-all shadow-sm">
+        <button @click="updateMarkers" class="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-primary rounded-xl transition-all shadow-sm">
           <Maximize2 class="w-4 h-4" />
         </button>
       </div>
