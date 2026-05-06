@@ -225,7 +225,7 @@ const openEditModal = (item: any) => {
   isEditMode.value = true
   
   // parse dates specifically
-  const dateStr = item._raw.clock_in_time ? new Date(item._raw.clock_in_time).toISOString().split('T')[0] : ''
+  const dateStr = item._raw.clock_in_time ? (new Date(item._raw.clock_in_time).toISOString().split('T')[0] || '') : ''
   const inTimeStr = item._raw.clock_in_time ? fmtTime(item._raw.clock_in_time) : ''
   const outTimeStr = item._raw.clock_out_time ? fmtTime(item._raw.clock_out_time) : ''
 
