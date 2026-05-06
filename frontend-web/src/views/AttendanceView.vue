@@ -54,6 +54,7 @@ const selectedBranch = ref<string>('all')
 const filterType = ref<string>('month')
 const selectedMonth = ref<string>(new Date().toISOString().slice(0, 7)) // default current month: YYYY-MM
 const selectedYear = ref<string>(new Date().getFullYear().toString())
+const selectedDate = ref<string>(new Date().toISOString().split('T')[0] || '') // default today: YYYY-MM-DD
 
 const attendanceStats = computed(() => {
   const data = displayData.value
@@ -83,7 +84,7 @@ const isSubmitting = ref(false)
 const currentForm = ref({
   id: '',
   employee_id: '',
-  date: new Date().toISOString().split('T')[0],
+  date: new Date().toISOString().split('T')[0] || '',
   clock_in_time: '08.00',
   clock_out_time: '17.00',
   status: 'PRESENT',
@@ -211,7 +212,7 @@ const openAddModal = () => {
   currentForm.value = {
     id: '',
     employee_id: '',
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split('T')[0] || '',
     clock_in_time: '08.00',
     clock_out_time: '17.00',
     status: 'PRESENT',
@@ -302,6 +303,8 @@ const fetchAttendance = async () => {
       url += `&month=${selectedMonth.value}`
     } else if (filterType.value === 'year' && selectedYear.value) {
       url += `&month=${selectedYear.value}`
+    } else if (filterType.value === 'daily' && selectedDate.value) {
+      url += `&month=${selectedDate.value}`
     }
     const res = await apiClient.get(url)
     if (res.data?.data && res.data.data.length > 0) {
@@ -364,6 +367,8 @@ const exportCSV = async () => {
       url += `&month=${selectedMonth.value}`
     } else if (filterType.value === 'year' && selectedYear.value) {
       url += `&month=${selectedYear.value}`
+    } else if (filterType.value === 'daily' && selectedDate.value) {
+      url += `&month=${selectedDate.value}`
     }
     
     const response = await apiClient.get(url, { responseType: 'blob' })
@@ -419,6 +424,7 @@ onMounted(() => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="daily">Harian</SelectItem>
             <SelectItem value="month">Bulanan</SelectItem>
             <SelectItem value="year">Tahunan</SelectItem>
           </SelectContent>
@@ -426,6 +432,13 @@ onMounted(() => {
 
         <!-- Date Filter -->
         <div class="relative">
+          <input
+            v-if="filterType === 'daily'"
+            type="date"
+            v-model="selectedDate"
+            @change="fetchAttendance"
+            class="h-10 border-none bg-white shadow-lg shadow-slate-100/50 text-slate-600 rounded-xl text-[13px] font-bold px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+          />
           <input
             v-if="filterType === 'month'"
             type="month"

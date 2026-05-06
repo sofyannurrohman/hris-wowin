@@ -79,7 +79,11 @@ func (r *attendanceRepository) FindAllHistory(limit, offset int, branchID *uuid.
 	}
 
 	if month != "" {
-		if t, err := time.Parse("2006-01", month); err == nil {
+		if t, err := time.Parse("2006-01-02", month); err == nil {
+			start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+			end := start.Add(24 * time.Hour).Add(-time.Second) // End of day
+			query = query.Where("attendance_logs.clock_in_time >= ? AND attendance_logs.clock_in_time <= ?", start, end)
+		} else if t, err := time.Parse("2006-01", month); err == nil {
 			start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 			end := start.AddDate(0, 1, 0).Add(-time.Second) // End of month
 			query = query.Where("attendance_logs.clock_in_time >= ? AND attendance_logs.clock_in_time <= ?", start, end)
