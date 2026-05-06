@@ -96,6 +96,7 @@ const salesGroups = [
       { to: '/sales/salesman', name: 'Data Salesman', icon: Users },
       { to: '/sales/stores', name: 'Toko Customer', icon: Store },
       { to: '/sales/penjualan', name: 'Penjualan & Nota', icon: Banknote },
+      { to: '/sales/delivery', name: 'Manajemen Pengiriman', icon: Truck },
       { to: '/sales/spanduk', name: 'Pemasangan Spanduk', icon: Megaphone },
     ]
   },
@@ -131,7 +132,8 @@ const warehouseGroups = [
   {
     title: 'Gudang Cabang',
     items: [
-      { to: '/warehouse', name: 'Stok & Penerimaan', icon: Boxes },
+      { to: '/warehouse', name: 'Dashboard Gudang', icon: LayoutDashboard },
+      { to: '/warehouse/stock', name: 'Stok & Penerimaan', icon: Boxes },
       { to: '/warehouse/sales-transfers', name: 'Perpindahan Barang', icon: ArrowLeftRight },
       { to: '/warehouse/logs', name: 'Log Mutasi', icon: History },
       { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },

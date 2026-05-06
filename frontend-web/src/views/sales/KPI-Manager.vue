@@ -15,7 +15,8 @@ import {
   AlertCircle,
   CheckCircle2,
   X,
-  Save
+  Save,
+  Trash2
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { toast } from 'vue-sonner'
@@ -199,7 +200,23 @@ const submitEditTarget = async () => {
     isLoading.value = false
   }
 }
-
+const handleDeleteKPI = async (id: string) => {
+  if (!id) {
+    toast.error('Data target tidak ditemukan')
+    return
+  }
+  if (!confirm('Hapus data target/KPI untuk salesman ini pada bulan terpilih?')) return
+  try {
+    isLoading.value = true
+    await apiClient.delete(`/admin/sales/targets/${id}`)
+    toast.success('Target berhasil dihapus!')
+    fetchKPIs()
+  } catch (error) {
+    toast.error('Gagal menghapus target')
+  } finally {
+    isLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -305,7 +322,7 @@ const submitEditTarget = async () => {
               <th class="px-8 py-5">Total Realisasi</th>
               <th class="px-8 py-5">Toko Baru (Titik)</th>
               <th class="px-8 py-5">Estimasi Bonus</th>
-              <th class="px-8 py-5 text-right">Aksi</th>
+              <th class="px-8 py-5 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -358,10 +375,15 @@ const submitEditTarget = async () => {
                   <p class="text-xs font-black text-amber-700">{{ formatCurrency(s.bonus) }}</p>
                 </div>
               </td>
-              <td class="px-8 py-6 text-right">
-                <Button @click="handleEditTarget(s)" variant="ghost" size="icon" class="h-9 w-9 rounded-xl hover:bg-primary/5 hover:text-primary transition-all">
-                  <Edit3 class="w-4 h-4" />
-                </Button>
+              <td class="px-8 py-6 text-center">
+                 <div class="flex items-center justify-center gap-2">
+                   <Button @click="handleEditTarget(s)" variant="outline" size="sm" class="h-8 px-3 rounded-lg border-slate-200 text-slate-600 hover:bg-primary hover:text-white transition-all font-bold gap-1.5">
+                     <Edit3 class="w-3.5 h-3.5" /> Edit
+                   </Button>
+                   <Button @click="handleDeleteKPI(s.id)" variant="outline" size="sm" class="h-8 px-3 rounded-lg border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all font-bold gap-1.5">
+                     <Trash2 class="w-3.5 h-3.5" /> Hapus
+                   </Button>
+                 </div>
               </td>
             </tr>
           </tbody>

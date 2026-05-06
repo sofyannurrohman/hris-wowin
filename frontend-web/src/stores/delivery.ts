@@ -8,12 +8,14 @@ export const useDeliveryStore = defineStore('delivery', {
     loading: false
   }),
   actions: {
-    async fetchPendingOrders(companyId: string) {
+    async fetchPendingOrders(companyId: string = '') {
       this.loading = true
       try {
-        // We might need a specific endpoint for validated TOs
-        const response = await apiClient.get(`/sales/transactions?status=VERIFIED&company_id=${companyId}`)
-        this.pendingOrders = response.data
+        const url = companyId 
+          ? `/admin/sales/delivery-pending?status=VERIFIED&company_id=${companyId}`
+          : `/admin/sales/delivery-pending?status=VERIFIED`
+        const response = await apiClient.get(url)
+        this.pendingOrders = response.data?.data || []
       } finally {
         this.loading = false
       }
@@ -23,9 +25,8 @@ export const useDeliveryStore = defineStore('delivery', {
       return response.data
     },
     async fetchBatches() {
-      // For simplicity, fetch all batches
-      const response = await apiClient.get('/delivery/tasks') // Note: this might need adjustment for admin view
-      this.batches = response.data
+      const response = await apiClient.get('/delivery/batches')
+      this.batches = response.data?.data || []
     }
   }
 })

@@ -224,6 +224,11 @@ const router = createRouter({
           children: [
             {
               path: '',
+              name: 'warehouseDashboard',
+              component: () => import('@/views/warehouse/WarehouseDashboard.vue'),
+            },
+            {
+              path: 'stock',
               name: 'warehouseStock',
               component: () => import('@/views/warehouse/WarehouseManagementView.vue'),
             },

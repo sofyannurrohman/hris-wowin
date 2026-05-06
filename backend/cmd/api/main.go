@@ -37,6 +37,7 @@ func main() {
 		&domain.DeliveryBatch{},
 		&domain.DeliveryItem{},
 		&domain.SalesPayment{},
+		&domain.SalesItem{},
 		&domain.SalesStock{},
 		&domain.SalesTransfer{},
 	)
@@ -146,7 +147,7 @@ func main() {
 	vehicleHandler := http.NewVehicleHandler(vehicleUseCase)
 	notificationHandler := http.NewNotificationHandler(notificationRepo)
 	financeHandler := http.NewFinanceHandler(financeUsecase)
-	deliveryHandler := http.NewDeliveryHandler(deliveryUsecase)
+	deliveryHandler := http.NewDeliveryHandler(deliveryUsecase, employeeUseCase)
 	salesTransferHandler := http.NewSalesTransferHandler(salesTransferUsecase)
 
 	// API v1 Routes

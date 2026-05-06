@@ -11,6 +11,7 @@ type DeliveryBatchStatus string
 
 const (
 	DeliveryBatchWaitingApproval   DeliveryBatchStatus = "WAITING_APPROVAL"
+	DeliveryBatchSupervisorApproved DeliveryBatchStatus = "SUPERVISOR_APPROVED"
 	DeliveryBatchWaitingAssignment DeliveryBatchStatus = "WAITING_ASSIGNMENT"
 	DeliveryBatchPending           DeliveryBatchStatus = "PENDING"
 	DeliveryBatchOnDelivery        DeliveryBatchStatus = "ON_DELIVERY"
@@ -61,6 +62,7 @@ type DeliveryItem struct {
 	DeliveredAt        *time.Time         `json:"delivered_at,omitempty"`
 
 	SalesTransaction *SalesTransaction `gorm:"foreignKey:SalesTransactionID" json:"sales_transaction,omitempty"`
+	DeliveryBatch    *DeliveryBatch    `gorm:"foreignKey:DeliveryBatchID" json:"delivery_batch,omitempty"`
 }
 
 func (db *DeliveryBatch) BeforeCreate(tx *gorm.DB) (err error) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/usecase"
 )
 
@@ -29,9 +30,12 @@ func (h *SalesHandler) RegisterRoutes(router *gin.RouterGroup) {
 		sales.POST("/manual-entry", h.ManualEntry)
 		sales.GET("/transactions/all-pending", h.GetAllPending)
 		sales.GET("/transactions/all", h.GetAllTransactions)
+		sales.GET("/transactions/next-receipt-no", h.GetNextReceiptNo)
+		sales.GET("/delivery-pending", h.GetTransactions)
 		sales.PUT("/transactions/:id", h.UpdateTransaction)
 		sales.DELETE("/transactions/:id", h.DeleteTransaction)
 		sales.POST("/targets", h.SetKPITarget)
+		sales.DELETE("/targets/:id", h.DeleteKPITarget)
 		sales.GET("/reports/excel", h.ExportExcel)
 		sales.GET("/reports/summary", h.GetSummary)
 		sales.GET("/reports/performance", h.GetPerformance)
@@ -46,6 +50,7 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 		sales.GET("/transactions/pending", h.GetPendingTransactions)
 		sales.GET("/transactions/history", h.GetHistoryTransactions)
 		sales.PATCH("/transactions/:id/verify", h.VerifyTransaction)
+		sales.PATCH("/transactions/:id/reject", h.RejectTransaction)
 		sales.GET("/visit-plans", h.GetVisitPlan)
 		sales.GET("/transactions/receipt/:receipt_no", h.GetByReceipt)
 		sales.POST("/transactions/:id/payments", h.RecordPayment)
@@ -349,6 +354,23 @@ func (h *SalesHandler) SetKPITarget(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "KPI target set successfully"})
 }
 
+func (h *SalesHandler) DeleteKPITarget(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target id"})
+		return
+	}
+
+	err = h.salesUsecase.DeleteKPITarget(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "KPI target deleted successfully"})
+}
+
 func (h *SalesHandler) UploadPhoto(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -506,4 +528,85 @@ func (h *SalesHandler) GetByDueDate(c *gin.Context) {
 		"message": "Success",
 		"data":    trxs,
 	})
+}
+func (h *SalesHandler) GetTransactions(c *gin.Context) {
+	status := c.Query("status")
+	companyIDStr := c.Query("company_id")
+	
+	var companyID uuid.UUID
+	if companyIDStr != "" {
+		parsed, err := uuid.Parse(companyIDStr)
+		if err == nil {
+			companyID = parsed
+		}
+	}
+
+	var trxs []domain.SalesTransaction
+	var err error
+
+	if status == "VERIFIED" {
+		trxs, err = h.salesUsecase.GetDeliveryPending(companyID)
+	} else {
+		trxs, err = h.salesUsecase.GetTransactionsByStatusAndCompany(status, companyID)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    trxs,
+	})
+}
+
+func (h *SalesHandler) RejectTransaction(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transaction id"})
+		return
+	}
+
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.salesUsecase.RejectTransaction(id, req.Notes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Transaction rejected successfully",
+	})
+}
+
+func (h *SalesHandler) GetNextReceiptNo(c *gin.Context) {
+	fmt.Println("DEBUG: GetNextReceiptNo hit")
+	companyIDStr := c.Query("company_id")
+	companyID, _ := uuid.Parse(companyIDStr)
+	dateStr := c.Query("date")
+	
+	var date time.Time
+	if dateStr != "" {
+		date, _ = time.Parse("2006-01-02", dateStr)
+	} else {
+		date = time.Now()
+	}
+
+	count, err := h.salesUsecase.CountByCompanyAndDate(companyID, date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	receiptNo := fmt.Sprintf("INV/%s/%03d", date.Format("20060102"), count+1)
+	c.JSON(http.StatusOK, gin.H{"receipt_no": receiptNo})
 }

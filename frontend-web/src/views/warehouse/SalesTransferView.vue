@@ -128,8 +128,8 @@
              <label class="text-sm font-medium">Produk</label>
              <select v-model="form.product_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                <option value="">Pilih Produk</option>
-               <option v-for="item in warehouseStore.inventory" :key="item.product_id" :value="item.product_id">
-                 {{ item.product?.name }} (Stok: {{ item.quantity }})
+               <option v-for="product in factoryStore.products" :key="product.id" :value="product.id">
+                 {{ product.name }} (Gudang: {{ warehouseStore.inventory.find(i => i.product_id === product.id)?.quantity || 0 }} {{ product.unit }})
                </option>
              </select>
            </div>
@@ -158,6 +158,7 @@ import { onMounted, ref, reactive, watch } from 'vue'
 import { useSalesTransferStore } from '@/stores/salesTransfer'
 import { useWarehouseStore } from '@/stores/warehouse'
 import { useMasterDataStore } from '@/stores/masterData'
+import { useFactoryStore } from '@/stores/factory'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card/index'
 import DataTable from '@/components/DataTable.vue'
@@ -166,6 +167,7 @@ import { Plus, History, UserSquare2, ArrowRight, ArrowLeft, Trash2, Search, X } 
 const transferStore = useSalesTransferStore()
 const warehouseStore = useWarehouseStore()
 const masterStore = useMasterDataStore()
+const factoryStore = useFactoryStore()
 
 const showForm = ref(false)
 const loading = ref(false)
@@ -185,7 +187,8 @@ const openForm = async () => {
   try {
     await Promise.all([
       masterStore.fetchEmployees(true),
-      warehouseStore.fetchInventory()
+      warehouseStore.fetchInventory(),
+      factoryStore.fetchProducts()
     ])
   } finally {
     loading.value = false
@@ -268,5 +271,6 @@ onMounted(() => {
   transferStore.fetchTransfers()
   warehouseStore.fetchInventory()
   masterStore.fetchEmployees()
+  factoryStore.fetchProducts()
 })
 </script>

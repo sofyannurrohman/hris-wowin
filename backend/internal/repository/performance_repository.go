@@ -23,6 +23,7 @@ type PerformanceRepository interface {
 	GetSalesKPIReportByMonth(month, year int) ([]SalesKPIReport, error)
 	GetSalesKPIsByMonth(month, year int) ([]domain.SalesKPI, error)
 	SaveSalesKPI(kpi *domain.SalesKPI) error
+	DeleteSalesKPI(id uuid.UUID) error
 
 	// Single Employee KPI History
 	GetEmployeeKPIHistory(employeeID uuid.UUID) ([]domain.EmployeeKPI, error)
@@ -120,6 +121,10 @@ func (r *performanceRepository) GetEmployeeKPIHistory(employeeID uuid.UUID) ([]d
 
 func (r *performanceRepository) SaveSalesKPI(kpi *domain.SalesKPI) error {
 	return r.db.Save(kpi).Error
+}
+
+func (r *performanceRepository) DeleteSalesKPI(id uuid.UUID) error {
+	return r.db.Delete(&domain.SalesKPI{}, id).Error
 }
 
 type SalesKPIReport struct {

@@ -12,6 +12,7 @@ type BannerOrderRepository interface {
 	FindByID(id uuid.UUID) (*domain.BannerOrder, error)
 	Update(order *domain.BannerOrder) error
 	Delete(id uuid.UUID) error
+	FindByCompanyID(companyID uuid.UUID) ([]domain.BannerOrder, error)
 }
 
 type bannerOrderRepository struct {
@@ -50,4 +51,10 @@ func (r *bannerOrderRepository) Update(order *domain.BannerOrder) error {
 
 func (r *bannerOrderRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&domain.BannerOrder{}, "id = ?", id).Error
+}
+
+func (r *bannerOrderRepository) FindByCompanyID(companyID uuid.UUID) ([]domain.BannerOrder, error) {
+	var orders []domain.BannerOrder
+	err := r.db.Preload("Employee").Preload("Designer").Preload("Installer").Where("company_id = ?", companyID).Find(&orders).Error
+	return orders, err
 }

@@ -96,6 +96,12 @@ const handleModuleClick = (mod: any) => {
             </div>
           </SelectTrigger>
           <SelectContent class="rounded-xl border-slate-200 shadow-xl">
+            <SelectItem value="ALL_BRANCHES" class="rounded-lg m-1 font-bold text-primary">
+              <div class="flex items-center gap-2">
+                <Globe class="h-4 w-4" />
+                Semua Cabang
+              </div>
+            </SelectItem>
             <SelectItem 
               v-for="branch in masterDataStore.branches" 
               :key="branch.id" 

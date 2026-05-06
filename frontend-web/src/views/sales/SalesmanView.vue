@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import apiClient from '@/api/axios'
 import { toast } from 'vue-sonner'
 import { 
@@ -17,7 +17,8 @@ import {
   MapPin,
   TrendingUp,
   X,
-  Mail
+  Mail,
+  Save
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
@@ -63,31 +64,82 @@ const months = [
 
 const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
 
+const filteredSalesmen = computed(() => {
+  if (!searchQuery.value) return salesmen.value
+  const query = searchQuery.value.toLowerCase()
+  return salesmen.value.filter(s => 
+    s.name.toLowerCase().includes(query) || 
+    s.email.toLowerCase().includes(query) || 
+    s.area.toLowerCase().includes(query) ||
+    s.workingTerritory.toLowerCase().includes(query)
+  )
+})
+
 const fetchSalesmen = async () => {
   isLoading.value = true
   const month = currentMonth.value
   const year = currentYear.value
 
+  // Calculate previous month for carry-over targets
+  let prevMonth = month - 1
+  let prevYear = year
+  if (prevMonth === 0) {
+    prevMonth = 12
+    prevYear = year - 1
+  }
+
   try {
-    const res = await apiClient.get(`/admin/sales/reports/performance?month=${month}&year=${year}`)
-    if (res.data?.data) {
-      salesmen.value = res.data.data.map((kpi: any) => ({
-        id: kpi.ID,
-        employeeID: kpi.EmployeeID,
-        name: kpi.Employee ? `${kpi.Employee.first_name} ${kpi.Employee.last_name}` : 'Salesman',
-        email: kpi.Employee?.user?.email || '-',
-        phone: kpi.Employee?.phone_number || '-',
-        area: kpi.Employee?.branch?.name || 'Kantor Pusat',
-        target: kpi.TargetOmzet,
-        targetNewStores: kpi.TargetNewStores,
-        workingTerritory: kpi.working_territory || '-',
-        branch: kpi.Employee?.branch?.name || '-',
-        current: kpi.AchievedOmzet,
-        currentLama: kpi.AchievedOmzetLama || 0,
-        currentBaru: kpi.AchievedOmzetBaru || 0,
-        totalVisits: kpi.TotalVisits || 0
-      }))
+    // 1. Fetch Performance Data (Current & Previous)
+    const [perfRes, prevPerfRes] = await Promise.all([
+      apiClient.get(`/admin/sales/reports/performance?month=${month}&year=${year}`),
+      apiClient.get(`/admin/sales/reports/performance?month=${prevMonth}&year=${prevYear}`)
+    ])
+    
+    const perfData = perfRes.data?.data || []
+    const prevPerfData = prevPerfRes.data?.data || []
+
+    // 2. Fetch All Employees if not already fetched
+    if (allEmployees.value.length === 0) {
+      const empRes = await apiClient.get('/employees?limit=1000')
+      if (empRes.data?.data) {
+        allEmployees.value = empRes.data.data
+      }
     }
+
+    // 3. Filter employees to identify "Salesmen"
+    const salesmenEmployees = allEmployees.value.filter(emp => {
+      const jobTitle = (emp.job_position?.title || '').toLowerCase()
+      const deptName = (emp.department?.name || '').toLowerCase()
+      return jobTitle.includes('sales') || jobTitle.includes('marketing') || 
+             deptName.includes('sales') || deptName.includes('marketing')
+    })
+
+    // 4. Merge Performance with Salesmen List
+    salesmen.value = salesmenEmployees.map(emp => {
+      const kpi = perfData.find((p: any) => p.EmployeeID === emp.id)
+      const prevKpi = prevPerfData.find((p: any) => p.EmployeeID === emp.id)
+      
+      return {
+        id: kpi?.ID || emp.id,
+        kpiID: kpi?.ID || null,
+        hasCurrentKpi: !!kpi,
+        employeeID: emp.id,
+        name: `${emp.first_name} ${emp.last_name || ''}`.trim(),
+        email: emp.user?.email || '-',
+        phone: emp.phone_number || '-',
+        area: emp.branch?.name || 'Kantor Pusat',
+        // Carry over target and territory if current kpi is missing
+        target: kpi?.TargetOmzet || prevKpi?.TargetOmzet || 0,
+        targetNewStores: kpi?.TargetNewStores || prevKpi?.TargetNewStores || 0,
+        workingTerritory: kpi?.working_territory || prevKpi?.working_territory || emp.working_territory || '-',
+        branch: emp.branch?.name || '-',
+        // Current month achievements (always reset if kpi is missing)
+        current: kpi?.AchievedOmzet || 0,
+        currentLama: kpi?.AchievedOmzetLama || 0,
+        currentBaru: kpi?.AchievedOmzetBaru || 0,
+        totalVisits: kpi?.TotalVisits || 0
+      }
+    })
   } catch (error) {
     console.error('Failed to fetch salesmen:', error)
   } finally {
@@ -140,6 +192,24 @@ const handleSaveTarget = async () => {
     fetchSalesmen()
   } catch (error) {
     console.error('Failed to save target:', error)
+    toast.error('Gagal menyimpan target')
+  }
+}
+
+const handleDeleteTarget = async (s: any) => {
+  if (!s.kpiID) {
+    toast.error('Data target tidak ditemukan untuk bulan ini')
+    return
+  }
+
+  if (!confirm(`Hapus data target & performa ${s.name} untuk bulan ${getMonthLabel(currentMonth.value)}?`)) return
+
+  try {
+    await apiClient.delete(`/admin/sales/targets/${s.kpiID}`)
+    toast.success('Target berhasil dihapus!')
+    fetchSalesmen()
+  } catch (error: any) {
+    toast.error('Gagal menghapus target: ' + (error.response?.data?.error || error.message))
   }
 }
 
@@ -227,8 +297,8 @@ const getMonthLabel = (m: number) => {
     </div>
 
     <!-- Table -->
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-      <table class="w-full text-left border-collapse">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
+      <table class="w-full text-left border-collapse min-w-[1000px]">
         <thead>
           <tr class="bg-slate-50/50 uppercase text-[10px] font-extrabold text-slate-400 tracking-[0.1em]">
             <th class="px-8 py-5">Identitas</th>
@@ -239,22 +309,17 @@ const getMonthLabel = (m: number) => {
             <th class="px-8 py-5">Omzet Toko Baru</th>
             <th class="px-8 py-5">Total Kunjungan</th>
             <th class="px-8 py-5">Total Realisasi</th>
-            <th class="px-8 py-5 text-right">Aksi</th>
+            <th class="px-8 py-5 text-center">Aksi</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="s in salesmen" :key="s.id" class="group hover:bg-slate-50/70 transition-all">
+          <tr v-for="s in filteredSalesmen" :key="s.id" class="group hover:bg-slate-50/70 transition-all">
             <td class="px-8 py-6">
-              <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center font-black text-primary border border-primary/10">
-                  {{ s.name.charAt(0) }}
-                </div>
-                <div>
-                  <p class="font-extrabold text-slate-900 group-hover:text-primary transition-colors">{{ s.name }}</p>
-                  <p class="text-[12px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
-                    <Mail class="w-3 h-3" /> {{ s.email }}
-                  </p>
-                </div>
+              <div>
+                <p class="font-extrabold text-slate-900 group-hover:text-primary transition-colors">{{ s.name }}</p>
+                <p class="text-[12px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
+                  <Mail class="w-3 h-3" /> {{ s.email }}
+                </p>
               </div>
             </td>
             <td class="px-8 py-6">
@@ -304,13 +369,23 @@ const getMonthLabel = (m: number) => {
                 </div>
               </div>
             </td>
-            <td class="px-8 py-6 text-right">
-              <div class="flex items-center justify-end gap-2">
-                <Button @click="handleEditTarget(s)" variant="ghost" size="icon" class="h-10 w-10 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-primary">
-                  <Edit2 class="w-4.5 h-4.5" />
+            <td class="px-8 py-6 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <Button 
+                  @click="handleEditTarget(s)" 
+                  variant="outline" 
+                  size="sm" 
+                  class="h-8 px-3 rounded-lg border-slate-200 text-slate-600 hover:bg-primary hover:text-white transition-all font-bold gap-1.5"
+                >
+                  <Edit2 class="w-3.5 h-3.5" /> Edit
                 </Button>
-                <Button variant="ghost" size="icon" class="h-10 w-10 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-500">
-                  <Trash2 class="w-4.5 h-4.5" />
+                <Button 
+                  @click="handleDeleteTarget(s)" 
+                  variant="outline" 
+                  size="sm" 
+                  class="h-8 px-3 rounded-lg border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all font-bold gap-1.5"
+                >
+                  <Trash2 class="w-3.5 h-3.5" /> Hapus
                 </Button>
               </div>
             </td>

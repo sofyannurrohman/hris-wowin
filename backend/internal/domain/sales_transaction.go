@@ -39,6 +39,9 @@ type SalesTransaction struct {
 	Company  *Company  `gorm:"foreignKey:CompanyID;constraint:OnDelete:CASCADE;" json:"company,omitempty"`
 	Store    *Store    `gorm:"foreignKey:StoreID;constraint:OnDelete:CASCADE;" json:"store,omitempty"`
 	Employee *Employee `gorm:"foreignKey:EmployeeID;constraint:OnDelete:CASCADE;" json:"employee,omitempty"`
+	
+	DeliveryItems []DeliveryItem `gorm:"foreignKey:SalesTransactionID" json:"delivery_items,omitempty"`
+	Items         []SalesItem    `gorm:"foreignKey:SalesTransactionID" json:"items,omitempty"`
 }
 
 func (st *SalesTransaction) BeforeCreate(tx *gorm.DB) (err error) {

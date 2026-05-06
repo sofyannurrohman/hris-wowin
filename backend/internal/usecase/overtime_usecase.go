@@ -128,7 +128,11 @@ func (u *overtimeUseCase) UpdateOvertime(userID uuid.UUID, id uuid.UUID, req Ove
 		return errors.New("employee record not found")
 	}
 
-	if overtime.EmployeeID != employee.ID {
+	if overtime.EmployeeID != employee.ID &&
+		employee.User != nil &&
+		employee.User.Role != domain.RoleSuperAdmin &&
+		employee.User.Role != domain.RoleHRAdmin &&
+		employee.User.Role != domain.RoleManager {
 		return errors.New("you can only update your own overtime requests")
 	}
 
@@ -164,7 +168,11 @@ func (u *overtimeUseCase) DeleteOvertime(userID uuid.UUID, id uuid.UUID) error {
 		return errors.New("employee record not found for the current user")
 	}
 
-	if overtime.EmployeeID != employee.ID {
+	if overtime.EmployeeID != employee.ID &&
+		employee.User != nil &&
+		employee.User.Role != domain.RoleSuperAdmin &&
+		employee.User.Role != domain.RoleHRAdmin &&
+		employee.User.Role != domain.RoleManager {
 		return errors.New("you can only delete your own overtime requests")
 	}
 

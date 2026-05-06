@@ -12,6 +12,7 @@ type BannerOrderUseCase interface {
 	UpdateOrder(order *domain.BannerOrder) error
 	UpdateStatus(id uuid.UUID, status string) error
 	DeleteOrder(id uuid.UUID) error
+	GetOrdersByCompanyID(companyID uuid.UUID) ([]domain.BannerOrder, error)
 }
 
 type bannerOrderUseCase struct {
@@ -52,4 +53,8 @@ func (u *bannerOrderUseCase) UpdateStatus(id uuid.UUID, status string) error {
 
 func (u *bannerOrderUseCase) DeleteOrder(id uuid.UUID) error {
 	return u.bannerOrderRepo.Delete(id)
+}
+
+func (u *bannerOrderUseCase) GetOrdersByCompanyID(companyID uuid.UUID) ([]domain.BannerOrder, error) {
+	return u.bannerOrderRepo.FindByCompanyID(companyID)
 }

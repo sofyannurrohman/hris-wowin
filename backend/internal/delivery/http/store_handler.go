@@ -1,8 +1,12 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
+	"strings"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
@@ -35,7 +39,21 @@ func (h *StoreHandler) SetupRoutes(r *gin.RouterGroup) {
 
 // GET /api/v1/stores?assigned_employee_id=<uuid>&company_id=<uuid>
 func (h *StoreHandler) GetAll(c *gin.Context) {
-	stores, err := h.storeRepo.FindAll()
+	companyIDStr := c.Query("company_id")
+	var stores []domain.Store
+	var err error
+
+	if companyIDStr != "" {
+		companyID, parseErr := uuid.Parse(companyIDStr)
+		if parseErr == nil {
+			stores, err = h.storeRepo.FindByCompanyID(companyID)
+		} else {
+			stores, err = h.storeRepo.FindAll()
+		}
+	} else {
+		stores, err = h.storeRepo.FindAll()
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -104,9 +122,28 @@ func (h *StoreHandler) GetByID(c *gin.Context) {
 // POST /api/v1/stores
 func (h *StoreHandler) Create(c *gin.Context) {
 	var store domain.Store
-	if err := c.ShouldBindJSON(&store); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBind(&store); err != nil {
+		// Manual fallback for UUID array string anomaly
+		h.manualBindStore(c, &store)
+	}
+
+	// Double check company_id
+	if store.CompanyID == uuid.Nil {
+		cID := h.getCleanFormValue(c, "company_id")
+		if cID != "" {
+			parsed, _ := uuid.Parse(cID)
+			store.CompanyID = parsed
+		}
+	}
+
+	// Handle Image Upload
+	photoURL, err := h.handleImageUpload(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload image: " + err.Error()})
 		return
+	}
+	if photoURL != "" {
+		store.PhotoURL = photoURL
 	}
 
 	// Auto assign to current employee if logged in
@@ -145,9 +182,40 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := c.ShouldBindJSON(existing); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBind(existing); err != nil {
+		// Fallback for anomaly
+		h.manualBindStore(c, existing)
+	}
+
+	// Ensure company_id is cleaned if bind failed
+	cID := h.getCleanFormValue(c, "company_id")
+	if cID != "" {
+		parsed, err := uuid.Parse(cID)
+		if err == nil {
+			existing.CompanyID = parsed
+		}
+	}
+	
+	// Ensure assigned_employee_id is cleaned
+	eID := h.getCleanFormValue(c, "assigned_employee_id")
+	if eID != "" {
+		parsed, err := uuid.Parse(eID)
+		if err == nil {
+			existing.AssignedEmployeeID = &parsed
+		}
+	} else if c.Request.PostFormValue("assigned_employee_id") == "" {
+		// Explicitly set to nil if empty string sent
+		existing.AssignedEmployeeID = nil
+	}
+
+	// Handle Image Upload
+	photoURL, err := h.handleImageUpload(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload image: " + err.Error()})
 		return
+	}
+	if photoURL != "" {
+		existing.PhotoURL = photoURL
 	}
 	existing.ID = id // ensure ID not overwritten
 
@@ -173,4 +241,70 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Store deleted successfully"})
+}
+
+func (h *StoreHandler) handleImageUpload(c *gin.Context) (string, error) {
+	file, err := c.FormFile("photo")
+	if err != nil {
+		if err == http.ErrMissingFile {
+			return "", nil
+		}
+		return "", err
+	}
+
+	// Limit 5MB
+	if file.Size > 5*1024*1024 {
+		return "", fmt.Errorf("file size exceeds 5MB limit")
+	}
+
+	filename := uuid.New().String() + filepath.Ext(file.Filename)
+	uploadDir := "uploads/stores"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", err
+	}
+
+	savePath := filepath.Join(uploadDir, filename)
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		return "", err
+	}
+
+	return "/uploads/stores/" + filename, nil
+}
+
+func (h *StoreHandler) getCleanFormValue(c *gin.Context, key string) string {
+	val := c.Request.PostFormValue(key)
+	if val == "" {
+		return ""
+	}
+	// Remove brackets and quotes if present
+	val = strings.TrimSpace(val)
+	val = strings.TrimPrefix(val, "[")
+	val = strings.TrimSuffix(val, "]")
+	val = strings.Trim(val, "\"")
+	return val
+}
+
+func (h *StoreHandler) manualBindStore(c *gin.Context, store *domain.Store) {
+	// Manual extraction for problematic fields when using multipart/form-data
+	if name := c.Request.PostFormValue("name"); name != "" {
+		store.Name = name
+	}
+	if owner := c.Request.PostFormValue("owner_name"); owner != "" {
+		store.OwnerName = owner
+	}
+	if phone := c.Request.PostFormValue("phone_number"); phone != "" {
+		store.PhoneNumber = phone
+	}
+	if addr := c.Request.PostFormValue("address"); addr != "" {
+		store.Address = addr
+	}
+	if lat := c.Request.PostFormValue("latitude"); lat != "" {
+		fmt.Sscanf(lat, "%f", &store.Latitude)
+	}
+	if lng := c.Request.PostFormValue("longitude"); lng != "" {
+		fmt.Sscanf(lng, "%f", &store.Longitude)
+	}
+	if active := c.Request.PostFormValue("is_active"); active != "" {
+		store.IsActive = active == "true"
+	}
 }

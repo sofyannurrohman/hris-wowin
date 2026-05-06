@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import apiClient from '@/api/axios'
 import { toast } from 'vue-sonner'
 import { 
@@ -22,6 +22,9 @@ import {
   User
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterDataStore = useMasterDataStore()
 
 const isLoading = ref(true)
 const bannerCampaigns = ref<any[]>([])
@@ -70,9 +73,10 @@ const stats = ref({
 })
 
 const fetchBanners = async () => {
+  if (!masterDataStore.selectedBranchId) return
   isLoading.value = true
   try {
-    const res = await apiClient.get('/banner-orders')
+    const res = await apiClient.get(`/banner-orders?company_id=${masterDataStore.selectedBranchCompanyId || ''}`)
     if (res.data?.data) {
       const banners = res.data.data
       bannerCampaigns.value = banners.map((b: any) => ({
@@ -86,7 +90,12 @@ const fetchBanners = async () => {
         designer: b.designer ? `${b.designer.first_name} ${b.designer.last_name || ''}` : 'Belum Ditugaskan',
         requester: b.employee ? `${b.employee.first_name} ${b.employee.last_name || ''}` : 'Sales',
         image: b.documentation_image_url,
-        designURL: b.design_url
+        designURL: b.design_url,
+        store_id: b.store_id,
+        notes: b.notes,
+        employee_id: b.employee_id,
+        designer_id: b.designer_id,
+        installer_id: b.installer_id
       }))
 
       stats.value = {
@@ -172,12 +181,19 @@ const handleFileUpload = async (event: any) => {
 
 const handleSubmit = async () => {
   try {
+    const companyId = masterDataStore.selectedBranchCompanyId
+    if (!companyId || companyId === '') {
+      toast.error('Silakan pilih cabang spesifik terlebih dahulu untuk mengelola spanduk')
+      return
+    }
+
     const selectedStore = allStores.value.find(s => s.id === currentBanner.value.storeID)
     const payload = {
       store_id: currentBanner.value.storeID || null,
       store_name: selectedStore?.name || 'Toko',
       location: selectedStore?.address || '',
       banner_type: currentBanner.value.bannerType,
+      campaign_name: currentBanner.value.notes?.slice(0, 50) || 'Kampanye Spanduk',
       employee_id: currentBanner.value.employeeID || null,
       designer_id: currentBanner.value.designerID || null,
       installer_id: currentBanner.value.installerID || null,
@@ -186,7 +202,7 @@ const handleSubmit = async () => {
       documentation_image_url: currentBanner.value.documentationImageURL,
       notes: currentBanner.value.notes,
       size: 1.0,
-      company_id: 'b72883e2-8bb6-438d-92bd-391edbf9e325'
+      company_id: companyId
     }
 
     if (isEditing.value) {
@@ -227,6 +243,10 @@ onMounted(() => {
   fetchBanners()
   fetchEmployees()
   fetchStores()
+})
+
+watch(() => masterDataStore.selectedBranchId, () => {
+  fetchBanners()
 })
 
 const getStatusStyle = (status: string) => {
@@ -335,17 +355,33 @@ const getStatusStyle = (status: string) => {
               </a>
               <button 
                 v-if="campaign.status === 'PENDING'"
-                @click="updateStatus(campaign.id, 'IN_PROGRESS')"
-                class="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
-                title="Mulai Pengerjaan"
+                @click="updateStatus(campaign.id, 'IN_DESIGN')"
+                class="p-2 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-100 transition-colors"
+                title="Mulai Desain"
+              >
+                <Pencil class="w-4 h-4" />
+              </button>
+              <button 
+                v-if="campaign.status === 'IN_DESIGN'"
+                @click="updateStatus(campaign.id, 'ADMIN_REVIEW')"
+                class="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-colors"
+                title="Kirim ke Review"
               >
                 <Clock class="w-4 h-4" />
               </button>
               <button 
-                v-if="campaign.status === 'IN_PROGRESS'"
-                @click="updateStatus(campaign.id, 'COMPLETED')"
+                v-if="campaign.status === 'ADMIN_REVIEW'"
+                @click="updateStatus(campaign.id, 'PERCETAKAN')"
+                class="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                title="Kirim ke Percetakan"
+              >
+                <Layers class="w-4 h-4" />
+              </button>
+              <button 
+                v-if="campaign.status === 'PERCETAKAN'"
+                @click="updateStatus(campaign.id, 'TERPASANG')"
                 class="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors"
-                title="Selesaikan"
+                title="Selesai Terpasang"
               >
                 <CheckCircle2 class="w-4 h-4" />
               </button>

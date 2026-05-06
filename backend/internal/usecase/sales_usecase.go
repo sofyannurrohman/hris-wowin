@@ -27,6 +27,7 @@ type SalesUsecase interface {
 	UpdateTransaction(id uuid.UUID, req ManualEntryRequest) error
 	DeleteTransaction(id uuid.UUID) error
 	SetKPITarget(employeeID uuid.UUID, month, year int, targetOmzet float64, targetNewStores int, workingTerritory string) error
+	DeleteKPITarget(id uuid.UUID) error
 	GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]VisitPlanItem, error)
 	GetTransactionByReceipt(receiptNo string) (*domain.SalesTransaction, error)
 
@@ -34,6 +35,10 @@ type SalesUsecase interface {
 	RecordPayment(req RecordPaymentRequest) error
 	GetOutstandingTransactionsByStore(storeID uuid.UUID) ([]domain.SalesTransaction, error)
 	GetTransactionsByDueDate(date time.Time, employeeID uuid.UUID) ([]domain.SalesTransaction, error)
+	GetTransactionsByStatusAndCompany(status string, companyID uuid.UUID) ([]domain.SalesTransaction, error)
+	GetDeliveryPending(companyID uuid.UUID) ([]domain.SalesTransaction, error)
+	RejectTransaction(id uuid.UUID, notes string) error
+	CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error)
 }
 
 type VisitPlanItem struct {
@@ -55,8 +60,15 @@ type CreateTransactionRequest struct {
 	PaidAmount      float64    `json:"paid_amount"`
 	PaymentDueDate  *time.Time `json:"payment_due_date"`
 	StoreCategory   string     `json:"store_category"`
-	TransactionDate time.Time  `json:"transaction_date"`
-	Notes           string     `json:"notes"`
+	TransactionDate time.Time            `json:"transaction_date"`
+	Notes           string               `json:"notes"`
+	Items           []SalesItemRequest   `json:"items"`
+}
+
+type SalesItemRequest struct {
+	ProductID uuid.UUID `json:"product_id"`
+	Quantity  int       `json:"quantity"`
+	Price     float64   `json:"price"`
 }
 
 type RecordPaymentRequest struct {
@@ -103,14 +115,21 @@ type ManualEntryRequest struct {
 	ReceiptImageURL string    `json:"receipt_image_url"`
 	TotalAmount     float64   `json:"total_amount" binding:"required"`
 	StoreCategory   string    `json:"store_category" binding:"required"` // 'TOKO_LAMA' or 'TOKO_BARU'
-	TransactionDate string    `json:"transaction_date" binding:"required"` // YYYY-MM-DD
-	Status          string    `json:"status"` // 'PENDING', 'VERIFIED', 'REJECTED'
+	TransactionDate string             `json:"transaction_date" binding:"required"` // YYYY-MM-DD
+	Status          string             `json:"status"` // 'PENDING', 'VERIFIED', 'REJECTED'
+	Items           []SalesItemRequest `json:"items"`
 }
 
 func (u *salesUsecase) ManualEntry(req ManualEntryRequest) (*domain.SalesTransaction, error) {
 	trxDate, err := time.Parse("2006-01-02", req.TransactionDate)
 	if err != nil {
 		return nil, errors.New("invalid transaction date format, expected YYYY-MM-DD")
+	}
+
+	if req.ReceiptNo == "" {
+		count, _ := u.salesRepo.CountByCompanyAndDate(req.CompanyID, trxDate)
+		receiptNo := fmt.Sprintf("INV/%s/%03d", trxDate.Format("20060102"), count+1)
+		req.ReceiptNo = receiptNo
 	}
 
 	trx := &domain.SalesTransaction{
@@ -125,6 +144,15 @@ func (u *salesUsecase) ManualEntry(req ManualEntryRequest) (*domain.SalesTransac
 		PeriodMonth:     int(trxDate.Month()),
 		PeriodYear:      trxDate.Year(),
 		Status:          req.Status,
+	}
+
+	for _, itemReq := range req.Items {
+		trx.Items = append(trx.Items, domain.SalesItem{
+			ProductID:          itemReq.ProductID,
+			Quantity:           itemReq.Quantity,
+			PriceAtTransaction: itemReq.Price,
+			Subtotal:           float64(itemReq.Quantity) * itemReq.Price,
+		})
 	}
 
 	if trx.Status == "" {
@@ -255,6 +283,12 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		paymentStatus = string(domain.PaymentStatusPartial)
 	}
 
+	if req.ReceiptNo == "" {
+		count, _ := u.salesRepo.CountByCompanyAndDate(req.CompanyID, req.TransactionDate)
+		receiptNo := fmt.Sprintf("INV/%s/%03d", req.TransactionDate.Format("20060102"), count+1)
+		req.ReceiptNo = receiptNo
+	}
+
 	trx := &domain.SalesTransaction{
 		CompanyID:       req.CompanyID,
 		StoreID:         req.StoreID,
@@ -271,6 +305,15 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		PeriodYear:      req.TransactionDate.Year(),
 		Status:          "PENDING",
 		Notes:           &req.Notes,
+	}
+
+	for _, itemReq := range req.Items {
+		trx.Items = append(trx.Items, domain.SalesItem{
+			ProductID:          itemReq.ProductID,
+			Quantity:           itemReq.Quantity,
+			PriceAtTransaction: itemReq.Price,
+			Subtotal:           float64(itemReq.Quantity) * itemReq.Price,
+		})
 	}
 
 	err := u.salesRepo.Create(trx)
@@ -477,6 +520,18 @@ func (u *salesUsecase) UpdateTransaction(id uuid.UUID, req ManualEntryRequest) e
 	trx.PeriodMonth = int(trxDate.Month())
 	trx.PeriodYear = trxDate.Year()
 
+	// Update items
+	trx.Items = []domain.SalesItem{} // Clear existing slice in memory
+	for _, itemReq := range req.Items {
+		trx.Items = append(trx.Items, domain.SalesItem{
+			SalesTransactionID: trx.ID,
+			ProductID:          itemReq.ProductID,
+			Quantity:           itemReq.Quantity,
+			PriceAtTransaction: itemReq.Price,
+			Subtotal:           float64(itemReq.Quantity) * itemReq.Price,
+		})
+	}
+
 	err = u.salesRepo.Update(trx)
 	if err != nil {
 		return err
@@ -532,6 +587,10 @@ func (u *salesUsecase) SetKPITarget(employeeID uuid.UUID, month, year int, targe
 	kpi.WorkingTerritory = workingTerritory
 
 	return u.performanceRepo.SaveSalesKPI(kpi)
+}
+
+func (u *salesUsecase) DeleteKPITarget(id uuid.UUID) error {
+	return u.performanceRepo.DeleteSalesKPI(id)
 }
 
 func (u *salesUsecase) GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]VisitPlanItem, error) {
@@ -609,5 +668,34 @@ func (u *salesUsecase) GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]Vis
 
 func (u *salesUsecase) GetTransactionByReceipt(receiptNo string) (*domain.SalesTransaction, error) {
 	return u.salesRepo.FindByReceiptNo(receiptNo)
+}
+
+func (u *salesUsecase) GetTransactionsByStatusAndCompany(status string, companyID uuid.UUID) ([]domain.SalesTransaction, error) {
+	return u.salesRepo.FindByStatusAndCompany(status, companyID)
+}
+func (u *salesUsecase) GetDeliveryPending(companyID uuid.UUID) ([]domain.SalesTransaction, error) {
+	return u.salesRepo.FindDeliveryPending(companyID)
+}
+
+func (u *salesUsecase) RejectTransaction(id uuid.UUID, notes string) error {
+	trx, err := u.salesRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if trx == nil {
+		return errors.New("transaction not found")
+	}
+
+	trx.Status = "REJECTED"
+	if notes != "" {
+		newNotes := fmt.Sprintf("%s | Rejected: %s", *trx.Notes, notes)
+		trx.Notes = &newNotes
+	}
+
+	return u.salesRepo.Update(trx)
+}
+
+func (u *salesUsecase) CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error) {
+	return u.salesRepo.CountByCompanyAndDate(companyID, date)
 }
 

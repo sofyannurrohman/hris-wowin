@@ -1,167 +1,277 @@
 <template>
-  <div class="p-6 space-y-6">
-    <div class="flex justify-between items-center">
+  <div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">Delivery Management</h1>
-        <p class="text-muted-foreground">Manage task orders delivery batches and routing.</p>
+        <h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Approval & Pengiriman</h2>
+        <p class="text-sm font-medium text-slate-500 mt-1">Supervisor: Assign armada & print Surat Jalan.</p>
       </div>
       <div class="flex gap-2">
         <Button variant="outline" @click="fetchData">
           <RefreshCw class="h-4 w-4 mr-2" :class="{ 'animate-spin': loading }" />
           Refresh
         </Button>
-        <Button class="bg-primary shadow-lg shadow-primary/20" @click="showCreateBatch = true">
-          <Truck class="h-4 w-4 mr-2" />
-          Create New Batch
-        </Button>
       </div>
     </div>
 
-    <!-- Active Batches -->
-    <div class="grid grid-cols-1 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Delivery Batches</CardTitle>
-          <CardDescription>Track ongoing and pending deliveries.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable :columns="batchColumns" :data="deliveryStore.batches">
-            <template #cell-delivery_order_no="{ row }">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold">{{ (row as any).delivery_order_no }}</span>
-                <Button size="icon" variant="ghost" class="h-8 w-8" @click="printDO(row as any)">
-                  <Printer class="h-4 w-4" />
-                </Button>
+    <!-- Workflow Tabs -->
+    <div class="flex gap-4 border-b border-slate-100 pb-px mb-4 overflow-x-auto no-scrollbar">
+      <button 
+        @click="activeTab = 'batching'"
+        class="pb-4 px-2 text-sm font-black transition-all relative whitespace-nowrap"
+        :class="activeTab === 'batching' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'"
+      >
+        1. BUAT BATCH & PENUGASAN (SUPERVISOR)
+        <div v-if="activeTab === 'batching'" class="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></div>
+      </button>
+      <button 
+        @click="activeTab = 'history'"
+        class="pb-4 px-2 text-sm font-black transition-all relative whitespace-nowrap"
+        :class="activeTab === 'history' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'"
+      >
+        RIWAYAT & LOG PENGIRIMAN
+        <div v-if="activeTab === 'history'" class="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></div>
+      </button>
+    </div>
+
+    <!-- Content based on Tabs -->
+    <div v-if="activeTab === 'batching'" class="space-y-6">
+      <div class="bg-white rounded-3xl border border-slate-200 p-6 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest">1. Pilih Nota (Verified)</h3>
+            <div class="border-2 border-slate-100 rounded-2xl divide-y max-h-[300px] overflow-y-auto bg-slate-50/50">
+              <div v-for="order in deliveryStore.pendingOrders" :key="order.id" class="p-4 flex items-center gap-4 hover:bg-white transition-all cursor-pointer" @click="toggleOrder(order.id)">
+                <input type="checkbox" :checked="selectedOrders.includes(order.id)" class="w-5 h-5 rounded-lg border-2 border-slate-300 text-primary focus:ring-0 transition-all" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-black text-slate-900 truncate">{{ order.store?.name || 'Toko Manual' }}</p>
+                  <p class="text-[10px] text-slate-500 font-bold uppercase">{{ order.receipt_no || 'No Receipt' }} • {{ formatCurrency(order.total_amount) }}</p>
+                </div>
               </div>
-            </template>
-            <template #cell-status="{ row }">
-               <Badge :variant="(row as any).status === 'COMPLETED' ? 'success' : 'warning'">{{ (row as any).status }}</Badge>
-            </template>
-          </DataTable>
-        </CardContent>
+              <div v-if="deliveryStore.pendingOrders.length === 0" class="p-10 text-center text-slate-400">
+                <PackageOpen class="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p class="text-xs font-bold uppercase tracking-widest">Tidak ada nota divalidasi</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest">2. Penugasan Logistik</h3>
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Driver</label>
+                <select v-model="form.driver_id" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
+                  <option value="" disabled>Pilih Supir Pengiriman</option>
+                  <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.first_name }} {{ d.last_name }}</option>
+                </select>
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Armada (Kendaraan)</label>
+                <select v-model="form.vehicle_id" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
+                  <option value="" disabled>Pilih Kendaraan</option>
+                  <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.license_plate }} - {{ v.model }} ({{ v.type }})</option>
+                </select>
+              </div>
+            </div>
+
+            <Button 
+              class="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl py-8 font-black shadow-xl shadow-slate-200 transition-all flex items-center justify-center gap-3 mt-4" 
+              :disabled="!isFormValid || isSubmitting" 
+              @click="handleCreateBatch"
+            >
+              <Truck class="w-6 h-6" />
+              {{ isSubmitting ? 'MEMPROSES...' : (isEditingBatch ? 'PERBARUI BATCH PENGIRIMAN' : 'BUAT BATCH PENGIRIMAN') }}
+            </Button>
+            <Button 
+              v-if="isEditingBatch"
+              variant="outline"
+              class="w-full border-2 border-slate-200 text-slate-500 rounded-2xl py-8 font-black mt-2"
+              @click="cancelEdit"
+            >
+              BATAL EDIT
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch Waiting Supervisor Approval -->
+      <div v-if="waitingSupervisorApproval.length > 0" class="space-y-4">
+        <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Batch Menunggu Finalisasi Supervisor</h3>
+        <div v-for="batch in waitingSupervisorApproval" :key="batch.id" class="bg-white rounded-3xl border border-slate-200 p-6 flex items-center justify-between shadow-sm group">
+          <div class="flex items-center gap-6">
+            <div class="bg-indigo-50 p-4 rounded-2xl">
+              <Truck class="w-8 h-8 text-indigo-600" />
+            </div>
+            <div>
+              <h4 class="text-lg font-black text-slate-900">{{ batch.items?.length || 0 }} Nota • {{ batch.driver?.first_name }}</h4>
+              <p class="text-xs font-bold text-slate-500 mt-0.5">Dibuat pada {{ formatDate(batch.created_at) }}</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+             <Button variant="outline" class="border-primary/20 text-primary hover:bg-primary/5 rounded-2xl" @click="handleEditBatch(batch)">
+                <Pencil class="w-4 h-4" />
+             </Button>
+             <Button @click="handleSupervisorApprove(batch.id)" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl px-6 py-4 text-xs font-black shadow-lg shadow-indigo-100 flex items-center gap-2">
+                <CheckCircle2 class="w-4 h-4" /> FINALIZE BATCH
+             </Button>
+             <Button variant="ghost" class="text-red-500 hover:bg-red-50 rounded-2xl" @click="handleDeleteBatch(batch.id)">
+                <Trash2 class="w-4 h-4" />
+             </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div v-if="activeTab === 'history'" class="space-y-4">
+      <Card class="rounded-[32px] overflow-hidden border-slate-200">
+        <DataTable :columns="batchColumns" :data="deliveryStore.batches">
+          <template #cell-delivery_order_no="{ row }">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-[10px] font-black bg-slate-100 text-slate-600 px-2 py-1 rounded">{{ (row as any).delivery_order_no || 'NO DO' }}</span>
+              <Button size="icon" variant="ghost" class="h-9 w-9 rounded-xl hover:bg-primary/5 text-primary" @click="printDO(row as any)">
+                <Printer class="h-4.5 w-4.5" />
+              </Button>
+            </div>
+          </template>
+          <template #cell-status="{ row }">
+             <Badge :variant="(row as any).status === 'COMPLETED' ? 'success' : 'warning'" class="rounded-lg font-black text-[10px] uppercase tracking-wider px-3 py-1">
+               {{ (row as any).status }}
+             </Badge>
+          </template>
+        </DataTable>
       </Card>
     </div>
 
-    <!-- Create Batch Modal -->
-    <div v-if="showCreateBatch" class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-       <Card class="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border-2 border-primary/20">
-         <CardHeader class="bg-primary text-primary-foreground">
-           <CardTitle class="flex items-center gap-2">
-             <PackagePlus class="h-6 w-6" />
-             Delivery Batch Builder
-           </CardTitle>
-           <CardDescription class="text-primary-foreground/70">Select validated orders to include in this delivery trip.</CardDescription>
-         </CardHeader>
-         
-         <div class="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-           <!-- Step 1: Assign Resource -->
-           <div class="space-y-4">
-             <h3 class="text-sm font-black uppercase tracking-widest text-slate-400">1. Assign Logistics</h3>
-             <div class="space-y-2">
-               <label class="text-xs font-bold">Select Driver</label>
-               <select v-model="form.driver_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
-                 <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.first_name }} {{ d.last_name }}</option>
-               </select>
-             </div>
-             <div class="space-y-2">
-               <label class="text-xs font-bold">Select Vehicle</label>
-               <select v-model="form.vehicle_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
-                 <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.license_plate }} - {{ v.model }}</option>
-               </select>
-             </div>
-           </div>
-
-           <!-- Step 2: Select Orders -->
-           <div class="space-y-4">
-             <h3 class="text-sm font-black uppercase tracking-widest text-slate-400">2. Select Task Orders ({{ selectedOrders.length }})</h3>
-             <div class="border rounded-xl divide-y max-h-[300px] overflow-y-auto bg-slate-50">
-               <div v-for="order in deliveryStore.pendingOrders" :key="order.id" class="p-3 flex items-center gap-3 hover:bg-white transition-colors">
-                 <input type="checkbox" v-model="selectedOrders" :value="order.id" class="w-4 h-4 rounded text-primary" />
-                 <div class="flex-1 min-w-0">
-                   <p class="text-sm font-bold truncate">{{ order.store?.name }}</p>
-                   <p class="text-[10px] text-slate-500 font-mono">{{ order.receipt_no }} • Rp {{ order.total_amount.toLocaleString() }}</p>
-                 </div>
-               </div>
-               <div v-if="deliveryStore.pendingOrders.length === 0" class="p-8 text-center text-slate-400">
-                 <PackageOpen class="h-8 w-8 mx-auto mb-2 opacity-20" />
-                 <p class="text-xs">No validated orders available.</p>
-               </div>
-             </div>
-           </div>
-         </div>
-
-         <CardFooter class="bg-slate-50 p-6 border-t flex justify-between">
-           <Button variant="ghost" class="font-bold text-slate-500" @click="showCreateBatch = false">CANCEL</Button>
-           <Button class="font-black px-8" :disabled="!isFormValid" @click="handleCreateBatch" :loading="isSubmitting">
-             GENERATE SURAT JALAN
-           </Button>
-         </CardFooter>
-       </Card>
-    </div>
-
-    <!-- DO Printing Modal (SJ Preview) -->
-    <div v-if="selectedDO" class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-       <Card class="w-full max-w-2xl bg-white shadow-2xl border-0 overflow-hidden">
-         <div class="bg-slate-900 text-white p-8 flex justify-between items-center">
-            <div>
-              <h2 class="text-2xl font-black tracking-tighter italic">SURAT JALAN PENGIRIMAN</h2>
-              <p class="text-xs opacity-60 font-mono tracking-widest uppercase">Delivery Order #{{ selectedDO.delivery_order_no }}</p>
-            </div>
-            <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${selectedDO.delivery_order_no}`" class="w-16 h-16 border-2 border-white/20 rounded" />
-         </div>
-         
-         <CardContent class="p-10 space-y-8">
-            <div class="flex justify-between border-b pb-6 text-sm">
+    <!-- DO Printing Modal (SJ Preview - Landscape Format) -->
+    <div v-if="selectedDO" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
+       <Card id="surat-jalan-card" class="w-full max-w-[95%] sm:max-w-6xl bg-white shadow-2xl border-0 overflow-hidden my-auto print:shadow-none print:max-w-full">
+         <!-- Simplified Header for Manual Writing -->
+         <div class="bg-white p-4 print:p-2">
+            <div class="grid grid-cols-3 gap-8 items-center">
               <div class="space-y-1">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">LOGISTICS INFO</p>
-                <p><span class="font-bold text-slate-400">DRIVER:</span> {{ selectedDO.driver?.first_name }}</p>
-                <p><span class="font-bold text-slate-400">VEHICLE:</span> {{ selectedDO.vehicle?.license_plate }} ({{ selectedDO.vehicle?.model }})</p>
+                <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">SOPIR / ARMADA</p>
+                <p class="text-[11px] font-black text-slate-900">
+                  {{ selectedDO.driver?.first_name || '........................' }} / {{ selectedDO.vehicle?.license_plate || '..........' }}
+                </p>
               </div>
-              <div class="text-right space-y-1">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">DATE GENERATED</p>
-                <p class="font-bold">{{ new Date(selectedDO.created_at).toLocaleDateString('id-ID', { dateStyle: 'full' }) }}</p>
+              <div class="space-y-1">
+                <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">SALESMAN / HELPER</p>
+                <p class="text-[11px] font-black text-slate-900">
+                  {{ selectedDO.items?.[0]?.sales_transaction?.employee?.first_name || '........................' }}
+                </p>
               </div>
-            </div>
-
-            <div class="space-y-4">
-              <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">DESTINATION LIST (TASK ORDERS)</h3>
-              <div class="border-2 border-slate-100 rounded-2xl overflow-hidden">
-                <table class="w-full text-left text-sm">
-                  <thead class="bg-slate-50 border-b">
-                    <tr>
-                      <th class="p-3 font-bold">#</th>
-                      <th class="p-3 font-bold">STORE NAME</th>
-                      <th class="p-3 font-bold text-right">TOTAL</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y">
-                    <tr v-for="(item, idx) in selectedDO.items" :key="item.id">
-                      <td class="p-3 text-slate-400">{{ (idx as number) + 1 }}</td>
-                      <td class="p-3">
-                        <p class="font-bold">{{ item.sales_transaction?.store?.name }}</p>
-                        <p class="text-[10px] text-slate-500">{{ item.sales_transaction?.store?.address }}</p>
-                      </td>
-                      <td class="p-3 text-right font-mono">Rp {{ item.sales_transaction?.total_amount.toLocaleString() }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="text-right">
+                <p class="text-[10px] font-mono font-bold text-slate-900 pb-1 italic uppercase tracking-tighter">SURAT JALAN #{{ selectedDO.delivery_order_no }}</p>
+                <p class="text-[9px] font-bold text-slate-900 mt-1 uppercase">{{ new Date(selectedDO.created_at).toLocaleDateString('id-ID', { dateStyle: 'long' }) }}</p>
               </div>
             </div>
+         </div>
+         
+         <div class="p-4 sm:p-6 space-y-4 print:p-2">
+            <!-- Main Table with Placeholders -->
+            <div class="border-2 border-slate-900 rounded-lg overflow-x-auto bg-white">
+              <table class="w-full text-left text-[10px] border-collapse whitespace-nowrap">
+                <thead>
+                  <tr class="bg-slate-50 border-b-2 border-slate-900">
+                    <th class="p-2 border-r border-slate-300 font-black text-center w-8">NO</th>
+                    <th class="p-2 border-r border-slate-300 font-black">NAMA TOKO / TELP / ALAMAT</th>
+                    <th class="p-2 border-r border-slate-300 font-black text-right w-20 bg-amber-50">TAGIHAN</th>
+                    
+                    <th class="p-1 border-r border-slate-300 font-black text-center w-8 bg-slate-100/50">GLN</th>
+                    <th class="p-1 border-r border-slate-300 font-black text-center w-8 bg-slate-100/50">BTL</th>
+                    <th class="p-1 border-r border-slate-300 font-black text-center w-8 bg-slate-100/50">KRT</th>
+                    <th class="p-2 border-r border-slate-300 font-black text-center w-24 bg-emerald-50">BAYAR</th>
+                    <th class="p-2 border-r border-slate-300 font-black text-center w-16">KET</th>
 
-            <div class="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-center gap-4">
-              <div class="bg-primary/20 p-3 rounded-xl">
-                 <MapPin class="h-6 w-6 text-primary" />
+                    <th v-for="prod in batchProductColumns" :key="prod.id" class="p-1 border-r border-slate-300 font-black text-center text-[7px] bg-slate-100/30 w-10 uppercase">
+                      {{ prod.name }}
+                    </th>
+
+                    <th class="p-2 border-r border-slate-300 font-black text-center w-10 bg-pink-50 text-[8px]">HADIAH</th>
+                    <th class="p-2 font-black text-center w-10 text-[8px]">RETUR</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y border-slate-300">
+                  <!-- Data Rows -->
+                  <tr v-for="(item, idx) in selectedDO.items" :key="item.id" class="h-8">
+                    <td class="p-2 border-r border-slate-300 text-center font-bold">{{ (idx as number) + 1 }}</td>
+                    <td class="p-2 border-r border-slate-300 whitespace-normal">
+                      <p class="font-black text-slate-900 leading-none">
+                        {{ item.sales_transaction?.store?.name }} 
+                        <span class="text-[8px] text-slate-900 font-normal">/ {{ item.sales_transaction?.store?.phone || '-' }}</span>
+                      </p>
+                      <p class="text-[7px] text-slate-900 font-bold mt-0.5">{{ item.sales_transaction?.store?.address }}</p>
+                    </td>
+                    <td class="p-2 border-r border-slate-300 text-right font-black bg-amber-50/20">{{ formatCurrency(item.sales_transaction?.total_amount).replace('Rp', '').trim() }}</td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300 bg-emerald-50/10"></td>
+                    <td class="p-2 border-r border-slate-300 text-center font-bold text-[8px]">{{ item.sales_transaction?.payment_method || 'COD' }}</td>
+                    <td v-for="prod in batchProductColumns" :key="prod.id" class="p-1 border-r border-slate-300 text-center font-black">
+                      {{ getProductQty(item.sales_transaction, prod.id) || '' }}
+                    </td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2"></td>
+                  </tr>
+
+                  <!-- Placeholder Rows for Manual Entry (Fills up to 20 rows) -->
+                  <tr v-for="n in Math.max(0, 20 - (selectedDO.items?.length || 0))" :key="'blank-'+n" class="h-6 bg-slate-50/10">
+                    <td class="p-2 border-r border-slate-300 text-center text-slate-900">{{ (selectedDO.items?.length || 0) + n }}</td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300 bg-amber-50/10"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300 bg-emerald-50/5"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td v-for="prod in batchProductColumns" :key="prod.id" class="p-1 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2"></td>
+                  </tr>
+
+                  <!-- Total Row -->
+                  <tr class="bg-slate-50 font-black border-t-2 border-slate-900 h-8">
+                    <td colspan="2" class="p-2 text-right border-r border-slate-300 uppercase tracking-widest text-[8px]">TOTAL BATCH</td>
+                    <td class="p-2 text-right border-r border-slate-300 bg-amber-50">{{ formatCurrency(calculateBatchTotal).replace('Rp', '').trim() }}</td>
+                    <td colspan="4" class="border-r border-slate-300"></td>
+                    <td class="border-r border-slate-300"></td>
+                    <td v-for="prod in batchProductColumns" :key="prod.id" class="p-1 border-r border-slate-300 text-center text-primary bg-slate-100/30">
+                       {{ calculateProductTotal(prod.id) }}
+                    </td>
+                    <td colspan="2"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Compact Signature Section -->
+            <div class="grid grid-cols-3 gap-8 mt-6">
+              <div class="text-center space-y-8">
+                <p class="text-[9px] font-black uppercase tracking-widest">SOPIR / HELPER</p>
+                <p class="text-[8px] font-bold text-slate-900">( .................................. )</p>
               </div>
-              <div>
-                <p class="text-xs font-bold text-primary">Rute Optimal Aktif</p>
-                <p class="text-[10px] text-slate-500">Scan QR Code di atas dengan aplikasi Driver untuk navigasi rute tercepat.</p>
+              <div class="text-center space-y-8">
+                <p class="text-[9px] font-black uppercase tracking-widest">ADMIN NOTA</p>
+                <p class="text-[8px] font-bold text-slate-900">( {{ selectedDO.admin_nota?.first_name || '........................' }} )</p>
+              </div>
+              <div class="flex justify-end items-center pr-10">
+                 <div class="text-right mr-4">
+                    <p class="text-[8px] font-black text-slate-400 uppercase leading-none">SCAN VALIDASI</p>
+                    <p class="text-[7px] text-slate-300 italic mt-1 uppercase">Surat Jalan Digital</p>
+                 </div>
+                 <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${selectedDO.delivery_order_no}`" class="w-20 h-20 border-2 border-slate-900 p-1 rounded bg-white shadow-sm" />
               </div>
             </div>
-         </CardContent>
+         </div>
 
-         <CardFooter class="p-6 bg-slate-50 border-t flex justify-end gap-3">
-            <Button variant="ghost" class="font-bold text-slate-500" @click="selectedDO = null">CLOSE</Button>
-            <Button class="font-black px-10" @click="handlePrint">PRINT SURAT JALAN</Button>
+         <CardFooter class="p-6 bg-slate-50 border-t flex justify-end gap-3 print:hidden">
+            <Button variant="ghost" class="font-bold text-slate-500" @click="selectedDO = null">TUTUP PREVIEW</Button>
+            <Button class="bg-slate-900 hover:bg-slate-800 text-white font-black px-12 py-6 rounded-2xl shadow-xl shadow-slate-200" @click="handlePrint">
+              <Printer class="w-5 h-5 mr-3" />
+              CETAK SURAT JALAN (LANDSCAPE)
+            </Button>
          </CardFooter>
        </Card>
     </div>
@@ -169,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, computed } from 'vue'
+import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useDeliveryStore } from '@/stores/delivery'
 import { useMasterDataStore } from '@/stores/masterData'
 import { Button } from '@/components/ui/button'
@@ -178,26 +288,82 @@ import { Badge } from '@/components/ui/badge'
 import DataTable from '@/components/DataTable.vue'
 import { 
   Truck, RefreshCw, Printer, PackagePlus, 
-  PackageOpen, MapPin, Search 
+  PackageOpen, MapPin, Search, ClipboardList,
+  CheckCircle2, Trash2, Pencil
 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import apiClient from '@/api/axios'
+
+const loading = ref(false)
+const selectedOrders = ref<string[]>([])
+const isSubmitting = ref(false)
+const selectedDO = ref<any>(null)
+const isEditingBatch = ref(false)
+const editingBatchId = ref<string | null>(null)
+
+const drivers = ref<any[]>([])
+const vehicles = ref<any[]>([])
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1'
 const deliveryStore = useDeliveryStore()
 const masterDataStore = useMasterDataStore()
 
-const loading = ref(false)
-const showCreateBatch = ref(false)
-const selectedOrders = ref<string[]>([])
-const isSubmitting = ref(false)
-const selectedDO = ref<any>(null)
-
-const drivers = ref<any[]>([])
-const vehicles = ref<any[]>([])
-
+const activeTab = ref('batching')
 const form = reactive({
   driver_id: '',
   vehicle_id: '',
+})
+
+// Computed for Product Matrix in SJ
+const batchProductColumns = computed(() => {
+  if (!selectedDO.value || !selectedDO.value.items) return []
+  
+  const productMap = new Map()
+  selectedDO.value.items.forEach((item: any) => {
+    if (item.sales_transaction?.items) {
+      item.sales_transaction.items.forEach((si: any) => {
+        if (si.product) {
+          productMap.set(si.product_id, {
+            id: si.product_id,
+            name: si.product.name.split(' ').map((w:string)=>w[0]).join('') // Abbreviate
+          })
+        }
+      })
+    }
+  })
+  return Array.from(productMap.values())
+})
+
+const getProductQty = (trx: any, productId: string) => {
+  if (!trx || !trx.items) return 0
+  const item = trx.items.find((i: any) => i.product_id === productId)
+  return item ? item.quantity : 0
+}
+
+const calculateBatchTotal = computed(() => {
+  if (!selectedDO.value || !selectedDO.value.items) return 0
+  return selectedDO.value.items.reduce((sum: number, item: any) => {
+    return sum + (item.sales_transaction?.total_amount || 0)
+  }, 0)
+})
+
+const calculateProductTotal = (productId: string) => {
+  if (!selectedDO.value || !selectedDO.value.items) return 0
+  return selectedDO.value.items.reduce((sum: number, item: any) => {
+    return sum + getProductQty(item.sales_transaction, productId)
+  }, 0)
+}
+
+const toggleOrder = (id: string) => {
+  if (selectedOrders.value.includes(id)) {
+    selectedOrders.value = selectedOrders.value.filter(o => o !== id)
+  } else {
+    selectedOrders.value.push(id)
+  }
+}
+
+const waitingSupervisorApproval = computed(() => {
+  return deliveryStore.batches.filter((b: any) => b.status === 'WAITING_APPROVAL')
 })
 
 const isFormValid = computed(() => {
@@ -205,16 +371,21 @@ const isFormValid = computed(() => {
 })
 
 const fetchData = async () => {
+  if (!masterDataStore.selectedBranchId) {
+    console.log('Waiting for branch selection...')
+    return
+  }
   loading.value = true
   try {
-    await deliveryStore.fetchPendingOrders(masterDataStore.selectedBranchCompanyId)
+    await deliveryStore.fetchPendingOrders(masterDataStore.selectedBranchCompanyId || '')
     await deliveryStore.fetchBatches()
     
-    // Fetch drivers & vehicles (simplified)
-    const dRes = await apiClient.get('/employees?job_title=DRIVER')
-    drivers.value = dRes.data
-    const vRes = await apiClient.get('/vehicles')
-    vehicles.value = vRes.data
+    const companyId = masterDataStore.selectedBranchCompanyId || ''
+    // Fetch drivers & vehicles with company filter
+    const dRes = await apiClient.get(`/employees?job_title=DRIVER&company_id=${companyId}`)
+    drivers.value = dRes.data?.data || []
+    const vRes = await apiClient.get(`/vehicles?company_id=${companyId}`)
+    vehicles.value = Array.isArray(vRes.data) ? vRes.data : (vRes.data?.data || [])
   } finally {
     loading.value = false
   }
@@ -222,28 +393,144 @@ const fetchData = async () => {
 
 onMounted(fetchData)
 
+// Watch for branch changes to refresh data
+watch(() => masterDataStore.selectedBranchId, () => {
+  fetchData()
+})
+
 const handleCreateBatch = async () => {
+  let companyId = masterDataStore.selectedBranchCompanyId
+  
+  // If in "All Branches" mode, resolve companyId from the first selected order
+  if (!companyId || companyId === '') {
+    if (selectedOrders.value.length > 0) {
+      const firstOrder = deliveryStore.pendingOrders.find(o => o.id === selectedOrders.value[0])
+      companyId = firstOrder?.company_id
+    }
+  }
+
+  if (!companyId) {
+    toast.error('Silakan pilih cabang atau pilih setidaknya satu nota untuk menentukan cabang pengiriman')
+    return
+  }
+
+  // Optional: Verify all selected orders are from the same company
+  const orders = selectedOrders.value.map(id => deliveryStore.pendingOrders.find(o => o.id === id))
+  const distinctCompanies = [...new Set(orders.map(o => o?.company_id))]
+  if (distinctCompanies.length > 1) {
+    toast.error('Batch pengiriman tidak boleh berisi nota dari cabang yang berbeda')
+    return
+  }
+  
   isSubmitting.value = true
   try {
-    const batch = await deliveryStore.createBatch({
-      company_id: masterDataStore.selectedBranchCompanyId,
-      driver_id: form.driver_id,
-      vehicle_id: form.vehicle_id,
+    const payload = {
+      company_id: companyId,
+      driver_id: form.driver_id || null,
+      vehicle_id: form.vehicle_id || null,
       sales_transaction_ids: selectedOrders.value
-    })
-    showCreateBatch.value = false
-    selectedOrders.value = []
+    }
+
+    if (isEditingBatch.value && editingBatchId.value) {
+      await apiClient.put(`/delivery/batches/${editingBatchId.value}`, payload)
+      toast.success('Batch berhasil diperbarui!')
+    } else {
+      await deliveryStore.createBatch(payload)
+      toast.success('Batch berhasil dibuat! Silakan finalisasi batch di bawah.')
+    }
+    
+    cancelEdit()
     await fetchData()
-    selectedDO.value = batch
-  } catch (err) {
-    alert(err)
+  } catch (err: any) {
+    toast.error('Gagal memproses batch: ' + (err.response?.data?.error || err.message))
   } finally {
     isSubmitting.value = false
   }
 }
 
+const handleEditBatch = (batch: any) => {
+  isEditingBatch.value = true
+  editingBatchId.value = batch.id
+  form.driver_id = batch.driver_id || ''
+  form.vehicle_id = batch.vehicle_id || ''
+  
+  // Ensure the orders from this batch are in the list so they can be selected
+  batch.items.forEach((item: any) => {
+    if (item.sales_transaction) {
+      const exists = deliveryStore.pendingOrders.find((o: any) => o.id === item.sales_transaction_id)
+      if (!exists) {
+        deliveryStore.pendingOrders.unshift(item.sales_transaction)
+      }
+    }
+  })
+  
+  selectedOrders.value = batch.items.map((i: any) => i.sales_transaction_id)
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const cancelEdit = () => {
+  isEditingBatch.value = false
+  editingBatchId.value = null
+  selectedOrders.value = []
+  form.driver_id = ''
+  form.vehicle_id = ''
+}
+
+const handleSupervisorApprove = async (id: string) => {
+  try {
+    await apiClient.post(`/delivery/batch/${id}/supervisor-approve`)
+    toast.success('Batch berhasil difinalisasi! Menunggu pencetakan Surat Jalan oleh Admin.')
+    await fetchData()
+  } catch (err: any) {
+    toast.error('Gagal memproses batch: ' + (err.response?.data?.error || err.message))
+  }
+}
+
+
+
+const handleDeleteBatch = async (id: string) => {
+  if (!confirm('Yakin ingin membatalkan batch ini?')) return
+  try {
+    // We might need a delete endpoint or just update status to CANCELLED
+    // For now assuming we can delete if WAITING_APPROVAL
+    await apiClient.delete(`/delivery/batches/${id}`)
+    toast.success('Batch berhasil dibatalkan')
+    deliveryStore.fetchBatches()
+  } catch (err: any) {
+    toast.error('Gagal menghapus batch')
+  }
+}
+
 const printDO = (row: any) => {
   selectedDO.value = row
+}
+
+const getMonthLabel = (m: number) => {
+  const months = [
+    { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' },
+    { value: 3, label: 'Maret' }, { value: 4, label: 'April' },
+    { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
+    { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' },
+    { value: 9, label: 'September' }, { value: 10, label: 'Oktober' },
+    { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
+  ]
+  const found = months.find(item => item.value === m)
+  return found ? found.label : ''
+}
+
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
+}
+
+const formatDate = (date: string) => {
+  if (!date) return '-'
+  return new Date(date).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
 }
 
 const handlePrint = () => {
@@ -262,25 +549,83 @@ const batchColumns = [
 
 <style scoped>
 @media print {
+  @page {
+    size: landscape;
+    margin: 0;
+  }
+  /* Strict Page Lock */
+  html, body {
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: white !important;
+  }
   body * {
     visibility: hidden;
   }
-  .fixed.inset-0.bg-background\/80 {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
+  .fixed.inset-0,
+  .fixed.inset-0 *,
+  #surat-jalan-card,
+  #surat-jalan-card * {
+    visibility: visible;
+  }
+  .fixed.inset-0 {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100vh !important;
     background: white !important;
-    visibility: visible;
-    z-index: 9999;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: block !important;
+    z-index: 9999 !important;
   }
-  .fixed.inset-0.bg-background\/80 * {
-    visibility: visible;
+  #surat-jalan-card {
+    position: static !important;
+    margin: 0 !important;
+    width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    /* Optimized zoom for 20 rows + Large QR */
+    zoom: 0.80;
+    -moz-transform: scale(0.80);
+    -moz-transform-origin: top left;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
-  .fixed.inset-0.bg-background\/80 button {
-    display: none;
+  /* Squeeze Header */
+  #surat-jalan-card .p-4 {
+    padding: 2px 4px !important;
+  }
+  /* Table formatting - Squeezed */
+  #surat-jalan-card table {
+    font-size: 7.5pt !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
+    line-height: 1.0 !important;
+  }
+  #surat-jalan-card th, #surat-jalan-card td {
+    padding: 1.5px !important;
+    border: 1px solid #000 !important;
+    visibility: visible !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  #surat-jalan-card div {
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
+  /* Signature sizing - Squeezed */
+  .mt-6 {
+    margin-top: 5px !important;
+  }
+  .space-y-8 {
+    margin: 0 !important;
   }
 }
 </style>

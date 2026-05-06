@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import apiClient from '@/api/axios'
 import { toast } from 'vue-sonner'
 import { 
@@ -17,9 +17,13 @@ import {
   AlertCircle,
   MoreVertical,
   Navigation,
-  Globe
+  Globe,
+  ImagePlus
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterDataStore = useMasterDataStore()
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet-defaulticon-compatibility'
@@ -45,13 +49,26 @@ const currentStore = ref({
   latitude: 0,
   longitude: 0,
   assigned_employee_id: '',
-  is_active: true
+  is_active: true,
+  photo_url: ''
 })
 
+const selectedFile = ref<File | null>(null)
+const imagePreview = ref<string | null>(null)
+
+const handleFileChange = (e: any) => {
+  const file = e.target.files[0]
+  if (file) {
+    selectedFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
+  }
+}
+
 const fetchStores = async () => {
+  if (!masterDataStore.selectedBranchId) return
   isLoading.value = true
   try {
-    const res = await apiClient.get('/stores')
+    const res = await apiClient.get(`/stores?company_id=${masterDataStore.selectedBranchCompanyId || ''}`)
     if (res.data?.data) {
       stores.value = res.data.data
     }
@@ -63,11 +80,14 @@ const fetchStores = async () => {
 }
 
 const fetchSalesmen = async () => {
+  if (!masterDataStore.selectedBranchId) return
   try {
-    const res = await apiClient.get('/employees')
+    const res = await apiClient.get(`/employees?company_id=${masterDataStore.selectedBranchCompanyId || ''}`)
     if (res.data?.data) {
-      // Filter for salesman role if needed, or just use all
-      salesmen.value = res.data.data
+      salesmen.value = res.data.data.filter((emp: any) => {
+        const jobTitle = (emp.job_position?.title || '').toLowerCase()
+        return jobTitle.includes('sales') || jobTitle.includes('marketing')
+      })
     }
   } catch (error) {
     console.error('Failed to fetch salesmen:', error)
@@ -134,8 +154,11 @@ const openAddModal = () => {
     latitude: -6.2088,
     longitude: 106.8456,
     assigned_employee_id: '',
-    is_active: true
+    is_active: true,
+    photo_url: ''
   }
+  selectedFile.value = null
+  imagePreview.value = null
   showModal.value = true
   initMap()
 }
@@ -151,8 +174,11 @@ const handleEdit = (store: any) => {
     latitude: store.latitude,
     longitude: store.longitude,
     assigned_employee_id: store.assigned_employee_id || '',
-    is_active: store.is_active
+    is_active: store.is_active,
+    photo_url: store.photo_url || ''
   }
+  selectedFile.value = null
+  imagePreview.value = null
   showModal.value = true
   initMap()
 }
@@ -170,16 +196,28 @@ const handleDelete = async (id: string) => {
 
 const handleSubmit = async () => {
   try {
-    const payload = {
-      ...currentStore.value, assigned_employee_id: currentStore.value.assigned_employee_id || null,
-      company_id: 'b72883e2-8bb6-438d-92bd-391edbf9e325' // Default for now
+    const formData = new FormData()
+    formData.append('name', currentStore.value.name)
+    formData.append('owner_name', currentStore.value.owner_name || '')
+    formData.append('phone_number', currentStore.value.phone_number || '')
+    formData.append('address', currentStore.value.address || '')
+    formData.append('latitude', String(currentStore.value.latitude))
+    formData.append('longitude', String(currentStore.value.longitude))
+    if (currentStore.value.assigned_employee_id) {
+      formData.append('assigned_employee_id', currentStore.value.assigned_employee_id)
+    }
+    formData.append('is_active', String(currentStore.value.is_active))
+    formData.append('company_id', masterDataStore.selectedBranchCompanyId)
+    
+    if (selectedFile.value) {
+      formData.append('photo', selectedFile.value)
     }
 
     if (isEditing.value) {
-      await apiClient.put(`/stores/${currentStore.value.id}`, payload)
+      await apiClient.put(`/stores/${currentStore.value.id}`, formData)
       toast.success('Data toko diperbarui')
     } else {
-      await apiClient.post('/stores', payload)
+      await apiClient.post('/stores', formData)
       toast.success('Toko baru berhasil terdaftar')
     }
     showModal.value = false
@@ -188,6 +226,18 @@ const handleSubmit = async () => {
     toast.error('Gagal menyimpan data toko')
   }
 }
+
+watch(() => currentStore.value.latitude, (newVal) => {
+  if (newVal && currentStore.value.longitude && !isGeocoding.value) {
+    reverseGeocode(newVal, currentStore.value.longitude)
+  }
+})
+
+watch(() => currentStore.value.longitude, (newVal) => {
+  if (newVal && currentStore.value.latitude && !isGeocoding.value) {
+    reverseGeocode(currentStore.value.latitude, newVal)
+  }
+})
 
 const filteredStores = computed(() => {
   return stores.value.filter(s => {
@@ -204,6 +254,11 @@ const filteredStores = computed(() => {
 })
 
 onMounted(() => {
+  fetchStores()
+  fetchSalesmen()
+})
+
+watch(() => masterDataStore.selectedBranchId, () => {
   fetchStores()
   fetchSalesmen()
 })
@@ -262,8 +317,13 @@ onMounted(() => {
       >
         <div class="p-7 flex-1">
           <div class="flex items-start justify-between mb-6">
-            <div class="p-4 bg-slate-50 rounded-2xl group-hover:bg-primary/10 transition-colors">
-              <Store class="w-6 h-6 text-slate-400 group-hover:text-primary transition-colors" />
+            <div class="flex items-center gap-4">
+              <div v-if="store.photo_url" class="w-16 h-16 rounded-2xl overflow-hidden border-2 border-slate-100 shrink-0 bg-slate-50">
+                  <img :src="store.photo_url" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-4 bg-slate-50 rounded-2xl group-hover:bg-primary/10 transition-colors" v-else>
+                <Store class="w-6 h-6 text-slate-400 group-hover:text-primary transition-colors" />
+              </div>
             </div>
             <span :class="[
               'px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border',
@@ -368,6 +428,20 @@ onMounted(() => {
                 <option value="">Pilih Salesman</option>
                 <option v-for="s in salesmen" :key="s.id" :value="s.id">{{ s.first_name }} {{ s.last_name }}</option>
               </select>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Foto Toko (Tampak Depan)</label>
+            <div class="flex items-center gap-4">
+               <div v-if="imagePreview || currentStore.photo_url" class="w-24 h-24 rounded-2xl overflow-hidden border-2 border-slate-100 shrink-0 bg-slate-50">
+                  <img :src="imagePreview || currentStore.photo_url" class="w-full h-full object-cover" />
+               </div>
+               <label class="flex-1 h-24 rounded-2xl border-2 border-dashed border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center gap-2">
+                  <ImagePlus class="w-6 h-6 text-slate-400" />
+                  <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Foto Toko</span>
+                  <input type="file" class="hidden" accept="image/*" @change="handleFileChange" />
+               </label>
             </div>
           </div>
 

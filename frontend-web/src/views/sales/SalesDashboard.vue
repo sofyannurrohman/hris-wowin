@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import apiClient from '@/api/axios'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -22,6 +22,9 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet-defaulticon-compatibility'
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css'
+import { useMasterDataStore } from '@/stores/masterData'
+
+const masterDataStore = useMasterDataStore()
 
 use([CanvasRenderer, LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent])
 
@@ -87,14 +90,16 @@ const topSalesman = ref<any[]>([])
 const recentNotas = ref<any[]>([])
 
 const fetchDashboardData = async () => {
+  if (!masterDataStore.selectedBranchId) return
   isLoading.value = true
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
+  const companyId = masterDataStore.selectedBranchCompanyId || ''
 
   try {
     // 1. Fetch Summary
-    const summaryRes = await apiClient.get(`/admin/sales/reports/summary?month=${month}&year=${year}`)
+    const summaryRes = await apiClient.get(`/admin/sales/reports/summary?month=${month}&year=${year}&company_id=${companyId}`)
     if (summaryRes.data?.data) {
       const data = summaryRes.data.data
       kpiSummary.value = {
@@ -106,25 +111,20 @@ const fetchDashboardData = async () => {
     }
 
     // 2. Fetch Performance for Ranking
-    const perfRes = await apiClient.get(`/admin/sales/reports/performance?month=${month}&year=${year}`)
+    const perfRes = await apiClient.get(`/admin/sales/reports/performance?month=${month}&year=${year}&company_id=${companyId}`)
     if (perfRes.data?.data) {
-      // Map to topSalesman format
       topSalesman.value = perfRes.data.data
         .map((kpi: any) => ({
           id: kpi.ID,
           name: kpi.Employee ? `${kpi.Employee.first_name} ${kpi.Employee.last_name}` : 'Salesman',
           omzet: kpi.AchievedOmzet,
           achievement: Math.round((kpi.AchievedOmzet / (kpi.TargetOmzet || 1)) * 100),
-          rank: 0 // Will sort later
+          rank: 0
         }))
         .sort((a: any, b: any) => b.omzet - a.omzet)
         .slice(0, 3)
         .map((item: any, index: number) => ({ ...item, rank: index + 1 }))
 
-      // Update total salesman placeholder
-      totalSalesmen.value = perfRes.data.data.length
-
-      // Update Chart Data (Target vs Actual per Salesman)
       if (omzetChartOption.value.xAxis && !Array.isArray(omzetChartOption.value.xAxis) && omzetChartOption.value.series) {
         omzetChartOption.value.xAxis.data = perfRes.data.data.map((k: any) => k.Employee?.first_name || 'Sales')
         if (omzetChartOption.value.series[0]) omzetChartOption.value.series[0].data = perfRes.data.data.map((k: any) => k.TargetOmzet)
@@ -132,25 +132,36 @@ const fetchDashboardData = async () => {
       }
     }
 
+    // 2.1 Fetch All Employees for specific company
+    const empRes = await apiClient.get(`/employees?limit=1000&company_id=${companyId}`)
+    if (empRes.data?.data) {
+      const allEmps = empRes.data.data
+      const salesmenEmps = allEmps.filter((emp: any) => {
+        const jobTitle = (emp.job_position?.title || '').toLowerCase()
+        return jobTitle.includes('sales') || jobTitle.includes('marketing')
+      })
+      totalSalesmen.value = salesmenEmps.length
+    }
+
     // 3. Fetch Pending Notas
-    const pendingRes = await apiClient.get('/admin/sales/transactions/all-pending')
+    const pendingRes = await apiClient.get(`/admin/sales/transactions/all-pending?company_id=${companyId}`)
     if (pendingRes.data?.data) {
       pendingNotesCount.value = pendingRes.data.data.length
       recentNotas.value = pendingRes.data.data.slice(0, 3).map((n: any) => ({
         id: n.receipt_no || n.id.slice(0, 8),
         store: n.store?.name || 'Toko',
         amount: n.total_amount,
-        status: n.status,
+        status: n.status === 'VERIFIED' ? 'APPROVED' : n.status,
         time: new Date(n.created_at).toLocaleTimeString()
       }))
     }
 
     // 4. Fetch Banner Stats
-    const bannerRes = await apiClient.get('/banner-orders')
+    const bannerRes = await apiClient.get(`/banner-orders?company_id=${companyId}`)
     if (bannerRes.data?.data) {
       const banners = bannerRes.data.data
-      const completed = banners.filter((b: any) => b.status === 'COMPLETED').length
-      const inProgress = banners.filter((b: any) => b.status === 'IN_PROGRESS').length
+      const completed = banners.filter((b: any) => b.status === 'TERPASANG').length
+      const inProgress = banners.filter((b: any) => ['IN_DESIGN', 'ADMIN_REVIEW', 'PERCETAKAN'].includes(b.status)).length
       const pending = banners.filter((b: any) => b.status === 'PENDING').length
       const total = banners.length || 1
 
@@ -165,10 +176,10 @@ const fetchDashboardData = async () => {
     }
 
     // 5. Fetch Stores for Map
-    const storeRes = await apiClient.get('/stores')
+    const storeRes = await apiClient.get(`/stores?company_id=${companyId}`)
     if (storeRes.data?.data) {
       stores.value = storeRes.data.data
-      initMap()
+      updateMarkers()
     }
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error)
@@ -177,39 +188,54 @@ const fetchDashboardData = async () => {
   }
 }
 
-const initMap = () => {
-  if (!mapContainer.value || map) return
+let markerGroup: L.LayerGroup | null = null
 
-  // Default center (Jakarta area or average of stores)
-  const center: L.LatLngExpression = stores.value.length > 0 
-    ? [stores.value[0].latitude, stores.value[0].longitude]
-    : [-6.2088, 106.8456]
+const updateMarkers = () => {
+  if (!mapContainer.value) return
+  
+  if (!map) {
+    const center: L.LatLngExpression = stores.value.length > 0 
+      ? [stores.value[0].latitude, stores.value[0].longitude]
+      : [-6.2088, 106.8456]
+    map = L.map(mapContainer.value).setView(center, 12)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map)
+    markerGroup = L.layerGroup().addTo(map)
+  }
 
-  map = L.map(mapContainer.value).setView(center, 12)
+  if (markerGroup) {
+    markerGroup.clearLayers()
+  }
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map)
-
-  // Add markers
-  stores.value.forEach(store => {
-    if (store.latitude && store.longitude) {
-      const marker = L.marker([store.latitude, store.longitude]).addTo(map!)
-      marker.bindPopup(`
-        <div class="p-2">
-          <h4 class="font-black text-slate-900">${store.name}</h4>
-          <p class="text-[10px] text-slate-500 mt-1 uppercase font-bold">${store.address || 'Tanpa Alamat'}</p>
-          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
-             <span class="w-2 h-2 rounded-full ${store.is_active ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-             <span class="text-[10px] font-black">${store.is_active ? 'AKTIF' : 'NON-AKTIF'}</span>
-          </div>
+  const validStores = stores.value.filter(s => s.latitude && s.longitude)
+  
+  validStores.forEach(store => {
+    const marker = L.marker([store.latitude, store.longitude])
+    marker.bindPopup(`
+      <div class="p-2 min-w-[150px]">
+        <h4 class="font-black text-slate-900">${store.name}</h4>
+        <p class="text-[10px] text-slate-500 mt-1 uppercase font-bold">${store.address || 'Tanpa Alamat'}</p>
+        <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+           <span class="w-2 h-2 rounded-full ${store.is_active ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+           <span class="text-[10px] font-black">${store.is_active ? 'AKTIF' : 'NON-AKTIF'}</span>
         </div>
-      `)
-    }
+      </div>
+    `)
+    marker.addTo(markerGroup!)
   })
+
+  if (validStores.length > 0 && map) {
+    const bounds = L.latLngBounds(validStores.map(s => [s.latitude, s.longitude]))
+    map.fitBounds(bounds, { padding: [50, 50] })
+  }
 }
 
 onMounted(() => {
+  fetchDashboardData()
+})
+
+watch(() => masterDataStore.selectedBranchId, () => {
   fetchDashboardData()
 })
 

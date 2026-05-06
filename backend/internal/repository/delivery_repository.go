@@ -13,6 +13,8 @@ type DeliveryRepository interface {
 	UpdateBatch(batch *domain.DeliveryBatch) error
 	UpdateItem(item *domain.DeliveryItem) error
 	GetBatchesByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
+	ListBatches() ([]domain.DeliveryBatch, error)
+	DeleteBatch(id uuid.UUID) error
 }
 
 type deliveryRepository struct {
@@ -32,6 +34,8 @@ func (r *deliveryRepository) GetBatchByDO(doNo string) (*domain.DeliveryBatch, e
 	err := r.db.Preload("Driver").Preload("Vehicle").
 		Preload("AdminNota").Preload("Supervisor").
 		Preload("Items.SalesTransaction.Store").
+		Preload("Items.SalesTransaction.Employee").
+		Preload("Items.SalesTransaction.Items.Product").
 		Where("delivery_order_no = ?", doNo).First(&batch).Error
 	return &batch, err
 }
@@ -41,12 +45,19 @@ func (r *deliveryRepository) GetBatchByID(id uuid.UUID) (*domain.DeliveryBatch, 
 	err := r.db.Preload("Driver").Preload("Vehicle").
 		Preload("AdminNota").Preload("Supervisor").
 		Preload("Items.SalesTransaction.Store").
+		Preload("Items.SalesTransaction.Employee").
+		Preload("Items.SalesTransaction.Items.Product").
 		First(&batch, id).Error
 	return &batch, err
 }
 
 func (r *deliveryRepository) UpdateBatch(batch *domain.DeliveryBatch) error {
-	return r.db.Save(batch).Error
+	// Clear existing items and replace with new ones to avoid orphans
+	if err := r.db.Model(batch).Association("Items").Replace(batch.Items); err != nil {
+		return err
+	}
+	// Save the rest of the fields
+	return r.db.Session(&gorm.Session{FullSaveAssociations: false}).Save(batch).Error
 }
 
 func (r *deliveryRepository) UpdateItem(item *domain.DeliveryItem) error {
@@ -59,4 +70,16 @@ func (r *deliveryRepository) GetBatchesByDriver(driverID uuid.UUID) ([]domain.De
 		Where("driver_id = ? AND status != ?", driverID, domain.DeliveryBatchCompleted).
 		Order("created_at DESC").Find(&batches).Error
 	return batches, err
+}
+
+func (r *deliveryRepository) ListBatches() ([]domain.DeliveryBatch, error) {
+	var batches []domain.DeliveryBatch
+	err := r.db.Preload("Driver").Preload("Vehicle").
+		Preload("Items.SalesTransaction.Store").
+		Order("created_at DESC").Find(&batches).Error
+	return batches, err
+}
+
+func (r *deliveryRepository) DeleteBatch(id uuid.UUID) error {
+	return r.db.Delete(&domain.DeliveryBatch{}, id).Error
 }

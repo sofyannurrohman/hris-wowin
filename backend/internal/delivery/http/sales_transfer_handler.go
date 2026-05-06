@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/usecase"
-	"github.com/sofyan/hris_wowin/backend/internal/utils"
+	"github.com/sofyan/hris_wowin/backend/pkg/utils"
 )
 
 type SalesTransferHandler struct {
@@ -17,102 +17,102 @@ func NewSalesTransferHandler(u usecase.SalesTransferUsecase) *SalesTransferHandl
 	return &SalesTransferHandler{u}
 }
 
-func (h *SalesTransferHandler) CreateTransfer(c *gin.Gin) {
+func (h *SalesTransferHandler) CreateTransfer(c *gin.Context) {
 	branchID, err := uuid.Parse(c.Param("branchId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid branch id"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "invalid branch id")
 		return
 	}
 
 	var req usecase.CreateSalesTransferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := h.usecase.CreateTransfer(branchID, req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "transfer created successfully"})
+	utils.SuccessResponse(c, http.StatusCreated, "transfer created successfully", nil)
 }
 
-func (h *SalesTransferHandler) CompleteTransfer(c *gin.Gin) {
+func (h *SalesTransferHandler) CompleteTransfer(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "invalid id")
 		return
 	}
 
 	if err := h.usecase.CompleteTransfer(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "transfer completed successfully"})
+	utils.SuccessResponse(c, http.StatusOK, "transfer completed successfully", nil)
 }
 
-func (h *SalesTransferHandler) CancelTransfer(c *gin.Gin) {
+func (h *SalesTransferHandler) CancelTransfer(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "invalid id")
 		return
 	}
 
 	if err := h.usecase.CancelTransfer(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "transfer cancelled successfully"})
+	utils.SuccessResponse(c, http.StatusOK, "transfer cancelled successfully", nil)
 }
 
-func (h *SalesTransferHandler) GetTransfers(c *gin.Gin) {
+func (h *SalesTransferHandler) GetTransfers(c *gin.Context) {
 	branchID, err := uuid.Parse(c.Param("branchId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid branch id"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "invalid branch id")
 		return
 	}
 
 	transfers, err := h.usecase.GetTransfersByBranch(branchID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": transfers})
+	utils.SuccessResponse(c, http.StatusOK, "transfers fetched successfully", transfers)
 }
 
-func (h *SalesTransferHandler) GetSalesStock(c *gin.Gin) {
+func (h *SalesTransferHandler) GetSalesStock(c *gin.Context) {
 	employeeID, err := uuid.Parse(c.Param("employeeId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "invalid employee id")
 		return
 	}
 
 	stocks, err := h.usecase.GetSalesStock(employeeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": stocks})
+	utils.SuccessResponse(c, http.StatusOK, "stocks fetched successfully", stocks)
 }
 
-func (h *SalesTransferHandler) DeleteTransfer(c *gin.Gin) {
+func (h *SalesTransferHandler) DeleteTransfer(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "invalid id")
 		return
 	}
 
 	if err := h.usecase.DeleteTransfer(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "transfer deleted successfully"})
+	utils.SuccessResponse(c, http.StatusOK, "transfer deleted successfully", nil)
 }
 
 func (h *SalesTransferHandler) RegisterRoutes(r *gin.RouterGroup) {

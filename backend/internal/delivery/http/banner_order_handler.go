@@ -68,7 +68,21 @@ func (h *BannerOrderHandler) CreateOrder(c *gin.Context) {
 }
 
 func (h *BannerOrderHandler) GetAllOrders(c *gin.Context) {
-	orders, err := h.bannerOrderUseCase.GetAllOrders()
+	companyIDStr := c.Query("company_id")
+	var orders []domain.BannerOrder
+	var err error
+
+	if companyIDStr != "" {
+		companyID, parseErr := uuid.Parse(companyIDStr)
+		if parseErr == nil {
+			orders, err = h.bannerOrderUseCase.GetOrdersByCompanyID(companyID)
+		} else {
+			orders, err = h.bannerOrderUseCase.GetAllOrders()
+		}
+	} else {
+		orders, err = h.bannerOrderUseCase.GetAllOrders()
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -114,10 +128,20 @@ func (h *BannerOrderHandler) UpdateOrder(c *gin.Context) {
 
 	var req domain.BannerOrder
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		// If it's a UUID error, we might want to manually check some fields
 	}
 	req.ID = id
+
+	// Manual sanitize for empty UUID strings in JSON
+	if req.StoreID != nil && *req.StoreID == uuid.Nil {
+		req.StoreID = nil
+	}
+	if req.DesignerID != nil && *req.DesignerID == uuid.Nil {
+		req.DesignerID = nil
+	}
+	if req.InstallerID != nil && *req.InstallerID == uuid.Nil {
+		req.InstallerID = nil
+	}
 
 	if err := h.bannerOrderUseCase.UpdateOrder(&req); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

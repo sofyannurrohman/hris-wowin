@@ -182,7 +182,7 @@ func (u *authUseCase) ForgotPassword(email string) error {
 	}
 
 	// Send email
-	subject := "Pemulihan Kata Sandi - HRIS Wowin"
+	subject := "Pemulihan Kata Sandi - Akun Wowin"
 	body := fmt.Sprintf(`
 		<html>
 			<body>
@@ -191,7 +191,7 @@ func (u *authUseCase) ForgotPassword(email string) error {
 				<p>Kata sandi sementara Anda adalah: <b>%s</b></p>
 				<p>Silakan gunakan kata sandi ini untuk masuk dan segera ubah kata sandi Anda di menu Profil demi keamanan.</p>
 				<br>
-				<p>Terima kasih,<br>Tim HRIS Wowin</p>
+				<p>Terima kasih,<br>Tim Wowin</p>
 			</body>
 		</html>
 	`, email, tempPassword)

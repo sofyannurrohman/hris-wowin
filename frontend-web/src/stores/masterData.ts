@@ -17,6 +17,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const isEmployeesLoading = ref(false)
   
   const selectedBranchCompanyId = computed(() => {
+    if (selectedBranchId.value === 'ALL_BRANCHES') return ''
     const branch = branches.value.find(b => b.id === selectedBranchId.value)
     return branch?.company_id || ''
   })

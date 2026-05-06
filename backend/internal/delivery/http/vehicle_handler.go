@@ -35,8 +35,22 @@ func (h *VehicleHandler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *VehicleHandler) GetAllVehicles(c *gin.Context) {
-	val, _ := c.Get("companyID")
-	companyID := val.(uuid.UUID)
+	companyIDStr := c.Query("company_id")
+	var companyID uuid.UUID
+
+	if companyIDStr != "" {
+		parsed, err := uuid.Parse(companyIDStr)
+		if err == nil {
+			companyID = parsed
+		}
+	}
+
+	// Fallback to token if query is empty
+	if companyID == uuid.Nil {
+		if val, exists := c.Get("companyID"); exists {
+			companyID = val.(uuid.UUID)
+		}
+	}
 	
 	vehicles, err := h.usecase.GetVehicles(companyID)
 	if err != nil {
