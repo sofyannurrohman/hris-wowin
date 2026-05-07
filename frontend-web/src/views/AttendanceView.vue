@@ -48,7 +48,33 @@ const fmtTime = (timeStr: string, isEndTime = false) => {
   if (isEndTime && h === 0 && m === 0) return '24.00'
   return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
 }
-const displayData = ref<any[]>([])
+interface AttendanceRecord {
+  id: string
+  date: string
+  name: string
+  role: string
+  checkIn: string
+  checkOut: string
+  total: string
+  status: string
+  branch: string
+  notes: string
+  avatar: string
+  clockInPhoto: string
+  clockOutPhoto: string
+  _raw: any
+}
+
+interface AttendanceStats {
+  total: number
+  onTime: number
+  late: number
+  permitted: number
+  absent: number
+  earliestToday: { name: string; timeStr: string; time: Date } | null
+}
+
+const displayData = ref<AttendanceRecord[]>([])
 const employeeOptions = ref<any[]>([])
 const selectedBranch = ref<string>('all')
 const filterType = ref<string>('month')
@@ -56,24 +82,38 @@ const selectedMonth = ref<string>(new Date().toISOString().slice(0, 7)) // defau
 const selectedYear = ref<string>(new Date().getFullYear().toString())
 const selectedDate = ref<string>(new Date().toISOString().split('T')[0] || '') // default today: YYYY-MM-DD
 
-const attendanceStats = computed(() => {
+const attendanceStats = computed<AttendanceStats>(() => {
   const data = displayData.value
   let onTime = 0, late = 0, permitted = 0, absent = 0
+  const todayStr = new Date().toISOString().split('T')[0]
+  let earliestToday: { name: string, timeStr: string, time: Date } | null = null
   
-  data.forEach(item => {
+  for (const item of data) {
     const s = (item.status || '').toUpperCase()
     if (s === 'ON_TIME' || s === 'PRESENT') onTime++
     else if (s === 'LATE') late++
     else if (['SICK', 'LEAVE', 'PERMISSION'].includes(s)) permitted++
     else if (s === 'ABSENT') absent++
-  })
+
+    // Find earliest today
+    if (item._raw.clock_in_time) {
+      const dt = new Date(item._raw.clock_in_time)
+      const datePart = dt.toISOString().split('T')[0]
+      if (datePart === todayStr) {
+        if (!earliestToday || dt < earliestToday.time) {
+          earliestToday = { name: item.name, timeStr: item.checkIn, time: dt }
+        }
+      }
+    }
+  }
 
   return {
     total: data.length,
     onTime,
     late,
     permitted,
-    absent
+    absent,
+    earliestToday
   }
 })
 
@@ -528,6 +568,25 @@ onMounted(() => {
         <div>
           <h3 class="text-2xl font-black text-slate-900 mt-3">{{ attendanceStats.absent + attendanceStats.permitted }}</h3>
           <p class="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-tighter">Off Work</p>
+        </div>
+      </div>
+
+      <!-- Card 5 (NEW) -->
+      <div class="group bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-[0_4px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-500">
+        <div class="flex items-start justify-between">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Berangkat Terawal</p>
+          <div class="p-2 bg-primary/20 text-primary rounded-xl transition-transform group-hover:scale-110">
+            <CalendarClock class="w-4 h-4" />
+          </div>
+        </div>
+        <div v-if="attendanceStats.earliestToday">
+          <h3 class="text-[16px] font-black text-white mt-3 truncate">{{ attendanceStats.earliestToday.name }}</h3>
+          <p class="text-[14px] font-black text-primary mt-1 uppercase">{{ attendanceStats.earliestToday.timeStr }}</p>
+          <p class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Hari ini</p>
+        </div>
+        <div v-else>
+          <h3 class="text-xl font-black text-slate-600 mt-3">--</h3>
+          <p class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Belum ada data hari ini</p>
         </div>
       </div>
     </div>

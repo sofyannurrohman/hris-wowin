@@ -21,8 +21,10 @@ type DeliveryUsecase interface {
 	GetDriverTasks(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
 	GetBatchDetail(doNo string) (*domain.DeliveryBatch, error)
 	GetBatchByID(id uuid.UUID) (*domain.DeliveryBatch, error)
-	ListBatches() ([]domain.DeliveryBatch, error)
 	UpdateBatchItems(batchID uuid.UUID, req CreateBatchRequest) error
+	ConfirmItemByReceipt(receiptNo string, notes string) error
+	UpdateBatchCash(batchID uuid.UUID, amount float64) error
+	ListBatches() ([]domain.DeliveryBatch, error)
 	DeleteBatch(id uuid.UUID) error
 }
 
@@ -152,8 +154,6 @@ func (u *deliveryUsecase) StartDelivery(doNo string) error {
 }
 
 func (u *deliveryUsecase) ConfirmItemDelivery(itemID uuid.UUID, status domain.DeliveryItemStatus, notes string) error {
-	// Simple implementation: update item status
-	// In real world, we might want to check if the whole batch is finished
 	now := time.Now()
 	item := &domain.DeliveryItem{
 		ID:          itemID,
@@ -163,6 +163,34 @@ func (u *deliveryUsecase) ConfirmItemDelivery(itemID uuid.UUID, status domain.De
 	}
 
 	return u.repo.UpdateItem(item)
+}
+
+func (u *deliveryUsecase) ConfirmItemByReceipt(receiptNo string, notes string) error {
+	item, err := u.repo.GetItemByReceiptNo(receiptNo)
+	if err != nil {
+		return err
+	}
+
+	if item.Status == domain.DeliveryItemDelivered {
+		return errors.New("barang sudah ditandai sebagai terkirim")
+	}
+
+	now := time.Now()
+	item.Status = domain.DeliveryItemDelivered
+	item.Notes = notes
+	item.DeliveredAt = &now
+
+	return u.repo.UpdateItem(item)
+}
+
+func (u *deliveryUsecase) UpdateBatchCash(batchID uuid.UUID, amount float64) error {
+	batch, err := u.repo.GetBatchByID(batchID)
+	if err != nil {
+		return err
+	}
+
+	batch.TotalCashCollected = amount
+	return u.repo.UpdateBatch(batch)
 }
 
 func (u *deliveryUsecase) GetDriverTasks(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {

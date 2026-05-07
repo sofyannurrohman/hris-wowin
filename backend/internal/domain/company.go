@@ -10,6 +10,7 @@ import (
 type Company struct {
 	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	Name      string    `gorm:"type:varchar(255);not null" json:"name"`
+	Code      string    `gorm:"type:varchar(20);uniqueIndex" json:"code"`
 	TaxNumber string    `gorm:"type:varchar(50)" json:"tax_number"`
 	Address   string    `gorm:"type:text" json:"address"`
 	LogoURL   string    `gorm:"type:text" json:"logo_url"`

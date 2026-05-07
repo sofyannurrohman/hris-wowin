@@ -56,6 +56,7 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 		sales.POST("/transactions/:id/payments", h.RecordPayment)
 		sales.GET("/stores/:id/outstanding", h.GetOutstandingByStore)
 		sales.GET("/transactions/due-date", h.GetByDueDate)
+		sales.GET("/transactions/status/:status", h.GetTransactions)
 	}
 }
 
@@ -530,7 +531,10 @@ func (h *SalesHandler) GetByDueDate(c *gin.Context) {
 	})
 }
 func (h *SalesHandler) GetTransactions(c *gin.Context) {
-	status := c.Query("status")
+	status := c.Param("status")
+	if status == "" {
+		status = c.Query("status")
+	}
 	companyIDStr := c.Query("company_id")
 	
 	var companyID uuid.UUID

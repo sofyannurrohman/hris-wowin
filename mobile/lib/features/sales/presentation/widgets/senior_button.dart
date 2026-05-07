@@ -5,6 +5,9 @@ class SeniorButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Color color;
   final IconData icon;
+  final double height;
+  final double fontSize;
+  final double iconSize;
 
   const SeniorButton({
     Key? key,
@@ -12,13 +15,16 @@ class SeniorButton extends StatelessWidget {
     required this.onPressed,
     required this.color,
     required this.icon,
+    this.height = 60, // Standard but comfortable height
+    this.fontSize = 18,
+    this.iconSize = 24,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 100, // Very large height for senior-friendly UI
+      height: height,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
@@ -27,23 +33,19 @@ class SeniorButton extends StatelessWidget {
           ),
           elevation: 4,
         ),
-        onPressed: () {
-          // Provide haptic feedback (vibration)
-          // HapticFeedback.heavyImpact(); 
-          onPressed();
-        },
+        onPressed: onPressed,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 48, color: Colors.white),
-            const SizedBox(width: 20),
+            Icon(icon, size: iconSize, color: Colors.white),
+            const SizedBox(width: 12),
             Flexible(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   text,
-                  style: const TextStyle(
-                    fontSize: 28,
+                  style: TextStyle(
+                    fontSize: fontSize,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),

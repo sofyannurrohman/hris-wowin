@@ -22,6 +22,7 @@ func main() {
 	// 1. Create Company
 	company := domain.Company{
 		Name:      "PT Sentraweb",
+		Code:      "WOW",
 		TaxNumber: "123456789",
 		Address:   "Jakarta Selatan",
 	}
@@ -63,6 +64,7 @@ func main() {
 		{CompanyID: &company.ID, Title: "Sales Task Order", Level: 2},
 		{CompanyID: &company.ID, Title: "Sales Booster", Level: 2},
 		{CompanyID: &company.ID, Title: "Kurir Pengiriman", Level: 2},
+		{CompanyID: &company.ID, Title: "Admin Gudang", Level: 2},
 	}
 	for i := range positions {
 		if err := db.FirstOrCreate(&positions[i], domain.JobPosition{Title: positions[i].Title, CompanyID: &company.ID}).Error; err != nil {
@@ -272,6 +274,7 @@ func main() {
 		{"to@wowin.com", "Siti", "Sales Task Order", "SLS-TO-001"},
 		{"booster@wowin.com", "Eko", "Sales Booster", "SLS-BST-001"},
 		{"delivery@wowin.com", "Dedi", "Kurir Pengiriman", "DEL-001"},
+		{"gudang@wowin.com", "Budi", "Admin Gudang", "WH-001"},
 	}
 
 	for _, sr := range salesRoles {
@@ -342,6 +345,49 @@ func main() {
 			}
 		}
 	}
+
+	// 13. Create Warehouse Test Data
+	log.Println("Seeding warehouse test data...")
+	product := domain.Product{
+		CompanyID:    company.ID,
+		Name:         "Minyak Goreng Wowin 1L",
+		SKU:          "MW-MG-1L",
+		Unit:         "PCS",
+		Category:     "Sembako",
+		Brand:        "Wowin",
+		CostPrice:    14000,
+		SellingPrice: 16000,
+	}
+	db.FirstOrCreate(&product, domain.Product{SKU: product.SKU})
+
+	factory := domain.Factory{
+		CompanyID: company.ID,
+		BranchID:  branch.ID,
+		Name:      "Pabrik Utama Wowin",
+		Location:  "Kawasan Industri Jababeka",
+	}
+	db.FirstOrCreate(&factory, domain.Factory{Name: factory.Name})
+
+	// Seed some stock with low quantity to test alerts
+	db.FirstOrCreate(&domain.WarehouseStock{}, domain.WarehouseStock{
+		BranchID:  branch.ID,
+		ProductID: product.ID,
+	}).Updates(domain.WarehouseStock{
+		Quantity: 5,
+		MinLimit: 10,
+	})
+
+	// Seed a pending transfer (Surat Jalan) for scanning test
+	transfer := domain.ProductTransfer{
+		FromFactoryID:   factory.ID,
+		ToBranchID:      branch.ID,
+		ProductID:       product.ID,
+		Quantity:        100,
+		Status:          "SHIPPED",
+		DeliveryOrderNo: "SJ-TEST-001",
+		Notes:           "Pengiriman perdana untuk testing mobile",
+	}
+	db.Where(domain.ProductTransfer{DeliveryOrderNo: transfer.DeliveryOrderNo}).FirstOrCreate(&transfer)
 
 	log.Println("Database seeded successfully!")
 }

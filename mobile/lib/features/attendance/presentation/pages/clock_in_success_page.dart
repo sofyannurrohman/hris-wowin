@@ -5,6 +5,7 @@ import 'package:hris_app/main.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:hris_app/core/utils/constants.dart';
 
 class ClockInSuccessPage extends StatelessWidget {
   final Attendance attendance;
@@ -27,7 +28,7 @@ class ClockInSuccessPage extends StatelessWidget {
 
     final bool hasSelfie = attendance.selfiePath.isNotEmpty;
     // Base URL should ideally come from a config, but for now we follow the existing pattern
-    final String selfieUrl = hasSelfie ? 'http://localhost:8081${attendance.selfiePath}' : '';
+    final String selfieUrl = hasSelfie ? '${AppConstants.baseUrl.replaceAll('/api/v1/', '')}${attendance.selfiePath}' : '';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundAlt,

@@ -6,6 +6,9 @@ import 'package:hris_app/core/services/biometric_service.dart';
 import 'package:hris_app/core/services/local_database_service.dart';
 import 'package:hris_app/core/services/notification_service.dart';
 import 'package:hris_app/features/sales/data/services/gemini_ocr_service.dart';
+import 'package:hris_app/core/database/database.dart';
+import 'package:hris_app/features/sync/data/repositories/sync_repository.dart';
+import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 
 import 'package:hris_app/features/kpi/domain/repositories/kpi_repository.dart';
 import 'package:hris_app/features/kpi/data/repositories/kpi_repository_impl.dart';
@@ -58,6 +61,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LocalDatabaseService());
   sl.registerLazySingleton(() => NotificationService());
   sl.registerLazySingleton(() => GeminiOcrService(apiKey: 'AIzaSyDWhzZD3FdltZmqyK853jAoTODJJobjcYQ'));
+  
+  // Database
+  sl.registerLazySingleton(() => AppDatabase());
 
   // Repository
   sl.registerLazySingleton<AuthRepository>(
@@ -97,6 +103,9 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<ShiftRepository>(
     () => ShiftRepositoryImpl(apiClient: sl()),
+  );
+  sl.registerLazySingleton<SyncRepository>(
+    () => SyncRepository(db: sl(), api: sl()),
   );
 
   // UseCases
@@ -196,5 +205,8 @@ Future<void> init() async {
       overtimeRepository: sl(),
       reimbursementRepository: sl(),
     ),
+  );
+  sl.registerFactory(
+    () => SyncBloc(syncRepository: sl()),
   );
 }

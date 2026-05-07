@@ -5,6 +5,10 @@ import 'package:hris_app/features/sales/presentation/pages/optimal_route_map_pag
 import 'package:hris_app/features/sales/data/models/store_model.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:hris_app/core/network/api_client.dart';
+import 'package:hris_app/core/utils/constants.dart';
+import 'package:hris_app/injection.dart' as di;
 
 class DeliveryTrackingPage extends StatefulWidget {
   const DeliveryTrackingPage({super.key});
@@ -14,26 +18,51 @@ class DeliveryTrackingPage extends StatefulWidget {
 }
 
 class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
-  bool _isScanning = true;
+  bool _isScanning = false;
   bool _isLoading = false;
+  bool _showTasks = true;
+  List<dynamic> _tasks = [];
   Map<String, dynamic>? _batchData;
   final MobileScannerController _scannerController = MobileScannerController();
+  final ApiClient apiClient = di.sl<ApiClient>();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTasks();
+  }
+
+  Future<void> _fetchTasks() async {
+    setState(() {
+      _isLoading = true;
+      _showTasks = true;
+      _isScanning = false;
+    });
+
+    try {
+      final response = await apiClient.client.get('delivery/tasks');
+
+      setState(() {
+        _tasks = response.data;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengambil tugas: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _fetchBatch(String doNo) async {
     setState(() {
       _isLoading = true;
       _isScanning = false;
+      _showTasks = false;
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      final baseUrl = 'http://localhost:8081/api/v1'; // Should use env config
-
-      final response = await Dio().get(
-        '$baseUrl/delivery/batch/$doNo',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+      final response = await apiClient.client.get('delivery/batch/$doNo');
 
       setState(() {
         _batchData = response.data;
@@ -42,7 +71,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal mengambil data SJ: $e'), backgroundColor: Colors.red),
       );
-      setState(() => _isScanning = true);
+      setState(() => _showTasks = true);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -50,14 +79,9 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
 
   Future<void> _updateItemStatus(String itemID, String status) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      final baseUrl = 'http://localhost:8081/api/v1';
-
-      await Dio().post(
-        '$baseUrl/delivery/items/$itemID/confirm',
+      await apiClient.client.post(
+        'delivery/items/$itemID/confirm',
         data: {'status': status, 'notes': 'Diterima oleh toko'},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       // Refresh data
@@ -77,15 +101,25 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          _isScanning ? 'Scan Surat Jalan' : 'Detail Pengiriman',
+          _showTasks ? 'Tugas Pengiriman' : (_isScanning ? 'Scan Surat Jalan' : 'Detail Pengiriman'),
           style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: const Color(0xFF1E293B)),
         ),
         actions: [
+          if (!_showTasks)
+            IconButton(
+              icon: const Icon(Icons.list_alt_rounded, color: Colors.blueAccent),
+              onPressed: () => setState(() {
+                _showTasks = true;
+                _isScanning = false;
+                _batchData = null;
+              }),
+            ),
           if (!_isScanning)
             IconButton(
               icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.blueAccent),
               onPressed: () => setState(() {
                 _isScanning = true;
+                _showTasks = false;
                 _batchData = null;
               }),
             ),
@@ -93,12 +127,130 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _isScanning
-              ? _buildScanner()
-              : _batchData == null
-                  ? _buildEmptyState()
-                  : _buildBatchDetail(),
+          : _showTasks
+              ? _buildTaskList()
+              : _isScanning
+                  ? _buildScanner()
+                  : _batchData == null
+                      ? _buildEmptyState()
+                      : _buildBatchDetail(),
     );
+  }
+
+  Widget _buildTaskList() {
+    if (_tasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.assignment_turned_in_outlined, size: 80, color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 16),
+            Text(
+              'Tidak ada tugas pengiriman',
+              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _fetchTasks,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchTasks,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: _tasks.length,
+        itemBuilder: (context, index) {
+          final task = _tasks[index];
+          final status = task['status'];
+          final doNo = task['delivery_order_no'];
+          final itemCount = (task['items'] as List).length;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            elevation: 2,
+            shadowColor: Colors.black12,
+            child: InkWell(
+              onTap: () => _fetchBatch(doNo),
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            doNo,
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 12),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            status,
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: _getStatusColor(status), fontSize: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Tugas Pengiriman #$doNo',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: const Color(0xFF1E293B)),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFF64748B)),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$itemCount Toko Tujuan',
+                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                        ),
+                        const SizedBox(width: 16),
+                        const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF64748B)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Hari Ini',
+                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'WAITING': return Colors.orange;
+      case 'IN_TRANSIT': return Colors.blue;
+      case 'DELIVERED': return Colors.green;
+      default: return Colors.grey;
+    }
   }
 
   Widget _buildScanner() {
@@ -109,8 +261,15 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
           onDetect: (capture) {
             final List<Barcode> barcodes = capture.barcodes;
             for (final barcode in barcodes) {
-              if (barcode.rawValue != null) {
-                _fetchBatch(barcode.rawValue!);
+              final String? code = barcode.rawValue;
+              if (code != null) {
+                if (code.startsWith('SJ-')) {
+                   _fetchBatch(code);
+                } else if (code.contains('/') || code.startsWith('INV') || code.startsWith('WOW')) {
+                   _confirmByReceipt(code);
+                } else {
+                   _fetchBatch(code);
+                }
                 break;
               }
             }
@@ -138,7 +297,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Text(
-                'Arahkan kamera ke barcode Surat Jalan',
+                'Arahkan kamera ke barcode SJ atau Nota',
                 style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
               ),
             ),
@@ -148,16 +307,94 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
     );
   }
 
+  Future<void> _confirmByReceipt(String receiptNo) async {
+    setState(() => _isLoading = true);
+    try {
+      await apiClient.client.post(
+        'delivery/items/confirm-by-receipt',
+        data: {'receipt_no': receiptNo, 'notes': 'Diterima via Scan Nota Universal'},
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nota $receiptNo berhasil dikonfirmasi!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
+      if (_batchData != null) {
+        _fetchBatch(_batchData!['delivery_order_no']);
+      } else {
+        _fetchTasks();
+      }
+    } catch (e) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal konfirmasi nota: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showUpdateCashDialog(double currentCash) {
+    final TextEditingController controller = TextEditingController(text: currentCash.toInt().toString());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Update Uang Dibawa', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Jumlah Uang (Rp)',
+            prefixText: 'Rp ',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('BATAL')),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(controller.text) ?? 0.0;
+              Navigator.pop(context);
+              _updateCash(amount);
+            },
+            child: const Text('SIMPAN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateCash(double amount) async {
+    if (_batchData == null) return;
+    setState(() => _isLoading = true);
+    try {
+      await apiClient.client.post(
+        'delivery/batch/${_batchData!['id']}/cash',
+        data: {'amount': amount},
+      );
+      _fetchBatch(_batchData!['delivery_order_no']);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal update uang: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.local_shipping_outlined, size: 80, color: Colors.slate-200),
+          const Icon(Icons.local_shipping_outlined, size: 80, color: Color(0xFFE2E8F0)),
           const SizedBox(height: 16),
           Text(
             'Belum ada data pengiriman',
-            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.slate-400),
+            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
           ),
         ],
       ),
@@ -167,6 +404,9 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
   Widget _buildBatchDetail() {
     final items = _batchData!['items'] as List;
     final stores = items.map((i) => StoreModel.fromJson(i['sales_transaction']['store'])).toList();
+    final deliveredCount = items.where((i) => i['status'] == 'DELIVERED').length;
+    final progress = items.isEmpty ? 0.0 : deliveredCount / items.length;
+    final totalCash = (_batchData!['total_cash_collected'] ?? 0.0).toDouble();
 
     return Column(
       children: [
@@ -176,13 +416,35 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
           color: Colors.white,
           child: Column(
             children: [
+              // Progress Section
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 10,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${(progress * 100).toInt()}%',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('NOMOR SURAT JALAN', style: GoogleFonts.outfit(fontSize: 10, color: Colors.slate-400, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                      Text('NOMOR SURAT JALAN', style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w800, letterSpacing: 1)),
                       Text(_batchData!['delivery_order_no'], style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B))),
                     ],
                   ),
@@ -199,7 +461,43 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              // Cash Tracker Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.payments_rounded, color: Colors.green, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('TOTAL UANG DIBAWA', style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                          Text(
+                            NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(totalCash),
+                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_note_rounded, color: Colors.blueAccent),
+                      onPressed: () => _showUpdateCashDialog(totalCash),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(
@@ -231,7 +529,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               final isDelivered = item['status'] == 'DELIVERED';
 
               return Container(
-                margin: const EdgeInsets.bottom(16),
+                margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -263,7 +561,7 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(store['name'], style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16)),
-                          Text(store['address'], style: GoogleFonts.outfit(fontSize: 12, color: Colors.slate-500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(store['address'], style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),

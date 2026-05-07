@@ -11,7 +11,7 @@ class StoreApiService {
   Future<List<StoreModel>> getStores() async {
     try {
       final response = await apiClient.client.get('stores');
-      final data = response.data['data'] as List<dynamic>;
+      final data = (response.data['data'] as List<dynamic>?) ?? [];
       return data.map((json) => StoreModel.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Failed to load stores: $e');

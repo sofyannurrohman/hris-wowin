@@ -85,12 +85,12 @@ type VerifyTransactionRequest struct {
 	TotalAmount float64 `json:"total_amount"`
 	Notes       string  `json:"notes"` // Catatan dari finalisasi
 }
-
 type salesUsecase struct {
 	salesRepo       repository.SalesTransactionRepository
 	performanceRepo repository.PerformanceRepository
 	storeRepo       repository.StoreRepository
 	attendanceRepo  repository.AttendanceRepository
+	companyRepo     repository.CompanyRepository
 }
 
 func NewSalesUsecase(
@@ -98,12 +98,14 @@ func NewSalesUsecase(
 	performanceRepo repository.PerformanceRepository,
 	storeRepo repository.StoreRepository,
 	attendanceRepo repository.AttendanceRepository,
+	companyRepo repository.CompanyRepository,
 ) SalesUsecase {
 	return &salesUsecase{
 		salesRepo:       salesRepo,
 		performanceRepo: performanceRepo,
 		storeRepo:       storeRepo,
 		attendanceRepo:  attendanceRepo,
+		companyRepo:     companyRepo,
 	}
 }
 
@@ -285,7 +287,15 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 
 	if req.ReceiptNo == "" {
 		count, _ := u.salesRepo.CountByCompanyAndDate(req.CompanyID, req.TransactionDate)
-		receiptNo := fmt.Sprintf("INV/%s/%03d", req.TransactionDate.Format("20060102"), count+1)
+		
+		// Fetch company code
+		comp, _ := u.companyRepo.FindByID(req.CompanyID)
+		compCode := "WOW"
+		if comp != nil && comp.Code != "" {
+			compCode = comp.Code
+		}
+		
+		receiptNo = fmt.Sprintf("INV-%s-%s-%04d", compCode, req.TransactionDate.Format("20060102"), count+1)
 		req.ReceiptNo = receiptNo
 	}
 

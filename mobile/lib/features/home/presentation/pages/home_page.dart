@@ -42,6 +42,8 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:hris_app/features/sales/presentation/pages/store_visit_page.dart';
 import 'package:hris_app/features/sales/presentation/pages/sales_dashboard_page.dart';
+import 'package:hris_app/features/sales/presentation/pages/delivery_tracking_page.dart';
+import 'package:hris_app/features/inventory/presentation/pages/warehouse_dashboard_page.dart';
 
 import 'package:hris_app/features/announcement/presentation/pages/notification_list_page.dart';
 import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
@@ -358,15 +360,33 @@ class DashboardTab extends StatelessWidget {
   }
 
   Widget _buildSalesWorkingButton(BuildContext context, AttendanceStatus status, Map<String, dynamic>? profile) {
-    // TODO: Hidden for release - Feature not ready
-    return const SizedBox.shrink();
-
-    if (status != AttendanceStatus.clockedIn) return const SizedBox.shrink();
-
-    final jobTitle = profile?['job_position']?['title']?.toString().toLowerCase() ?? '';
-    final isSales = jobTitle.contains('sales');
-
-    if (!isSales) return const SizedBox.shrink();
+    final jobTitle = (profile?['job_position']?['title'] ?? '').toString().toLowerCase();
+    final isDelivery = jobTitle.contains('pengiriman') || jobTitle.contains('delivery') || jobTitle.contains('kurir') || jobTitle.contains('driver');
+    final isWarehouse = jobTitle.contains('gudang') || jobTitle.contains('warehouse') || jobTitle.contains('logistik');
+    
+    final themeColor = isWarehouse ? Colors.teal : (isDelivery ? Colors.blueAccent : Colors.orange);
+    final icon = isWarehouse ? Icons.inventory_2_rounded : (isDelivery ? Icons.local_shipping_rounded : Icons.storefront_rounded);
+    final title = isWarehouse ? 'KHUSUS OPERASIONAL GUDANG' : (isDelivery ? 'KHUSUS OPERASIONAL PENGIRIMAN' : 'KHUSUS OPERASIONAL SALES');
+    final question = isWarehouse ? 'CEK STOK GUDANG?' : (isDelivery ? 'SIAP KIRIM BARANG?' : 'SIAP MULAI KUNJUNGAN?');
+    final desc = isWarehouse 
+        ? 'Tekan tombol di bawah untuk melihat kondisi stok gudang dan menerima kiriman dari pabrik.'
+        : (isDelivery 
+            ? 'Tekan tombol di bawah untuk melihat rute dan daftar pengiriman Surat Jalan Anda.'
+            : 'Tekan tombol besar di bawah untuk masuk ke Dashboard Penjualan Anda.');
+    final btnText = isWarehouse ? 'MASUK KE GUDANG SEKARANG' : (isDelivery ? 'MULAI PENGIRIMAN SEKARANG' : 'MULAI BEKERJA SEKARANG');
+    
+    Widget destination;
+    String routeName;
+    if (isWarehouse) {
+      destination = const WarehouseDashboardPage();
+      routeName = '/warehouse_dashboard';
+    } else if (isDelivery) {
+      destination = const DeliveryTrackingPage();
+      routeName = '/delivery_dashboard';
+    } else {
+      destination = const SalesDashboardPage();
+      routeName = '/sales_dashboard';
+    }
 
     return Container(
       width: double.infinity,
@@ -375,30 +395,30 @@ class DashboardTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.15),
+            color: themeColor.withOpacity(0.15),
             blurRadius: 30,
             offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: Colors.orange.withOpacity(0.3), width: 2),
+        border: Border.all(color: themeColor.withOpacity(0.3), width: 2),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-            decoration: const BoxDecoration(
-              color: Colors.orange,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: themeColor,
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(26),
                 topRight: Radius.circular(26),
               ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                const Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
                 const SizedBox(width: 10),
                 Text(
-                  'KHUSUS OPERASIONAL SALES',
+                  title,
                   style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
                 ),
               ],
@@ -408,41 +428,41 @@ class DashboardTab extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                const Icon(Icons.storefront_rounded, color: Colors.orange, size: 48),
+                Icon(icon, color: themeColor, size: 48),
                 const SizedBox(height: 16),
                 Text(
-                  'SIAP MULAI KUNJUNGAN?',
+                  question,
                   style: GoogleFonts.outfit(color: const Color(0xFF1E293B), fontWeight: FontWeight.w900, fontSize: 20),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tekan tombol besar di bawah untuk masuk ke Dashboard Penjualan Anda.',
+                  desc,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 72, // Extra large for seniors
+                  height: 60, 
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          settings: const RouteSettings(name: '/sales_dashboard'),
-                          builder: (context) => const SalesDashboardPage(),
+                          settings: RouteSettings(name: routeName),
+                          builder: (context) => destination,
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: themeColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       elevation: 8,
-                      shadowColor: Colors.orange.withOpacity(0.5),
+                      shadowColor: themeColor.withOpacity(0.5),
                     ),
                     child: Text(
-                      'MULAI BEKERJA SEKARANG',
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.5),
+                      btnText,
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
                     ),
                   ),
                 ),

@@ -1,116 +1,171 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hris_app/features/sales/data/models/product_model.dart';
+import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
+import 'package:hris_app/injection.dart' as di;
+import 'package:hris_app/core/network/api_client.dart';
+import 'package:intl/intl.dart';
 
-class ProductCatalogPage extends StatelessWidget {
+class ProductCatalogPage extends StatefulWidget {
   const ProductCatalogPage({super.key});
+
+  @override
+  State<ProductCatalogPage> createState() => _ProductCatalogPageState();
+}
+
+class _ProductCatalogPageState extends State<ProductCatalogPage> {
+  final _apiService = SalesApiService(apiClient: di.sl<ApiClient>());
+  bool _isLoading = true;
+  List<ProductModel> _products = [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await _apiService.getProducts();
+      setState(() {
+        _products = data.map((e) => ProductModel.fromJson(e)).toList();
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            backgroundColor: const Color(0xFF1E293B),
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF1E293B), Color(0xFF334155)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+      body: RefreshIndicator(
+        onRefresh: _fetchProducts,
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 180,
+              floating: false,
+              pinned: true,
+              backgroundColor: const Color(0xFF1E293B),
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF1E293B), Color(0xFF334155)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    right: -50,
-                    top: -50,
-                    child: Icon(Icons.menu_book_rounded, size: 250, color: Colors.white.withOpacity(0.05)),
-                  ),
-                ],
+                    Positioned(
+                      right: -50,
+                      top: -50,
+                      child: Icon(Icons.menu_book_rounded, size: 250, color: Colors.white.withOpacity(0.05)),
+                    ),
+                  ],
+                ),
+                title: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('PT WOWIN PURNOMO', style: GoogleFonts.outfit(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                    Text('Katalog Produk', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                  ],
+                ),
+                titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
               ),
-              title: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('PT WOWIN KECAP', style: GoogleFonts.outfit(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                  Text('Katalog Produk', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
-                ],
+            ),
+            if (_isLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+                      const SizedBox(height: 16),
+                      Text('Gagal memuat produk', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(_error!, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(onPressed: _fetchProducts, child: const Text('Coba Lagi')),
+                    ],
+                  ),
+                ),
+              )
+            else if (_products.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.inventory_2_outlined, color: Colors.grey, size: 48),
+                      const SizedBox(height: 16),
+                      Text('Belum ada produk', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = _products[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _buildProductCard(
+                          context: context,
+                          product: product,
+                        ),
+                      );
+                    },
+                    childCount: _products.length,
+                  ),
+                ),
               ),
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildProductCard(
-                  context: context,
-                  title: 'Kecap Manis Wowin Premium',
-                  category: 'Kecap Manis',
-                  description: 'Kecap manis legendaris dengan resep otentik sejak 1928. Dibuat dari kedelai hitam pilihan dan gula merah asli untuk menghasilkan rasa manis gurih yang kaya.',
-                  imagePath: 'assets/kecap_manis_wowin_1777446817239.png',
-                  sizes: ['Botol 300ml', 'Botol 600ml', 'Pouch 250ml', 'Pouch 520ml', 'Jerigen 6kg'],
-                  color: const Color(0xFF451A03), // Dark brown
-                ),
-                const SizedBox(height: 24),
-                _buildProductCard(
-                  context: context,
-                  title: 'Kecap Asin Wowin',
-                  category: 'Kecap Asin',
-                  description: 'Kecap asin dengan profil rasa gurih yang ringan dan seimbang. Sangat cocok untuk masakan tumis, marinasi daging, atau sebagai bumbu cocolan pelengkap hidangan.',
-                  imagePath: 'assets/kecap_asin_wowin_1777446836873.png',
-                  sizes: ['Botol 250ml', 'Botol 500ml', 'Jerigen 5kg'],
-                  color: const Color(0xFFB45309), // Amber/light brown
-                ),
-                const SizedBox(height: 24),
-                _buildProductCard(
-                  context: context,
-                  title: 'Saus Sambal Asli Wowin',
-                  category: 'Saus & Bumbu',
-                  description: 'Saus sambal pedas mantap yang diracik dari cabai merah segar pilihan. Menghadirkan sensasi pedas yang membakar dengan sedikit sentuhan rasa manis asam yang segar.',
-                  imagePath: 'assets/saus_sambal_wowin_1777446854511.png',
-                  sizes: ['Botol Kaca 300g', 'Botol Plastik 135ml', 'Sachet 9g'],
-                  color: const Color(0xFFDC2626), // Red
-                ),
-                const SizedBox(height: 40),
-              ]),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildProductCard({
     required BuildContext context,
-    required String title,
-    required String category,
-    required String description,
-    required String imagePath,
-    required List<String> sizes,
-    required Color color,
+    required ProductModel product,
   }) {
+    final currencyFormat = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+    final color = const Color(0xFF1E293B);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -120,50 +175,56 @@ class ProductCatalogPage extends StatelessWidget {
         children: [
           // Image Header
           Container(
-            height: 240,
+            height: 180,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.05),
+              color: Colors.grey.shade50,
             ),
             child: Stack(
               children: [
-                Positioned(
-                  right: -30,
-                  top: -30,
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: color.withOpacity(0.1),
-                    ),
-                  ),
-                ),
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Hero(
-                      tag: title,
-                      child: Image.asset(
-                        imagePath,
-                        fit: BoxFit.contain,
-                      ),
+                      tag: product.id,
+                      child: product.imageUrl.isNotEmpty
+                          ? Image.network(
+                              product.imageUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey),
+                            )
+                          : const Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey),
                     ),
                   ),
                 ),
                 Positioned(
-                  top: 16,
-                  left: 16,
+                  top: 12,
+                  left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
                     ),
                     child: Text(
-                      category,
-                      style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: color, letterSpacing: 1),
+                      product.category,
+                      style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.5),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      currencyFormat.format(product.sellingPrice),
+                      style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
                     ),
                   ),
                 ),
@@ -172,58 +233,57 @@ class ProductCatalogPage extends StatelessWidget {
           ),
           // Content
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF1E293B),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  description,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: Colors.blueGrey,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Tersedia dalam ukuran:',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF334155),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: sizes.map((size) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
                       child: Text(
-                        size,
+                        product.name,
                         style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF475569),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1E293B),
                         ),
                       ),
-                    );
-                  }).toList(),
+                    ),
+                    Text(
+                      product.sku,
+                      style: GoogleFonts.outfit(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  product.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: Colors.blueGrey.withOpacity(0.8),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.inventory_2_rounded, size: 14, color: Colors.blueGrey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Unit: ${product.unit}',
+                      style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blueGrey),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.branding_watermark_rounded, size: 14, color: Colors.blueGrey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Brand: ${product.brand}',
+                      style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blueGrey),
+                    ),
+                  ],
                 ),
               ],
             ),

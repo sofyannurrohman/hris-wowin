@@ -20,20 +20,28 @@ type WarehouseUsecase interface {
 	GetWarehouseLogs(branchID uuid.UUID) ([]domain.WarehouseLog, error)
 	AdjustStock(branchID, productID uuid.UUID, quantity int, reason string) error
 	
-	// New Advanced Features
-	SetStockLimit(branchID, productID uuid.UUID, limit int) error
 	ApproveTransfer(transferID uuid.UUID) error
 	RejectTransfer(transferID uuid.UUID) error
+
+	// Executor Workflow
+	DispatchByInvoice(receiptNo string, branchID uuid.UUID) error
+	SetStockLimit(branchID, productID uuid.UUID, limit int) error
 }
 
 type warehouseUsecase struct {
-	repo     repository.WarehouseRepository
-	notifRepo repository.NotificationRepository
-	db       *gorm.DB
+	repo      repository.WarehouseRepository
+	notifRepo  repository.NotificationRepository
+	salesRepo  repository.SalesTransactionRepository
+	db        *gorm.DB
 }
 
-func NewWarehouseUsecase(repo repository.WarehouseRepository, notifRepo repository.NotificationRepository, db *gorm.DB) WarehouseUsecase {
-	return &warehouseUsecase{repo, notifRepo, db}
+func NewWarehouseUsecase(
+	repo repository.WarehouseRepository, 
+	notifRepo repository.NotificationRepository, 
+	salesRepo repository.SalesTransactionRepository,
+	db *gorm.DB,
+) WarehouseUsecase {
+	return &warehouseUsecase{repo, notifRepo, salesRepo, db}
 }
 
 func (u *warehouseUsecase) GetInventory(branchID uuid.UUID) ([]domain.WarehouseStock, error) {
@@ -190,4 +198,61 @@ func (u *warehouseUsecase) triggerLowStockNotification(stock *domain.WarehouseSt
 		Type:      "LOW_STOCK",
 	}
 	_ = u.notifRepo.Create(notif)
+}
+
+func (u *warehouseUsecase) DispatchByInvoice(receiptNo string, branchID uuid.UUID) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		warehouseRepo := repository.NewWarehouseRepository(tx)
+		salesRepo := repository.NewSalesTransactionRepository(tx)
+
+		// 1. Find Transaction
+		transaction, err := salesRepo.FindByReceiptNo(receiptNo)
+		if err != nil {
+			return err
+		}
+		if transaction == nil {
+			return errors.New("nota tidak ditemukan")
+		}
+
+		// 2. Validate status
+		if transaction.Status == "DELIVERED" {
+			return errors.New("transaksi ini sudah selesai dikirim (Status: DELIVERED)")
+		}
+
+		// 3. Deduct Stock for each item
+		for _, item := range transaction.Items {
+			stock, err := warehouseRepo.GetStock(branchID, item.ProductID)
+			if err != nil {
+				return err
+			}
+			if stock.Quantity < item.Quantity {
+				return fmt.Errorf("stok tidak mencukupi untuk produk %s (Stok: %d, Butuh: %d)", item.Product.Name, stock.Quantity, item.Quantity)
+			}
+			
+			stock.Quantity -= item.Quantity
+			if err := warehouseRepo.UpdateStock(stock); err != nil {
+				return err
+			}
+
+			// Log movement
+			log := &domain.WarehouseLog{
+				BranchID:  branchID,
+				ProductID: item.ProductID,
+				Type:      "OUT",
+				Source:    "SALES_DISPATCH: " + receiptNo,
+				Quantity:  item.Quantity,
+			}
+			if err := warehouseRepo.CreateLog(log); err != nil {
+				return err
+			}
+		}
+
+		// 4. Update Transaction Status
+		transaction.Status = "DELIVERED"
+		if err := salesRepo.Update(transaction); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

@@ -24,6 +24,7 @@ const newEmployee = ref({
   departmentId: '',
   jobPositionId: '',
   branchId: '',
+  companyId: '',
   employmentStatus: 'Active',
   joinDate: new Date().toISOString().split('T')[0] || '',
   bankName: '',
@@ -44,7 +45,7 @@ const newEmployee = ref({
   addressResidential: '',
   emergencyContact: '',
   ptkpStatus: 'TK/0',
-  managerId: ''
+  managerId: 'none'
 })
 
 const isEditMode = ref(false)
@@ -74,6 +75,7 @@ const openAddModal = () => {
     departmentId: '',
     jobPositionId: '',
     branchId: '',
+    companyId: '',
     employmentStatus: 'Active',
     joinDate: new Date().toISOString().split('T')[0] || '',
     bankName: '',
@@ -94,8 +96,9 @@ const openAddModal = () => {
     addressResidential: '',
     emergencyContact: '',
     ptkpStatus: 'TK/0',
-    managerId: ''
+    managerId: 'none'
   }
+  isSubmitting.value = false
   isModalOpen.value = true
 }
 
@@ -109,6 +112,7 @@ const openEditModal = (user: any) => {
     departmentId: user.department_id || '',
     jobPositionId: user.job_position_id || '',
     branchId: user.branch_id || '',
+    companyId: user.company_id || '',
     employmentStatus: user.employment_status || 'Active',
     joinDate: user.join_date ? (new Date(user.join_date).toISOString().split('T')[0] || '') : '',
     bankName: user.bank_name || '',
@@ -129,8 +133,9 @@ const openEditModal = (user: any) => {
     addressResidential: user.address_residential || '',
     emergencyContact: user.emergency_contact || '',
     ptkpStatus: user.ptkp_status || 'TK/0',
-    managerId: user.manager_id || ''
+    managerId: user.manager_id || 'none'
   }
+  isSubmitting.value = false
   isModalOpen.value = true
 }
 
@@ -236,7 +241,8 @@ const saveEmployee = async () => {
     branchId: newEmployee.value.branchId || null,
     departmentId: newEmployee.value.departmentId || null,
     jobPositionId: newEmployee.value.jobPositionId || null,
-    managerId: newEmployee.value.managerId || null
+    companyId: newEmployee.value.companyId || null,
+    managerId: newEmployee.value.managerId === 'none' ? null : (newEmployee.value.managerId || null)
   }
 
   try {
@@ -273,6 +279,7 @@ onMounted(() => {
   masterData.fetchDepartments()
   masterData.fetchJobPositions()
   masterData.fetchBranches()
+  masterData.fetchCompanies()
 })
 
 const columns = [
@@ -476,6 +483,9 @@ const columns = [
     <Dialog v-model:open="isSalaryModalOpen">
       <DialogContent class="sm:max-w-2xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
         <div class="bg-gradient-to-br from-primary to-primary/80 p-8 md:p-10 text-white relative shrink-0">
+            <button @click="isSalaryModalOpen = false" class="absolute top-6 right-6 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-20">
+                <X class="w-5 h-5 text-white" />
+            </button>
             <DialogHeader class="relative z-10">
                 <div class="w-12 h-12 md:w-14 md:h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-4 md:mb-6 border border-white/20">
                     <Banknote class="w-6 h-6 md:w-8 md:h-8 text-white" />
@@ -566,6 +576,9 @@ const columns = [
     <Dialog v-model:open="isModalOpen">
       <DialogContent class="sm:max-w-3xl rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
         <div class="bg-slate-900 p-8 md:p-10 text-white relative shrink-0">
+            <button @click="isModalOpen = false" class="absolute top-6 right-6 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-20">
+                <X class="w-5 h-5 text-white" />
+            </button>
             <DialogHeader>
                 <DialogTitle class="text-xl md:text-2xl font-black">{{ isEditMode ? 'Edit Data Personal' : 'Tambah Karyawan Baru' }}</DialogTitle>
                 <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[10px] md:text-[11px] tracking-widest border-l-4 border-primary pl-4">
@@ -588,10 +601,21 @@ const columns = [
                         <Input v-model="newEmployee.lastName" placeholder="Contoh: Doe" class="h-12 rounded-xl bg-slate-50 border-none font-bold" />
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="space-y-2">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Corporate</label>
                         <Input v-model="newEmployee.email" type="email" placeholder="john@company.com" :disabled="isEditMode" class="h-12 rounded-xl bg-slate-50 border-none font-bold disabled:opacity-50" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Perusahaan</label>
+                        <Select v-model="newEmployee.companyId">
+                            <SelectTrigger class="h-12 rounded-xl bg-slate-50 border-none font-bold">
+                                <SelectValue placeholder="Pilih Perusahaan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="c in masterData.companies" :key="c.id" :value="c.id">{{ c.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cabang</label>
@@ -624,7 +648,7 @@ const columns = [
                                 <SelectValue placeholder="Pilih..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.name }}</SelectItem>
+                                <SelectItem v-for="j in masterData.jobPositions" :key="j.id" :value="j.id">{{ j.title }}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -635,7 +659,7 @@ const columns = [
                                 <SelectValue placeholder="Pilih Manager" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Tanpa Manager</SelectItem>
+                                <SelectItem value="none">Tanpa Manager</SelectItem>
                                 <SelectItem v-for="e in employees" :key="e.id" :value="e.id">{{ e.first_name }} {{ e.last_name }}</SelectItem>
                             </SelectContent>
                         </Select>
@@ -802,7 +826,7 @@ const columns = [
         </div>
 
         <DialogFooter class="p-8 md:p-10 pt-0 bg-white grid grid-cols-2 gap-4 shrink-0">
-          <Button variant="ghost" @click="closeAddModal" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50">BATAL</Button>
+          <Button variant="ghost" @click="isModalOpen = false" :disabled="isSubmitting" class="rounded-2xl h-12 md:h-14 font-black text-slate-400 border border-slate-100 hover:bg-slate-50">BATAL</Button>
           <Button @click="saveEmployee" :disabled="isSubmitting" class="bg-primary hover:bg-primary/90 text-white rounded-2xl h-12 md:h-14 font-black shadow-xl shadow-primary/20 transform active:scale-95 transition-all">
             {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN' }}
           </Button>

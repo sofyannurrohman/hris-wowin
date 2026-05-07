@@ -132,6 +132,7 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
               ),
             ),
           ],
+        ),
         onTap: () {
           Navigator.push(
             context,

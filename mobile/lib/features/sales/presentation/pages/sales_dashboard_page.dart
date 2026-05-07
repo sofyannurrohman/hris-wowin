@@ -11,10 +11,13 @@ import './order_banner_page.dart';
 import './route_planning_page.dart';
 import './product_catalog_page.dart';
 import './visit_schedule_page.dart';
-
+import './delivery_tracking_page.dart';
+import './sales_stock_request_page.dart';
 import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
+import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class SalesDashboardPage extends StatefulWidget {
   const SalesDashboardPage({super.key});
@@ -59,20 +62,22 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       appBar: AppBar(
         title: Text(
           'SALES DASHBOARD',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF1E293B), fontSize: 18),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), fontSize: 16),
         ),
         backgroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
         automaticallyImplyLeading: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
+        leadingWidth: 100,
+        leading: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12),
             child: TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
                 backgroundColor: const Color(0xFFF1F5F9),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
               child: Text(
                 'KE HRIS',
@@ -80,31 +85,60 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
               ),
             ),
           ),
+        ),
+        actions: [
+          BlocBuilder<SyncBloc, SyncState>(
+            builder: (context, state) {
+              return IconButton(
+                onPressed: state is SyncInProgress ? null : () {
+                  context.read<SyncBloc>().add(SyncMasterDataRequested());
+                },
+                icon: state is SyncInProgress 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent))
+                    : const Icon(Icons.sync_rounded, color: Colors.blueAccent),
+                tooltip: 'Sinkronisasi Data Master',
+              );
+            },
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DeliveryTrackingPage())),
+            icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1E293B)),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 14),
-                    _buildTargetCard(),
-                    const SizedBox(height: 32),
-                    _buildVisitProgressCard(),
-                    const SizedBox(height: 32),
-                    _buildQuickAccess(),
-                    const SizedBox(height: 40),
-                    _buildFinalizationReport(),
-                    const SizedBox(height: 40),
-                  ],
+      body: BlocListener<SyncBloc, SyncState>(
+        listener: (context, state) {
+          if (state is SyncMasterDataSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✓ Data Master berhasil diperbarui!'), backgroundColor: Colors.green));
+          } else if (state is SyncFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal sinkronisasi: ${state.error}'), backgroundColor: Colors.red));
+          }
+        },
+        child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _fetchData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildTargetCard(),
+                      const SizedBox(height: 20),
+                      _buildVisitProgressCard(),
+                      const SizedBox(height: 20),
+                      _buildQuickAccess(),
+                      const SizedBox(height: 24),
+                      _buildFinalizationReport(),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -121,24 +155,24 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.blueAccent.withOpacity(0.08),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Stack(
         children: [
           Positioned(
-            right: -20,
-            top: -20,
-            child: Icon(Icons.trending_up_rounded, size: 150, color: Colors.blueAccent.withOpacity(0.03)),
+            right: -10,
+            top: -10,
+            child: Icon(Icons.trending_up_rounded, size: 100, color: Colors.blueAccent.withOpacity(0.03)),
           ),
           Padding(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -156,19 +190,19 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     formatter.format(targetOmzet),
-                    style: GoogleFonts.outfit(color: const Color(0xFF0F172A), fontWeight: FontWeight.w900, fontSize: 34),
+                    style: GoogleFonts.outfit(color: const Color(0xFF0F172A), fontWeight: FontWeight.w800, fontSize: 20),
                   ),
                 ),
                 Text(
                   'Target ditugaskan atasan',
-                  style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.w500),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -179,12 +213,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                     Expanded(child: _buildStatItem('Pencapaian', '${achievementPercentage.toStringAsFixed(1)}%', Colors.blueAccent)),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: LinearProgressIndicator(
                     value: targetOmzet > 0 ? (achievedOmzet / targetOmzet).clamp(0.0, 1.0) : 0,
-                    minHeight: 12,
+                    minHeight: 8,
                     backgroundColor: const Color(0xFFF1F5F9),
                     valueColor: const AlwaysStoppedAnimation<Color>(Colors.blueAccent),
                   ),
@@ -203,17 +237,17 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     
     return InkWell(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage())),
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
           ],
@@ -221,18 +255,18 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-              child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 28),
+              child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 22),
             ),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('JADWAL KUNJUNGAN', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1)),
-                  const SizedBox(height: 4),
-                  Text('Lihat Rencana Hari Ini', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                  Text('JADWAL KUNJUNGAN', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1)),
+                  const SizedBox(height: 2),
+                  Text('Lihat Rencana Hari Ini', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
                   const SizedBox(height: 4),
                   Text('Tetap on-track dengan rute PJP Anda.', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.7), fontSize: 12)),
                 ],
@@ -253,7 +287,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
         const SizedBox(height: 4),
         FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(value, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+          child: Text(value, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w800, color: color)),
         ),
       ],
     );
@@ -267,14 +301,14 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
           'AKSES OPERASIONAL',
           style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.7,
+          crossAxisCount: 4,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.8,
           children: [
             _buildActionItem(Icons.storefront_rounded, 'Kunjungan', const Color(0xFF3B82F6)),
             _buildActionItem(Icons.shopping_cart_checkout_rounded, 'Buat Order', const Color(0xFF10B981)),
@@ -282,6 +316,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFFEC4899)),
             _buildActionItem(Icons.art_track_rounded, 'Order Spanduk', const Color(0xFF8B5CF6)),
             _buildActionItem(Icons.history_edu_rounded, 'Riwayat', const Color(0xFFF59E0B)),
+            _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', Colors.teal),
           ],
         ),
       ],
@@ -303,37 +338,39 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryPage()));
         } else if (label == 'Order Spanduk') {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OrderBannerPage()));
+        } else if (label == 'Ambil Barang') {
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesStockRequestPage()));
         }
       },
       borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: color.withOpacity(0.06),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 label,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF334155),
                 ),
@@ -366,9 +403,9 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 30, offset: const Offset(0, 15)),
+              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10)),
             ],
           ),
           child: Column(
@@ -400,12 +437,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                           }
                         }
                       ),
-                      const Divider(height: 1, indent: 32, endIndent: 32),
+                      const Divider(height: 1, indent: 24, endIndent: 24),
                     ],
                   );
                 }),
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: SeniorButton(
                   text: 'SUBMIT SEMUA DATA',
                   icon: Icons.send_rounded,
@@ -425,13 +462,13 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
-              child: Icon(Icons.receipt_long_rounded, color: isVerified ? Colors.blueAccent : Colors.orange, size: 24),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.receipt_long_rounded, color: isVerified ? Colors.blueAccent : Colors.orange, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -510,7 +547,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                 const SizedBox(height: 4),
                 Text(
                   'PT Wowin Purnomo',
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20),
+                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
                 ),
               ],
             ),

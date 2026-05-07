@@ -46,5 +46,7 @@ class StoreModel {
     'address': address,
     'latitude': latitude,
     'longitude': longitude,
+    'visit_days': visitDays,
+    'visit_frequency': visitFrequency,
   };
 }

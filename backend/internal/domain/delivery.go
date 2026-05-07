@@ -34,6 +34,7 @@ type DeliveryBatch struct {
 
 	StartedAt       *time.Time          `json:"started_at,omitempty"`
 	FinishedAt      *time.Time          `json:"finished_at,omitempty"`
+	TotalCashCollected float64          `gorm:"type:decimal(15,2);default:0" json:"total_cash_collected"`
 	CreatedAt       time.Time           `gorm:"default:now()" json:"created_at"`
 	UpdatedAt       time.Time           `gorm:"default:now()" json:"updated_at"`
 

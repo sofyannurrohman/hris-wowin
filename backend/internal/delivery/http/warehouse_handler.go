@@ -29,6 +29,7 @@ func (h *WarehouseHandler) RegisterRoutes(r *gin.RouterGroup) {
 		warehouse.POST("/transfers/:id/reject", h.RejectShipment)
 		warehouse.POST("/adjust", h.AdjustStock)
 		warehouse.POST("/stock-limit", h.SetStockLimit)
+		warehouse.POST("/dispatch/invoice/:receipt_no", h.DispatchByInvoice)
 	}
 }
 
@@ -198,4 +199,26 @@ func (h *WarehouseHandler) ReceiveByDO(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Barang telah diterima dan stok gudang diperbarui"})
+}
+
+func (h *WarehouseHandler) DispatchByInvoice(c *gin.Context) {
+	receiptNo := c.Param("receipt_no")
+	
+	branchID := uuid.Nil
+	if val, ok := c.Get("branch_id"); ok && val != "" {
+		branchID = uuid.MustParse(val.(string))
+	} else if bid := c.Query("branch_id"); bid != "" {
+		branchID = uuid.MustParse(bid)
+	}
+
+	if branchID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_id not found in session or query"})
+		return
+	}
+
+	if err := h.usecase.DispatchByInvoice(receiptNo, branchID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Barang telah dikeluarkan dari gudang dan status nota diperbarui"})
 }

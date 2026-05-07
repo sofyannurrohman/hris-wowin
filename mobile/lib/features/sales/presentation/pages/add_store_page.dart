@@ -20,6 +20,10 @@ class _AddStorePageState extends State<AddStorePage> {
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   bool _isLoading = false;
+  String _selectedFrequency = 'F1';
+  List<int> _selectedDays = [];
+  final List<String> _frequencies = ['F1', 'F2', 'F4'];
+  final List<String> _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
   final _apiService = StoreApiService(apiClient: di.sl<ApiClient>());
 
   @override
@@ -29,7 +33,8 @@ class _AddStorePageState extends State<AddStorePage> {
       _nameCtrl.text = widget.existingStore!.name;
       _ownerCtrl.text = widget.existingStore!.ownerName;
       _addressCtrl.text = widget.existingStore!.address;
-      // You can add phone logic if added to model later
+      _selectedFrequency = widget.existingStore!.visitFrequency.isNotEmpty ? widget.existingStore!.visitFrequency : 'F1';
+      _selectedDays = List<int>.from(widget.existingStore!.visitDays);
     }
   }
 
@@ -55,6 +60,8 @@ class _AddStorePageState extends State<AddStorePage> {
         'latitude': -7.250445,
         'longitude': 112.768845,
         'is_new': widget.existingStore == null ? true : widget.existingStore!.isNew,
+        'visit_frequency': _selectedFrequency,
+        'visit_days': _selectedDays,
       };
 
       if (widget.existingStore != null) {
@@ -136,6 +143,51 @@ class _AddStorePageState extends State<AddStorePage> {
                       ),
                     ],
                   ),
+                ),
+              ]),
+              const SizedBox(height: 24),
+              _buildSection('Penjadwalan Kunjungan', [
+                Text('Frekuensi Kunjungan', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: const Color(0xFF1E293B))),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _selectedFrequency,
+                  items: _frequencies.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+                  onChanged: (v) => setState(() => _selectedFrequency = v!),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.repeat_rounded, color: Colors.blueAccent, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text('Hari Kunjungan', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: const Color(0xFF1E293B))),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(7, (index) {
+                    final dayNum = index + 1;
+                    final isSelected = _selectedDays.contains(dayNum);
+                    return ChoiceChip(
+                      label: Text(_dayNames[index]),
+                      selected: isSelected,
+                      selectedColor: Colors.blueAccent,
+                      labelStyle: GoogleFonts.outfit(
+                        color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedDays.add(dayNum);
+                          } else {
+                            _selectedDays.remove(dayNum);
+                          }
+                        });
+                      },
+                    );
+                  }),
                 ),
               ]),
               const SizedBox(height: 40),

@@ -33,7 +33,9 @@ func (h *DeliveryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		delivery.GET("/tasks", h.GetTasks)
 		delivery.GET("/batch/:id", h.GetDetail)
 		delivery.POST("/batch/:id/start", h.StartDelivery)
+		delivery.POST("/batch/:id/cash", h.UpdateCash)
 		delivery.POST("/items/:id/confirm", h.ConfirmItem)
+		delivery.POST("/items/confirm-by-receipt", h.ConfirmByReceipt)
 	}
 }
 
@@ -254,4 +256,41 @@ func (h *DeliveryHandler) ConfirmItem(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Item status updated"})
+}
+func (h *DeliveryHandler) ConfirmByReceipt(c *gin.Context) {
+	var req struct {
+		ReceiptNo string `json:"receipt_no" binding:"required"`
+		Notes     string `json:"notes"`
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.usecase.ConfirmItemByReceipt(req.ReceiptNo, req.Notes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Item marked as DELIVERED"})
+}
+
+func (h *DeliveryHandler) UpdateCash(c *gin.Context) {
+	batchID := uuid.MustParse(c.Param("id"))
+	var req struct {
+		Amount float64 `json:"amount" binding:"required"`
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.usecase.UpdateBatchCash(batchID, req.Amount); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Cash amount updated"})
 }

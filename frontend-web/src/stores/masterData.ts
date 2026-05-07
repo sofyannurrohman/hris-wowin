@@ -8,6 +8,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const jobPositions = ref<any[]>([])
   const leaveTypes = ref<any[]>([])
   const employees = ref<any[]>([])
+  const companies = ref<any[]>([])
   const selectedBranchId = ref<string | null>(localStorage.getItem('selectedBranchId'))
   
   const isBranchesLoading = ref(false)
@@ -15,6 +16,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const isJobPositionsLoading = ref(false)
   const isLeaveTypesLoading = ref(false)
   const isEmployeesLoading = ref(false)
+  const isCompaniesLoading = ref(false)
   
   const selectedBranchCompanyId = computed(() => {
     if (selectedBranchId.value === 'ALL_BRANCHES') return ''
@@ -91,23 +93,37 @@ export const useMasterDataStore = defineStore('masterData', () => {
     }
   }
 
+  async function fetchCompanies(force = false) {
+    if (companies.value.length > 0 && !force) return
+    isCompaniesLoading.value = true
+    try {
+      const res = await apiClient.get('/companies')
+      companies.value = res.data.data || []
+    } finally {
+      isCompaniesLoading.value = false
+    }
+  }
+
   return {
     branches,
     departments,
     jobPositions,
     leaveTypes,
     employees,
+    companies,
     selectedBranchId,
     isBranchesLoading,
     isDepartmentsLoading,
     isJobPositionsLoading,
     isLeaveTypesLoading,
     isEmployeesLoading,
+    isCompaniesLoading,
     fetchBranches,
     fetchDepartments,
     fetchJobPositions,
     fetchLeaveTypes,
     fetchEmployees,
+    fetchCompanies,
     setSelectedBranchId,
     selectedBranchCompanyId
   }

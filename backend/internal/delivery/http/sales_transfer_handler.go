@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/usecase"
 	"github.com/sofyan/hris_wowin/backend/pkg/utils"
 )
@@ -115,6 +116,59 @@ func (h *SalesTransferHandler) DeleteTransfer(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "transfer deleted successfully", nil)
 }
 
+func (h *SalesTransferHandler) CreateRequest(c *gin.Context) {
+	branchIDStr, ok := c.Get("branch_id")
+	if !ok {
+		utils.ErrorResponse(c, http.StatusBadRequest, "branch id not found in context")
+		return
+	}
+	branchID := uuid.MustParse(branchIDStr.(string))
+
+	var req usecase.CreateSalesTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Resolve EmployeeID from token if not provided
+	if req.EmployeeID == uuid.Nil {
+		employeeIDStr, _ := c.Get("employee_id")
+		req.EmployeeID = uuid.MustParse(employeeIDStr.(string))
+	}
+
+	if err := h.usecase.CreateTransfer(branchID, req); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusCreated, "Request stok berhasil dikirim", nil)
+}
+
+func (h *SalesTransferHandler) GetPendingRequests(c *gin.Context) {
+	branchIDStr, ok := c.Get("branch_id")
+	if !ok {
+		utils.ErrorResponse(c, http.StatusBadRequest, "branch id not found in context")
+		return
+	}
+	branchID := uuid.MustParse(branchIDStr.(string))
+
+	transfers, err := h.usecase.GetTransfersByBranch(branchID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Filter only pending
+	var pending []domain.SalesTransfer
+	for _, t := range transfers {
+		if t.Status == domain.SalesTransferPending {
+			pending = append(pending, t)
+		}
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Pending transfers fetched", pending)
+}
+
 func (h *SalesTransferHandler) RegisterRoutes(r *gin.RouterGroup) {
 	transfers := r.Group("/sales-transfers")
 	{
@@ -124,5 +178,9 @@ func (h *SalesTransferHandler) RegisterRoutes(r *gin.RouterGroup) {
 		transfers.PATCH("/:id/cancel", h.CancelTransfer)
 		transfers.DELETE("/:id", h.DeleteTransfer)
 		transfers.GET("/stock/:employeeId", h.GetSalesStock)
+
+		// Mobile Optimized
+		transfers.POST("/request", h.CreateRequest)
+		transfers.GET("/pending", h.GetPendingRequests)
 	}
 }

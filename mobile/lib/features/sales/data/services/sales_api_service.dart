@@ -11,7 +11,7 @@ class SalesApiService {
   Future<Map<String, dynamic>> getMyPerformance() async {
     try {
       final response = await apiClient.client.get('performance/my-performance');
-      return response.data['data'] as Map<String, dynamic>;
+      return (response.data['data'] as Map<String, dynamic>?) ?? {};
     } catch (e) {
       throw Exception('Failed to load performance data: $e');
     }
@@ -21,7 +21,7 @@ class SalesApiService {
   Future<List<dynamic>> getPendingTransactions() async {
     try {
       final response = await apiClient.client.get('sales/transactions/pending');
-      return response.data['data'] as List<dynamic>;
+      return (response.data['data'] as List<dynamic>?) ?? [];
     } catch (e) {
       throw Exception('Failed to load pending transactions: $e');
     }
@@ -31,7 +31,7 @@ class SalesApiService {
   Future<List<dynamic>> getHistoryTransactions() async {
     try {
       final response = await apiClient.client.get('sales/transactions/history');
-      return response.data['data'] as List<dynamic>;
+      return (response.data['data'] as List<dynamic>?) ?? [];
     } catch (e) {
       throw Exception('Failed to load history transactions: $e');
     }
@@ -41,7 +41,7 @@ class SalesApiService {
   Future<Map<String, dynamic>> createTransaction(Map<String, dynamic> data) async {
     try {
       final response = await apiClient.client.post('sales/transactions', data: data);
-      return response.data['data'] as Map<String, dynamic>;
+      return (response.data['data'] as Map<String, dynamic>?) ?? {};
     } catch (e) {
       throw Exception('Failed to create transaction: $e');
     }
@@ -60,9 +60,22 @@ class SalesApiService {
   Future<List<dynamic>> getVisitPlans({String? date}) async {
     try {
       final response = await apiClient.client.get('sales/visit-plans', queryParameters: date != null ? {'date': date} : null);
-      return response.data['data'] as List<dynamic>;
+      return (response.data['data'] as List<dynamic>?) ?? [];
     } catch (e) {
       throw Exception('Failed to load visit plans: $e');
+    }
+  }
+  // GET /api/v1/factory/products
+  Future<List<dynamic>> getProducts() async {
+    try {
+      final response = await apiClient.client.get('factory/products');
+      // Sometimes the data is wrapped in 'data' field, check the handler
+      if (response.data is Map && response.data.containsKey('data')) {
+        return (response.data['data'] as List<dynamic>?) ?? [];
+      }
+      return (response.data as List<dynamic>?) ?? [];
+    } catch (e) {
+      throw Exception('Failed to load products: $e');
     }
   }
 }

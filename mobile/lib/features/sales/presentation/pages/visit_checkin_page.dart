@@ -9,6 +9,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:hris_app/features/sales/data/models/store_model.dart';
 import 'package:hris_app/features/sales/presentation/pages/visit_transaction_page.dart';
+import 'package:hris_app/core/database/database.dart';
+import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
+import 'package:hris_app/injection.dart' as di;
+import 'package:drift/drift.dart' hide Column;
 import 'package:path_provider/path_provider.dart';
 
 class VisitCheckinPage extends StatefulWidget {
@@ -261,7 +265,25 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VisitTransactionPage(store: widget.store, selfiePath: _capturedPath!))),
+                  onPressed: () async {
+                    final AppDatabase db = di.sl<AppDatabase>();
+                    await db.into(db.localCheckins).insert(LocalCheckinsCompanion.insert(
+                      storeId: widget.store.id,
+                      storeName: widget.store.name,
+                      latitude: _lat,
+                      longitude: _lng,
+                      selfiePath: _capturedPath!,
+                      createdAt: DateTime.now(),
+                      syncStatus: const Value('pending'),
+                    ));
+                    
+                    // Trigger sync in background
+                    di.sl<SyncBloc>().add(SyncDataRequested());
+
+                    if (mounted) {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => VisitTransactionPage(store: widget.store, selfiePath: _capturedPath!)));
+                    }
+                  },
                   icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
                   label: Text('LANJUT', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
                   style: ElevatedButton.styleFrom(

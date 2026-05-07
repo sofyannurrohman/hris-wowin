@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/features/sales/data/models/store_model.dart';
-import 'package:hris_app/features/sales/presentation/pages/receipt_camera_page.dart';
 import 'package:hris_app/features/sales/presentation/pages/visit_checkout_page.dart';
+import 'package:hris_app/features/sales/presentation/pages/select_company_page.dart';
 
 class VisitTransactionPage extends StatelessWidget {
   final StoreModel store;
@@ -24,14 +24,14 @@ class VisitTransactionPage extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('LANGKAH 3 DARI 4', style: GoogleFonts.outfit(fontSize: 10, color: Colors.blueAccent, fontWeight: FontWeight.w800, letterSpacing: 1)),
+            Text('LANGKAH 3 DARI 5', style: GoogleFonts.outfit(fontSize: 10, color: Colors.blueAccent, fontWeight: FontWeight.w800, letterSpacing: 1)),
             Text('Status Transaksi', style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
           ],
         ),
       ),
       body: Column(
         children: [
-          LinearProgressIndicator(value: 0.75, minHeight: 4, backgroundColor: Colors.grey.shade200, color: Colors.blueAccent),
+          LinearProgressIndicator(value: 0.6, minHeight: 4, backgroundColor: Colors.grey.shade200, color: Colors.blueAccent),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -97,7 +97,7 @@ class VisitTransactionPage extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => ReceiptCameraPage(store: store, selfiePath: selfiePath)),
+                        MaterialPageRoute(builder: (_) => SelectCompanyPage(store: store, selfiePath: selfiePath)),
                       ),
                       icon: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 28),
                       label: Text('YA, ADA TRANSAKSI', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),

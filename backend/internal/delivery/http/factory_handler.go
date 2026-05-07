@@ -174,8 +174,18 @@ func (h *FactoryHandler) DeleteProduct(c *gin.Context) {
 }
 
 func (h *FactoryHandler) GetProducts(c *gin.Context) {
-	val, _ := c.Get("companyID")
-	companyID := val.(uuid.UUID)
+	companyID := uuid.Nil
+	if val, ok := c.Get("companyID"); ok {
+		companyID = val.(uuid.UUID)
+	}
+
+	// Allow override via query param for specific company lookup
+	if qID := c.Query("company_id"); qID != "" {
+		if id, err := uuid.Parse(qID); err == nil {
+			companyID = id
+		}
+	}
+
 	products, err := h.usecase.GetProducts(companyID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

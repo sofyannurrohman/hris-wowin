@@ -79,6 +79,7 @@ type UpdateEmployeeRequest struct {
 	JoinDate          string     `json:"joinDate"`
 	Salary            *float64   `json:"salary"`
 	PhoneNumber       string     `json:"phoneNumber"`
+	CompanyID         *uuid.UUID `json:"companyId"`
 
 	// New Fields
 	BirthPlace                string `json:"birthPlace"`
@@ -246,6 +247,7 @@ func (u *employeeUsecase) UpdateEmployee(id uuid.UUID, req *UpdateEmployeeReques
 	employee.JobPositionID = req.JobPositionID
 	employee.BranchID = req.BranchID
 	employee.EmploymentStatus = req.EmploymentStatus
+	employee.CompanyID = req.CompanyID
 
 	if req.JoinDate != "" {
 		if t, err := time.Parse("2006-01-02", req.JoinDate); err == nil {

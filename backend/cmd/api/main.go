@@ -94,10 +94,10 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
-	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo)
+	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
-	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, db)
+	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, db)
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
 	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo)
@@ -162,6 +162,7 @@ func main() {
 		// Protected Routes
 		protected := v1.Group("")
 		protected.Use(http.AuthMiddleware(cfg.JWTSecret))
+		protected.Use(http.EmployeeMiddleware(employeeUseCase))
 		{
 			attendanceHandler.SetupRoutes(protected)
 			employeeHandler.SetupRoutes(protected)

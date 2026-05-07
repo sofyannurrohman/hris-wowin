@@ -5,21 +5,41 @@ import 'package:hris_app/features/sales/data/models/store_model.dart';
 import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
+import 'package:hris_app/core/database/database.dart';
+import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+import 'package:drift/drift.dart' hide Column;
 import './digital_receipt_page.dart';
 
 class VisitCheckoutPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
   final String? receiptPath;
-  const VisitCheckoutPage({super.key, required this.store, required this.selfiePath, required this.receiptPath});
+  final String? companyId;
+  final String? companyName;
+  final List<Map<String, dynamic>>? items;
+  final double? totalAmount;
+
+  const VisitCheckoutPage({
+    super.key, 
+    required this.store, 
+    required this.selfiePath, 
+    this.receiptPath,
+    this.companyId,
+    this.companyName,
+    this.items,
+    this.totalAmount,
+  });
 
   @override
   State<VisitCheckoutPage> createState() => _VisitCheckoutPageState();
 }
+
 class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
   bool _isSubmitting = false;
   final _apiService = SalesApiService(apiClient: di.sl<ApiClient>());
+  final AppDatabase db = di.sl<AppDatabase>();
   String? _selectedReason;
 
   final List<String> _noTransactionReasons = [
@@ -35,20 +55,48 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
     setState(() => _isSubmitting = true);
     
     try {
-      // Note: In real app, we should upload image and get URL first.
-      // Here we simulate it or pass empty.
-      
-      final transaction = await _apiService.createTransaction({
-        'company_id': '00000000-0000-0000-0000-000000000000', // Auto resolved in backend by token
-        'store_id': widget.store.id,
-        'employee_id': '00000000-0000-0000-0000-000000000000', // Auto resolved in backend
-        'receipt_no': '',
-        'receipt_image_url': widget.receiptPath ?? '',
-        'total_amount': 0.0, // Updated later during finalization
-        'notes': _selectedReason ?? '',
-        'store_category': widget.store.isNew ? 'TOKO_BARU' : 'TOKO_LAMA',
-        'transaction_date': DateTime.now().toUtc().toIso8601String(),
-      });
+      final localId = const Uuid().v4();
+      final now = DateTime.now();
+
+      // 1. Save Transaction Header to Local DB
+      await db.into(db.localTransactions).insert(LocalTransactionsCompanion.insert(
+        localId: localId,
+        companyId: widget.companyId ?? '00000000-0000-0000-0000-000000000000',
+        companyName: widget.companyName ?? 'Wowin',
+        storeId: widget.store.id,
+        storeName: widget.store.name,
+        totalAmount: widget.totalAmount ?? 0.0,
+        selfiePath: Value(widget.selfiePath),
+        receiptPath: Value(widget.receiptPath),
+        notes: Value(_selectedReason),
+        createdAt: now,
+        syncStatus: const Value('pending'),
+      ));
+
+      // 2. Save Transaction Items to Local DB
+      if (widget.items != null) {
+        for (final item in widget.items!) {
+          await db.into(db.localTransactionItems).insert(LocalTransactionItemsCompanion.insert(
+            transactionLocalId: localId,
+            productId: item['product_id'],
+            productName: item['product_name'],
+            quantity: item['quantity'],
+            price: (item['price'] as num).toDouble(),
+          ));
+        }
+      }
+
+      // 3. Prepare fake transaction object for DigitalReceiptPage
+      final transaction = {
+        'receipt_no': 'PENDING-${localId.substring(0, 8).toUpperCase()}',
+        'store': {'name': widget.store.name},
+        'total_amount': widget.totalAmount ?? 0.0,
+        'transaction_date': now.toUtc().toIso8601String(),
+        'status': 'PENDING (OFFLINE)',
+      };
+
+      // 4. Trigger Sync in background
+      di.sl<SyncBloc>().add(SyncDataRequested());
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -110,11 +158,15 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 16),
-                  _row(Icons.storefront_rounded, 'Toko', widget.store.name),
+                   _row(Icons.storefront_rounded, 'Toko', widget.store.name),
+                  const SizedBox(height: 10),
+                  _row(Icons.business_rounded, 'Entitas', widget.companyName ?? 'Wowin Indonesia'),
                   const SizedBox(height: 10),
                   _row(Icons.location_on_rounded, 'Alamat', widget.store.address),
                   const SizedBox(height: 10),
-                  _row(Icons.receipt_long_rounded, 'Transaksi', widget.receiptPath != null ? 'Ada (nota terlampir)' : 'Tidak ada', valueColor: widget.receiptPath != null ? Colors.green : Colors.orange),
+                  _row(Icons.shopping_basket_rounded, 'Item Pesanan', widget.items != null ? '${widget.items!.length} Produk' : 'Kosong'),
+                  const SizedBox(height: 10),
+                  _row(Icons.receipt_long_rounded, 'Foto Nota', widget.receiptPath != null ? 'Terlampir' : 'Tidak ada', valueColor: widget.receiptPath != null ? Colors.green : Colors.orange),
                 ]),
               ),
 

@@ -156,8 +156,25 @@ class _StoreListPageState extends State<StoreListPage> {
                 style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: store.isNew ? Colors.orange : Colors.green),
               ),
             ),
-          ],
-        ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.repeat_rounded, size: 12, color: Colors.blueAccent),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${store.visitFrequency} • ',
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blueAccent),
+                  ),
+                  const Icon(Icons.calendar_month_rounded, size: 12, color: Colors.blueGrey),
+                  const SizedBox(width: 4),
+                  Text(
+                    store.visitDays.isEmpty ? 'Belum diatur' : store.visitDays.map((d) => ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][d - 1]).join(', '),
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+                  ),
+                ],
+              ),
+            ],
+          ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
