@@ -10,6 +10,7 @@ import (
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
 	"github.com/sofyan/hris_wowin/backend/internal/usecase"
+	"github.com/sofyan/hris_wowin/backend/pkg/midtrans"
 	"github.com/sofyan/hris_wowin/backend/pkg/utils"
 )
 
@@ -74,6 +75,7 @@ func main() {
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+	midtransClient := midtrans.NewMidtransClient()
 
 	// Setup UseCases
 	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo, emailSender)
@@ -94,7 +96,7 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
-	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo)
+	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo, midtransClient)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
 	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, db)
@@ -157,6 +159,7 @@ func main() {
 		authHandler.SetupRoutes(v1)
 		branchHandler.SetupPublicRoutes(v1)
 		jobPositionHandler.SetupPublicRoutes(v1)
+		salesHandler.SetupPublicRoutes(v1)
 		v1.Static("/uploads", "./uploads")
 
 		// Protected Routes

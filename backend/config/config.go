@@ -20,6 +20,8 @@ type Config struct {
 	SMTPUser   string
 	SMTPPass   string
 	SMTPFrom   string
+	MidtransServerKey  string
+	MidtransIsProduction bool
 }
 
 func LoadConfig() Config {
@@ -47,6 +49,8 @@ func LoadConfig() Config {
 		SMTPUser:   getEnv("SMTP_USER", ""),
 		SMTPPass:   getEnv("SMTP_PASS", ""),
 		SMTPFrom:   getEnv("SMTP_FROM", ""),
+		MidtransServerKey:  getEnv("MIDTRANS_SERVER_KEY", ""),
+		MidtransIsProduction: getEnv("MIDTRANS_IS_PRODUCTION", "false") == "true",
 	}
 }
 

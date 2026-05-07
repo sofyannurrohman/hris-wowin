@@ -1103,6 +1103,20 @@ class $LocalTransactionsTable extends LocalTransactions
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
       'notes', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _paymentMethodMeta =
+      const VerificationMeta('paymentMethod');
+  @override
+  late final GeneratedColumn<String> paymentMethod = GeneratedColumn<String>(
+      'payment_method', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('CASH'));
+  static const VerificationMeta _paymentBankMeta =
+      const VerificationMeta('paymentBank');
+  @override
+  late final GeneratedColumn<String> paymentBank = GeneratedColumn<String>(
+      'payment_bank', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -1129,6 +1143,8 @@ class $LocalTransactionsTable extends LocalTransactions
         selfiePath,
         receiptPath,
         notes,
+        paymentMethod,
+        paymentBank,
         createdAt,
         syncStatus
       ];
@@ -1202,6 +1218,18 @@ class $LocalTransactionsTable extends LocalTransactions
       context.handle(
           _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
     }
+    if (data.containsKey('payment_method')) {
+      context.handle(
+          _paymentMethodMeta,
+          paymentMethod.isAcceptableOrUnknown(
+              data['payment_method']!, _paymentMethodMeta));
+    }
+    if (data.containsKey('payment_bank')) {
+      context.handle(
+          _paymentBankMeta,
+          paymentBank.isAcceptableOrUnknown(
+              data['payment_bank']!, _paymentBankMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -1243,6 +1271,10 @@ class $LocalTransactionsTable extends LocalTransactions
           .read(DriftSqlType.string, data['${effectivePrefix}receipt_path']),
       notes: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      paymentMethod: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payment_method'])!,
+      paymentBank: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payment_bank']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       syncStatus: attachedDatabase.typeMapping
@@ -1268,6 +1300,8 @@ class LocalTransaction extends DataClass
   final String? selfiePath;
   final String? receiptPath;
   final String? notes;
+  final String paymentMethod;
+  final String? paymentBank;
   final DateTime createdAt;
   final String syncStatus;
   const LocalTransaction(
@@ -1281,6 +1315,8 @@ class LocalTransaction extends DataClass
       this.selfiePath,
       this.receiptPath,
       this.notes,
+      required this.paymentMethod,
+      this.paymentBank,
       required this.createdAt,
       required this.syncStatus});
   @override
@@ -1303,6 +1339,10 @@ class LocalTransaction extends DataClass
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    map['payment_method'] = Variable<String>(paymentMethod);
+    if (!nullToAbsent || paymentBank != null) {
+      map['payment_bank'] = Variable<String>(paymentBank);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['sync_status'] = Variable<String>(syncStatus);
@@ -1328,6 +1368,10 @@ class LocalTransaction extends DataClass
           : Value(receiptPath),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      paymentMethod: Value(paymentMethod),
+      paymentBank: paymentBank == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentBank),
       createdAt: Value(createdAt),
       syncStatus: Value(syncStatus),
     );
@@ -1347,6 +1391,8 @@ class LocalTransaction extends DataClass
       selfiePath: serializer.fromJson<String?>(json['selfiePath']),
       receiptPath: serializer.fromJson<String?>(json['receiptPath']),
       notes: serializer.fromJson<String?>(json['notes']),
+      paymentMethod: serializer.fromJson<String>(json['paymentMethod']),
+      paymentBank: serializer.fromJson<String?>(json['paymentBank']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
     );
@@ -1365,6 +1411,8 @@ class LocalTransaction extends DataClass
       'selfiePath': serializer.toJson<String?>(selfiePath),
       'receiptPath': serializer.toJson<String?>(receiptPath),
       'notes': serializer.toJson<String?>(notes),
+      'paymentMethod': serializer.toJson<String>(paymentMethod),
+      'paymentBank': serializer.toJson<String?>(paymentBank),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'syncStatus': serializer.toJson<String>(syncStatus),
     };
@@ -1381,6 +1429,8 @@ class LocalTransaction extends DataClass
           Value<String?> selfiePath = const Value.absent(),
           Value<String?> receiptPath = const Value.absent(),
           Value<String?> notes = const Value.absent(),
+          String? paymentMethod,
+          Value<String?> paymentBank = const Value.absent(),
           DateTime? createdAt,
           String? syncStatus}) =>
       LocalTransaction(
@@ -1394,6 +1444,8 @@ class LocalTransaction extends DataClass
         selfiePath: selfiePath.present ? selfiePath.value : this.selfiePath,
         receiptPath: receiptPath.present ? receiptPath.value : this.receiptPath,
         notes: notes.present ? notes.value : this.notes,
+        paymentMethod: paymentMethod ?? this.paymentMethod,
+        paymentBank: paymentBank.present ? paymentBank.value : this.paymentBank,
         createdAt: createdAt ?? this.createdAt,
         syncStatus: syncStatus ?? this.syncStatus,
       );
@@ -1413,6 +1465,11 @@ class LocalTransaction extends DataClass
       receiptPath:
           data.receiptPath.present ? data.receiptPath.value : this.receiptPath,
       notes: data.notes.present ? data.notes.value : this.notes,
+      paymentMethod: data.paymentMethod.present
+          ? data.paymentMethod.value
+          : this.paymentMethod,
+      paymentBank:
+          data.paymentBank.present ? data.paymentBank.value : this.paymentBank,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
@@ -1432,6 +1489,8 @@ class LocalTransaction extends DataClass
           ..write('selfiePath: $selfiePath, ')
           ..write('receiptPath: $receiptPath, ')
           ..write('notes: $notes, ')
+          ..write('paymentMethod: $paymentMethod, ')
+          ..write('paymentBank: $paymentBank, ')
           ..write('createdAt: $createdAt, ')
           ..write('syncStatus: $syncStatus')
           ..write(')'))
@@ -1450,6 +1509,8 @@ class LocalTransaction extends DataClass
       selfiePath,
       receiptPath,
       notes,
+      paymentMethod,
+      paymentBank,
       createdAt,
       syncStatus);
   @override
@@ -1466,6 +1527,8 @@ class LocalTransaction extends DataClass
           other.selfiePath == this.selfiePath &&
           other.receiptPath == this.receiptPath &&
           other.notes == this.notes &&
+          other.paymentMethod == this.paymentMethod &&
+          other.paymentBank == this.paymentBank &&
           other.createdAt == this.createdAt &&
           other.syncStatus == this.syncStatus);
 }
@@ -1481,6 +1544,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
   final Value<String?> selfiePath;
   final Value<String?> receiptPath;
   final Value<String?> notes;
+  final Value<String> paymentMethod;
+  final Value<String?> paymentBank;
   final Value<DateTime> createdAt;
   final Value<String> syncStatus;
   final Value<int> rowid;
@@ -1495,6 +1560,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     this.selfiePath = const Value.absent(),
     this.receiptPath = const Value.absent(),
     this.notes = const Value.absent(),
+    this.paymentMethod = const Value.absent(),
+    this.paymentBank = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1510,6 +1577,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     this.selfiePath = const Value.absent(),
     this.receiptPath = const Value.absent(),
     this.notes = const Value.absent(),
+    this.paymentMethod = const Value.absent(),
+    this.paymentBank = const Value.absent(),
     required DateTime createdAt,
     this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1531,6 +1600,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     Expression<String>? selfiePath,
     Expression<String>? receiptPath,
     Expression<String>? notes,
+    Expression<String>? paymentMethod,
+    Expression<String>? paymentBank,
     Expression<DateTime>? createdAt,
     Expression<String>? syncStatus,
     Expression<int>? rowid,
@@ -1546,6 +1617,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
       if (selfiePath != null) 'selfie_path': selfiePath,
       if (receiptPath != null) 'receipt_path': receiptPath,
       if (notes != null) 'notes': notes,
+      if (paymentMethod != null) 'payment_method': paymentMethod,
+      if (paymentBank != null) 'payment_bank': paymentBank,
       if (createdAt != null) 'created_at': createdAt,
       if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
@@ -1563,6 +1636,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
       Value<String?>? selfiePath,
       Value<String?>? receiptPath,
       Value<String?>? notes,
+      Value<String>? paymentMethod,
+      Value<String?>? paymentBank,
       Value<DateTime>? createdAt,
       Value<String>? syncStatus,
       Value<int>? rowid}) {
@@ -1577,6 +1652,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
       selfiePath: selfiePath ?? this.selfiePath,
       receiptPath: receiptPath ?? this.receiptPath,
       notes: notes ?? this.notes,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentBank: paymentBank ?? this.paymentBank,
       createdAt: createdAt ?? this.createdAt,
       syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
@@ -1616,6 +1693,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (paymentMethod.present) {
+      map['payment_method'] = Variable<String>(paymentMethod.value);
+    }
+    if (paymentBank.present) {
+      map['payment_bank'] = Variable<String>(paymentBank.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1641,6 +1724,8 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
           ..write('selfiePath: $selfiePath, ')
           ..write('receiptPath: $receiptPath, ')
           ..write('notes: $notes, ')
+          ..write('paymentMethod: $paymentMethod, ')
+          ..write('paymentBank: $paymentBank, ')
           ..write('createdAt: $createdAt, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
@@ -2578,6 +2663,8 @@ typedef $$LocalTransactionsTableCreateCompanionBuilder
   Value<String?> selfiePath,
   Value<String?> receiptPath,
   Value<String?> notes,
+  Value<String> paymentMethod,
+  Value<String?> paymentBank,
   required DateTime createdAt,
   Value<String> syncStatus,
   Value<int> rowid,
@@ -2594,6 +2681,8 @@ typedef $$LocalTransactionsTableUpdateCompanionBuilder
   Value<String?> selfiePath,
   Value<String?> receiptPath,
   Value<String?> notes,
+  Value<String> paymentMethod,
+  Value<String?> paymentBank,
   Value<DateTime> createdAt,
   Value<String> syncStatus,
   Value<int> rowid,
@@ -2664,6 +2753,12 @@ class $$LocalTransactionsTableFilterComposer
   ColumnFilters<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get paymentMethod => $composableBuilder(
+      column: $table.paymentMethod, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get paymentBank => $composableBuilder(
+      column: $table.paymentBank, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
@@ -2733,6 +2828,13 @@ class $$LocalTransactionsTableOrderingComposer
   ColumnOrderings<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get paymentMethod => $composableBuilder(
+      column: $table.paymentMethod,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get paymentBank => $composableBuilder(
+      column: $table.paymentBank, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -2778,6 +2880,12 @@ class $$LocalTransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get paymentMethod => $composableBuilder(
+      column: $table.paymentMethod, builder: (column) => column);
+
+  GeneratedColumn<String> get paymentBank => $composableBuilder(
+      column: $table.paymentBank, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -2844,6 +2952,8 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             Value<String?> selfiePath = const Value.absent(),
             Value<String?> receiptPath = const Value.absent(),
             Value<String?> notes = const Value.absent(),
+            Value<String> paymentMethod = const Value.absent(),
+            Value<String?> paymentBank = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<String> syncStatus = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -2859,6 +2969,8 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             selfiePath: selfiePath,
             receiptPath: receiptPath,
             notes: notes,
+            paymentMethod: paymentMethod,
+            paymentBank: paymentBank,
             createdAt: createdAt,
             syncStatus: syncStatus,
             rowid: rowid,
@@ -2874,6 +2986,8 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             Value<String?> selfiePath = const Value.absent(),
             Value<String?> receiptPath = const Value.absent(),
             Value<String?> notes = const Value.absent(),
+            Value<String> paymentMethod = const Value.absent(),
+            Value<String?> paymentBank = const Value.absent(),
             required DateTime createdAt,
             Value<String> syncStatus = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -2889,6 +3003,8 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             selfiePath: selfiePath,
             receiptPath: receiptPath,
             notes: notes,
+            paymentMethod: paymentMethod,
+            paymentBank: paymentBank,
             createdAt: createdAt,
             syncStatus: syncStatus,
             rowid: rowid,

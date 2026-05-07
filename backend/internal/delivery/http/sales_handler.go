@@ -60,6 +60,13 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 	}
 }
 
+func (h *SalesHandler) SetupPublicRoutes(router *gin.RouterGroup) {
+	sales := router.Group("/sales")
+	{
+		sales.POST("/payments/notification", h.HandleMidtransNotification)
+	}
+}
+
 func (h *SalesHandler) ManualEntry(c *gin.Context) {
 	var req usecase.ManualEntryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -613,4 +620,20 @@ func (h *SalesHandler) GetNextReceiptNo(c *gin.Context) {
 
 	receiptNo := fmt.Sprintf("INV/%s/%03d", date.Format("20060102"), count+1)
 	c.JSON(http.StatusOK, gin.H{"receipt_no": receiptNo})
+}
+
+func (h *SalesHandler) HandleMidtransNotification(c *gin.Context) {
+	var notificationPayload map[string]interface{}
+	if err := c.ShouldBindJSON(&notificationPayload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.salesUsecase.HandleMidtransNotification(notificationPayload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Notification handled successfully"})
 }

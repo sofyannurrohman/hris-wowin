@@ -49,8 +49,9 @@ class SyncRepository {
           'company_id': tr.companyId,
           'store_id': tr.storeId,
           'total_amount': tr.totalAmount,
+          'payment_method': tr.paymentMethod,
+          'bank': tr.paymentBank,
           'notes': tr.notes,
-          'receipt_image_url': tr.receiptPath,
           'transaction_date': tr.createdAt.toIso8601String(),
           'items': items.map((i) => {
             'product_id': i.productId,

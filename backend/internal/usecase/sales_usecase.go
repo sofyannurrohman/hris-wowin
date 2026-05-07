@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
+	"github.com/sofyan/hris_wowin/backend/pkg/midtrans"
 )
 
 type SalesUsecase interface {
@@ -39,6 +40,7 @@ type SalesUsecase interface {
 	GetDeliveryPending(companyID uuid.UUID) ([]domain.SalesTransaction, error)
 	RejectTransaction(id uuid.UUID, notes string) error
 	CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error)
+	HandleMidtransNotification(notificationPayload map[string]interface{}) error
 }
 
 type VisitPlanItem struct {
@@ -61,6 +63,8 @@ type CreateTransactionRequest struct {
 	PaymentDueDate  *time.Time `json:"payment_due_date"`
 	StoreCategory   string     `json:"store_category"`
 	TransactionDate time.Time            `json:"transaction_date"`
+	PaymentMethod   string               `json:"payment_method"`
+	Bank            string               `json:"bank"` // For VA: 'bca', 'bni', 'bri'
 	Notes           string               `json:"notes"`
 	Items           []SalesItemRequest   `json:"items"`
 }
@@ -91,6 +95,7 @@ type salesUsecase struct {
 	storeRepo       repository.StoreRepository
 	attendanceRepo  repository.AttendanceRepository
 	companyRepo     repository.CompanyRepository
+	midtransClient  *midtrans.MidtransClient
 }
 
 func NewSalesUsecase(
@@ -99,6 +104,7 @@ func NewSalesUsecase(
 	storeRepo repository.StoreRepository,
 	attendanceRepo repository.AttendanceRepository,
 	companyRepo repository.CompanyRepository,
+	midtransClient *midtrans.MidtransClient,
 ) SalesUsecase {
 	return &salesUsecase{
 		salesRepo:       salesRepo,
@@ -106,6 +112,7 @@ func NewSalesUsecase(
 		storeRepo:       storeRepo,
 		attendanceRepo:  attendanceRepo,
 		companyRepo:     companyRepo,
+		midtransClient:  midtransClient,
 	}
 }
 
@@ -314,6 +321,7 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		PeriodMonth:     int(req.TransactionDate.Month()),
 		PeriodYear:      req.TransactionDate.Year(),
 		Status:          "PENDING",
+		PaymentMethod:   req.PaymentMethod,
 		Notes:           &req.Notes,
 	}
 
@@ -329,6 +337,42 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 	err := u.salesRepo.Create(trx)
 	if err != nil {
 		return nil, err
+	}
+
+	// Midtrans QRIS Generation
+	if trx.PaymentMethod == "QRIS" && u.midtransClient != nil {
+		resp, err := u.midtransClient.CreateQRIS(trx.ReceiptNo, int64(trx.TotalAmount))
+		if err == nil && resp != nil {
+			// Extract QRIS URL/String. Midtrans returns multiple actions, find 'generate-qr-code'
+			for _, action := range resp.Actions {
+				if action.Name == "generate-qr-code" {
+					trx.MidtransQRISURL = action.URL
+					trx.MidtransID = resp.TransactionID
+					_ = u.salesRepo.Update(trx) // Update with QRIS data
+					break
+				}
+			}
+		}
+	}
+
+	// Midtrans VA Generation
+	if trx.PaymentMethod == "VA" && u.midtransClient != nil {
+		resp, err := u.midtransClient.CreateBankTransfer(trx.ReceiptNo, int64(trx.TotalAmount), req.Bank)
+		if err == nil && resp != nil {
+			if len(resp.VaNumbers) > 0 {
+				trx.MidtransVANumber = resp.VaNumbers[0].VANumber
+				trx.MidtransBank = resp.VaNumbers[0].Bank
+				trx.MidtransID = resp.TransactionID
+				_ = u.salesRepo.Update(trx)
+			} else if resp.BillKey != "" {
+				// Mandiri Bill
+				trx.MidtransBillKey = resp.BillKey
+				trx.MidtransBillerCode = resp.BillerCode
+				trx.MidtransBank = "mandiri"
+				trx.MidtransID = resp.TransactionID
+				_ = u.salesRepo.Update(trx)
+			}
+		}
 	}
 
 	// Create initial payment record if paid
@@ -707,5 +751,32 @@ func (u *salesUsecase) RejectTransaction(id uuid.UUID, notes string) error {
 
 func (u *salesUsecase) CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error) {
 	return u.salesRepo.CountByCompanyAndDate(companyID, date)
+}
+
+func (u *salesUsecase) HandleMidtransNotification(payload map[string]interface{}) error {
+	orderID, _ := payload["order_id"].(string)
+	transactionStatus, _ := payload["transaction_status"].(string)
+	fraudStatus, _ := payload["fraud_status"].(string)
+
+	trx, err := u.salesRepo.FindByReceiptNo(orderID)
+	if err != nil || trx == nil {
+		return errors.New("transaction not found for midtrans notification")
+	}
+
+	if transactionStatus == "capture" {
+		if fraudStatus == "challenge" {
+			// TODO: handle fraud challenge
+		} else if fraudStatus == "accept" {
+			trx.PaymentStatus = string(domain.PaymentStatusPaid)
+			trx.PaidAmount = trx.TotalAmount
+		}
+	} else if transactionStatus == "settlement" {
+		trx.PaymentStatus = string(domain.PaymentStatusPaid)
+		trx.PaidAmount = trx.TotalAmount
+	} else if transactionStatus == "deny" || transactionStatus == "expire" || transactionStatus == "cancel" {
+		// handle failed payment if needed
+	}
+
+	return u.salesRepo.Update(trx)
 }
 

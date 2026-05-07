@@ -468,7 +468,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.receipt_long_rounded, color: isVerified ? Colors.blueAccent : Colors.orange, size: 20),
+              child: Icon(Icons.check_circle_rounded, color: isVerified ? Colors.blueAccent : Colors.green, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -480,7 +480,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF1E293B))),
                   const SizedBox(height: 2),
-                  Text('Scan pada pukul $time', style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.w500)),
+                  Text('Order Digital pukul $time', style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.w500)),
                   if (notes != null && notes.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text('Alasan: $notes', 
@@ -503,8 +503,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    isVerified ? 'AUTO-FILL OK' : 'NEED REVIEW',
-                    style: GoogleFonts.outfit(color: isVerified ? Colors.green : Colors.orange, fontSize: 8, fontWeight: FontWeight.w900),
+                    isVerified ? 'AUTO-FILL OK' : 'READY TO SYNC',
+                    style: GoogleFonts.outfit(color: isVerified ? Colors.green : Colors.blueAccent, fontSize: 8, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],

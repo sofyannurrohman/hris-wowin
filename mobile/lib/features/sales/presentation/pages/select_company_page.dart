@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/features/sales/data/models/store_model.dart';
 import 'package:hris_app/injection.dart' as di;
+import 'package:hris_app/core/database/database.dart';
 import './order_entry_page.dart';
 
 class SelectCompanyPage extends StatefulWidget {
@@ -29,11 +30,18 @@ class _SelectCompanyPageState extends State<SelectCompanyPage> {
   Future<void> _fetchCompanies() async {
     setState(() => _isLoading = true);
     try {
-      final response = await apiClient.client.get('companies');
-      setState(() => _companies = (response.data as List<dynamic>?) ?? []);
+      final db = di.sl<AppDatabase>();
+      final companies = await db.select(db.companies).get();
+      setState(() {
+        _companies = companies.map((c) => {
+          'id': c.id,
+          'name': c.name,
+          'code': c.code,
+        }).toList();
+      });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat entitas: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat entitas lokal: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

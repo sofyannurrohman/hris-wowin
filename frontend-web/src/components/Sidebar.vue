@@ -134,6 +134,7 @@ const warehouseGroups = [
     items: [
       { to: '/warehouse', name: 'Dashboard Gudang', icon: LayoutDashboard },
       { to: '/warehouse/stock', name: 'Stok & Penerimaan', icon: Boxes },
+      { to: '/warehouse/verification', name: 'Verifikasi Kasir', icon: Banknote },
       { to: '/warehouse/sales-transfers', name: 'Perpindahan Barang', icon: ArrowLeftRight },
       { to: '/warehouse/logs', name: 'Log Mutasi', icon: History },
       { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },

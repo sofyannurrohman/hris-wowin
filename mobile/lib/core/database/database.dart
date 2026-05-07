@@ -50,6 +50,8 @@ class LocalTransactions extends Table {
   TextColumn get selfiePath => text().nullable()();
   TextColumn get receiptPath => text().nullable()();
   TextColumn get notes => text().nullable()();
+  TextColumn get paymentMethod => text().withDefault(const Constant('CASH'))(); // 'CASH', 'QRIS', 'TEMPO', 'VA'
+  TextColumn get paymentBank => text().nullable()(); // 'bca', 'bni', 'bri'
   DateTimeColumn get createdAt => dateTime()();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
   

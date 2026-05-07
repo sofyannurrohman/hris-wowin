@@ -5,6 +5,8 @@ import 'package:hris_app/features/sales/data/models/store_model.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:intl/intl.dart';
 import 'package:hris_app/core/database/database.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:drift/drift.dart' hide Column;
 import './visit_checkout_page.dart';
 
 class OrderEntryPage extends StatefulWidget {
@@ -32,9 +34,13 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   
   List<dynamic> _allProducts = [];
   List<dynamic> _filteredProducts = [];
+  List<String> _categories = ['Semua'];
+  String _selectedCategory = 'Semua';
+  
   final Map<String, int> _cart = {}; // productId -> quantity
   bool _isLoading = false;
   String _searchQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -42,14 +48,22 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
     _fetchProducts();
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchProducts() async {
     setState(() => _isLoading = true);
     try {
-      // Fetch from local Drift DB
       final products = await (db.select(db.products)
           ..where((t) => t.companyId.equals(widget.companyId))).get();
       
       if (mounted) {
+        final cats = products.map((p) => p.category ?? 'Uncategorized').toSet().toList();
+        cats.sort();
+        
         setState(() {
           _allProducts = products.map((p) => {
             'id': p.id,
@@ -57,35 +71,122 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
             'selling_price': p.sellingPrice,
             'sku': p.sku,
             'unit': p.unit,
+            'category': p.category ?? 'Uncategorized',
           }).toList();
-          _filteredProducts = _allProducts;
+          _categories = ['Semua', ...cats];
+          _applyFilters();
         });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat produk lokal: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat produk: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _filterProducts(String query) {
+  void _applyFilters() {
     setState(() {
-      _searchQuery = query;
       _filteredProducts = _allProducts.where((p) {
-        final name = (p['name'] ?? '').toString().toLowerCase();
-        final sku = (p['sku'] ?? '').toString().toLowerCase();
-        return name.contains(query.toLowerCase()) || sku.contains(query.toLowerCase());
+        final matchesSearch = p['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) || 
+                              p['sku'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+        final matchesCategory = _selectedCategory == 'Semua' || p['category'] == _selectedCategory;
+        return matchesSearch && matchesCategory;
       }).toList();
     });
+  }
+
+  Future<void> _loadLastOrder() async {
+    setState(() => _isLoading = true);
+    try {
+      // Find the most recent transaction for this store and company
+      final lastTxn = await (db.select(db.localTransactions)
+        ..where((t) => t.storeId.equals(widget.store.id))
+        ..where((t) => t.companyId.equals(widget.companyId))
+        ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)])
+        ..limit(1)).getSingleOrNull();
+
+      if (lastTxn != null) {
+        final items = await (db.select(db.localTransactionItems)
+          ..where((t) => t.transactionLocalId.equals(lastTxn.localId))).get();
+        
+        if (mounted) {
+          setState(() {
+            _cart.clear();
+            for (final item in items) {
+              _cart[item.productId] = item.quantity;
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✓ Berhasil menyalin pesanan terakhir!'),
+            backgroundColor: Colors.green,
+          ));
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Belum ada riwayat pesanan untuk toko ini.')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat riwayat: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _openScanner() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 20),
+            Text('Scan Barcode Produk', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 20),
+            Expanded(
+              child: MobileScanner(
+                onDetect: (capture) {
+                  final List<Barcode> barcodes = capture.barcodes;
+                  if (barcodes.isNotEmpty) {
+                    final code = barcodes.first.rawValue;
+                    if (code != null) {
+                      Navigator.pop(context);
+                      setState(() {
+                        _searchCtrl.text = code;
+                        _searchQuery = code;
+                        _applyFilters();
+                      });
+                    }
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
   }
 
   double get _totalAmount {
     double total = 0;
     _cart.forEach((id, qty) {
-      final product = _allProducts.firstWhere((p) => p['id'] == id);
-      total += (product['selling_price'] ?? 0) * qty;
+      final product = _allProducts.firstWhere((p) => p['id'] == id, orElse: () => {});
+      if (product.isNotEmpty) {
+        total += (product['selling_price'] ?? 0) * qty;
+      }
     });
     return total;
   }
@@ -105,9 +206,17 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('LANGKAH 4 DARI 5', style: GoogleFonts.outfit(fontSize: 10, color: Colors.blueAccent, fontWeight: FontWeight.w800, letterSpacing: 1)),
-            Text('Input Pesanan', style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
+            Text('Input Pesanan Digital', style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
           ],
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: _loadLastOrder,
+            icon: const Icon(Icons.history_rounded, size: 18, color: Colors.blueAccent),
+            label: Text('PESAN ULANG', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.blueAccent)),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         children: [
@@ -115,12 +224,15 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             color: Colors.white,
-            child: Text(
-              'Entitas: ${widget.companyName}',
-              style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+            child: Row(
+              children: [
+                Expanded(child: Text('Entitas: ${widget.companyName}', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent))),
+                Text(widget.store.name, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey)),
+              ],
             ),
           ),
           _buildSearchBar(),
+          _buildCategoryFilter(),
           Expanded(child: _isLoading ? const Center(child: CircularProgressIndicator()) : _buildProductList()),
           _buildBottomSummary(),
         ],
@@ -130,19 +242,72 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
 
   Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       color: Colors.white,
-      child: TextField(
-        onChanged: _filterProducts,
-        decoration: InputDecoration(
-          hintText: 'Cari nama produk atau SKU...',
-          hintStyle: GoogleFonts.outfit(color: Colors.grey, fontSize: 14),
-          prefixIcon: const Icon(Icons.search_rounded, color: Colors.blueAccent),
-          filled: true,
-          fillColor: const Color(0xFFF1F5F9),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (val) {
+                _searchQuery = val;
+                _applyFilters();
+              },
+              decoration: InputDecoration(
+                hintText: 'Cari nama produk atau SKU...',
+                hintStyle: GoogleFonts.outfit(color: Colors.grey, fontSize: 14),
+                prefixIcon: const Icon(Icons.search_rounded, color: Colors.blueAccent),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _openScanner,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+              child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.blueAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    return Container(
+      height: 50,
+      color: Colors.white,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final cat = _categories[index];
+          final isSelected = _selectedCategory == cat;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 8),
+            child: ChoiceChip(
+              label: Text(cat, style: GoogleFonts.outfit(fontSize: 12, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500, color: isSelected ? Colors.white : Colors.blueGrey)),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedCategory = cat;
+                  _applyFilters();
+                });
+              },
+              selectedColor: Colors.blueAccent,
+              backgroundColor: const Color(0xFFF1F5F9),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              side: BorderSide.none,
+              showCheckmark: false,
+            ),
+          );
+        },
       ),
     );
   }
@@ -190,7 +355,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(p['name'] ?? 'Unknown Product', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF1E293B))),
-                    Text('SKU: ${p['sku'] ?? '-'}', style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey)),
+                    Text('SKU: ${p['sku'] ?? '-'} • ${p['category']}', style: GoogleFonts.outfit(fontSize: 11, color: Colors.blueGrey)),
                     const SizedBox(height: 4),
                     Text(_currency.format(p['selling_price'] ?? 0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 14)),
                   ],
@@ -238,14 +403,14 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Total Pesanan:', style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+                  Text('Total Pesanan Digital:', style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
                   Text(_currency.format(_totalAmount), style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B))),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                child: Text('${_cart.values.fold(0, (sum, q) => sum + q)} Item', style: GoogleFonts.outfit(color: Colors.blueAccent, fontWeight: FontWeight.w800, fontSize: 12)),
+                decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                child: Text('${_cart.values.fold(0, (sum, q) => sum + q)} Item', style: GoogleFonts.outfit(color: Colors.green, fontWeight: FontWeight.w800, fontSize: 12)),
               ),
             ],
           ),

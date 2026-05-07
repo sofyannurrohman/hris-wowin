@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/features/sales/data/models/product_model.dart';
 import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
+import 'package:hris_app/core/database/database.dart';
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:intl/intl.dart';
 
@@ -31,9 +32,20 @@ class _ProductCatalogPageState extends State<ProductCatalogPage> {
       _error = null;
     });
     try {
-      final data = await _apiService.getProducts();
+      final db = di.sl<AppDatabase>();
+      final products = await db.select(db.products).get();
       setState(() {
-        _products = data.map((e) => ProductModel.fromJson(e)).toList();
+        _products = products.map((p) => ProductModel(
+          id: p.id,
+          name: p.name,
+          sellingPrice: p.sellingPrice,
+          sku: p.sku ?? '',
+          unit: p.unit ?? '',
+          category: p.category ?? '',
+          brand: 'Wowin', // Default brand as it's not in the DB schema yet
+          description: '',
+          imageUrl: '',
+        )).toList();
       });
     } catch (e) {
       setState(() => _error = e.toString());

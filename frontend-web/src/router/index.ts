@@ -241,6 +241,11 @@ const router = createRouter({
               path: 'sales-transfers',
               name: 'salesTransfers',
               component: () => import('@/views/warehouse/SalesTransferView.vue'),
+            },
+            {
+              path: 'verification',
+              name: 'cashierVerification',
+              component: () => import('@/views/warehouse/CashierVerificationView.vue'),
             }
           ]
         }
