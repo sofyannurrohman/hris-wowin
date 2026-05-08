@@ -22,11 +22,26 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
   
   bool _showQR = false;
   String _requestId = '';
+  String? _employeeId;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final response = await apiClient.client.get('employees/profile');
+      if (mounted) {
+        setState(() {
+          _employeeId = response.data['data']['id'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching profile for stock request: $e');
+    }
   }
 
   Future<void> _fetchProducts() async {
@@ -54,9 +69,15 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
       return;
     }
 
+    if (_employeeId == null) {
+      _showError('Gagal mendapatkan identitas karyawan. Coba lagi nanti.');
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final response = await apiClient.client.post('sales-transfers/request', data: {
+        'employee_id': _employeeId,
         'product_id': _selectedProductId,
         'quantity': _quantity,
         'type': 'TRANSFER',

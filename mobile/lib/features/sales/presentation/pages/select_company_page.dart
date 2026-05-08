@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/core/network/api_client.dart';
@@ -9,8 +10,9 @@ import './order_entry_page.dart';
 class SelectCompanyPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
+  final Uint8List? selfieBytes;
 
-  const SelectCompanyPage({super.key, required this.store, required this.selfiePath});
+  const SelectCompanyPage({super.key, required this.store, required this.selfiePath, this.selfieBytes});
 
   @override
   State<SelectCompanyPage> createState() => _SelectCompanyPageState();
@@ -109,6 +111,7 @@ class _SelectCompanyPageState extends State<SelectCompanyPage> {
                             builder: (_) => OrderEntryPage(
                               store: widget.store,
                               selfiePath: widget.selfiePath,
+                              selfieBytes: widget.selfieBytes,
                               companyId: comp['id'],
                               companyName: comp['name'],
                             ),

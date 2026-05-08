@@ -99,5 +99,33 @@ class SyncRepository {
         category: Value(p['category']),
       )), mode: InsertMode.insertOrReplace);
     });
+
+    // 3. Pull Sales Stock (Bronjong)
+    await pullSalesStock();
+  }
+
+  Future<void> pullSalesStock() async {
+    try {
+      // 1. Get Profile to find employee ID
+      final profileRes = await api.client.get('employees/profile');
+      final employeeId = profileRes.data['data']['id'];
+
+      // 2. Pull Sales Stock (Bronjong)
+      final stockRes = await api.client.get('sales-transfers/stock/$employeeId');
+      final stocks = stockRes.data['data'] as List;
+
+      await db.batch((batch) {
+        // Clear old stock first? Or just update? 
+        // For bronjong, it's better to replace to match backend
+        batch.insertAll(db.salesStock, stocks.map((s) => SalesStockCompanion.insert(
+          productId: s['product_id'],
+          quantity: s['quantity'],
+          updatedAt: DateTime.now(),
+        )), mode: InsertMode.insertOrReplace);
+      });
+    } catch (e) {
+      // Silently fail or log
+      print('DEBUG: pullSalesStock error: $e');
+    }
   }
 }

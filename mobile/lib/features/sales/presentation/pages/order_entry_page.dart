@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/core/network/api_client.dart';
@@ -12,6 +13,7 @@ import './visit_checkout_page.dart';
 class OrderEntryPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
+  final Uint8List? selfieBytes;
   final String companyId;
   final String companyName;
 
@@ -19,6 +21,7 @@ class OrderEntryPage extends StatefulWidget {
     super.key,
     required this.store,
     required this.selfiePath,
+    this.selfieBytes,
     required this.companyId,
     required this.companyName,
   });
@@ -57,9 +60,14 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   Future<void> _fetchProducts() async {
     setState(() => _isLoading = true);
     try {
+      // 1. Fetch products for this company
       final products = await (db.select(db.products)
           ..where((t) => t.companyId.equals(widget.companyId))).get();
       
+      // 2. Fetch sales stock (bronjong)
+      final stocks = await db.select(db.salesStock).get();
+      final Map<String, int> stockMap = {for (var s in stocks) s.productId: s.quantity};
+
       if (mounted) {
         final cats = products.map((p) => p.category ?? 'Uncategorized').toSet().toList();
         cats.sort();
@@ -72,6 +80,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
             'sku': p.sku,
             'unit': p.unit,
             'category': p.category ?? 'Uncategorized',
+            'stock': stockMap[p.id] ?? 0, // Add stock info
           }).toList();
           _categories = ['Semua', ...cats];
           _applyFilters();
@@ -357,7 +366,27 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
                     Text(p['name'] ?? 'Unknown Product', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF1E293B))),
                     Text('SKU: ${p['sku'] ?? '-'} • ${p['category']}', style: GoogleFonts.outfit(fontSize: 11, color: Colors.blueGrey)),
                     const SizedBox(height: 4),
-                    Text(_currency.format(p['selling_price'] ?? 0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 14)),
+                    Row(
+                      children: [
+                        Text(_currency.format(p['selling_price'] ?? 0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 14)),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (p['stock'] as int) > 0 ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            (p['stock'] as int) > 0 ? 'Tersedia di Bronjong (${p['stock']})' : 'Taking Order (Katalog)', 
+                            style: GoogleFonts.outfit(
+                              fontSize: 10, 
+                              fontWeight: FontWeight.w800, 
+                              color: (p['stock'] as int) > 0 ? Colors.green : Colors.orange.shade800
+                            )
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -373,7 +402,21 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
                     Text('$qty', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B))),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _cart[id] = qty + 1),
+                      onPressed: () {
+                        final currentQty = _cart[id] ?? 0;
+                        setState(() => _cart[id] = currentQty + 1);
+                        
+                        if (currentQty >= (p['stock'] as int)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('⚠️ Pesanan melebihi stok bronjong. Sisanya akan menjadi Taking Order (Inden).'),
+                              backgroundColor: Colors.orange.shade800,
+                              duration: const Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                            )
+                          );
+                        }
+                      },
                       icon: const Icon(Icons.add_circle_rounded, color: Colors.green, size: 20),
                     ),
                   ],
@@ -453,6 +496,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
         builder: (_) => VisitCheckoutPage(
           store: widget.store,
           selfiePath: widget.selfiePath,
+          selfieBytes: widget.selfieBytes,
           companyId: widget.companyId,
           companyName: widget.companyName,
           items: items,

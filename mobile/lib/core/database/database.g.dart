@@ -2085,6 +2085,240 @@ class LocalTransactionItemsCompanion
   }
 }
 
+class $SalesStockTable extends SalesStock
+    with TableInfo<$SalesStockTable, SalesStockData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SalesStockTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _productIdMeta =
+      const VerificationMeta('productId');
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+      'product_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _quantityMeta =
+      const VerificationMeta('quantity');
+  @override
+  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+      'quantity', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [productId, quantity, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sales_stock';
+  @override
+  VerificationContext validateIntegrity(Insertable<SalesStockData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('product_id')) {
+      context.handle(_productIdMeta,
+          productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta));
+    } else if (isInserting) {
+      context.missing(_productIdMeta);
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(_quantityMeta,
+          quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta));
+    } else if (isInserting) {
+      context.missing(_quantityMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {productId};
+  @override
+  SalesStockData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SalesStockData(
+      productId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}product_id'])!,
+      quantity: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}quantity'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $SalesStockTable createAlias(String alias) {
+    return $SalesStockTable(attachedDatabase, alias);
+  }
+}
+
+class SalesStockData extends DataClass implements Insertable<SalesStockData> {
+  final String productId;
+  final int quantity;
+  final DateTime updatedAt;
+  const SalesStockData(
+      {required this.productId,
+      required this.quantity,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['product_id'] = Variable<String>(productId);
+    map['quantity'] = Variable<int>(quantity);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SalesStockCompanion toCompanion(bool nullToAbsent) {
+    return SalesStockCompanion(
+      productId: Value(productId),
+      quantity: Value(quantity),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SalesStockData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SalesStockData(
+      productId: serializer.fromJson<String>(json['productId']),
+      quantity: serializer.fromJson<int>(json['quantity']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'productId': serializer.toJson<String>(productId),
+      'quantity': serializer.toJson<int>(quantity),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  SalesStockData copyWith(
+          {String? productId, int? quantity, DateTime? updatedAt}) =>
+      SalesStockData(
+        productId: productId ?? this.productId,
+        quantity: quantity ?? this.quantity,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  SalesStockData copyWithCompanion(SalesStockCompanion data) {
+    return SalesStockData(
+      productId: data.productId.present ? data.productId.value : this.productId,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SalesStockData(')
+          ..write('productId: $productId, ')
+          ..write('quantity: $quantity, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(productId, quantity, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SalesStockData &&
+          other.productId == this.productId &&
+          other.quantity == this.quantity &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SalesStockCompanion extends UpdateCompanion<SalesStockData> {
+  final Value<String> productId;
+  final Value<int> quantity;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const SalesStockCompanion({
+    this.productId = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SalesStockCompanion.insert({
+    required String productId,
+    required int quantity,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : productId = Value(productId),
+        quantity = Value(quantity),
+        updatedAt = Value(updatedAt);
+  static Insertable<SalesStockData> custom({
+    Expression<String>? productId,
+    Expression<int>? quantity,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (productId != null) 'product_id': productId,
+      if (quantity != null) 'quantity': quantity,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SalesStockCompanion copyWith(
+      {Value<String>? productId,
+      Value<int>? quantity,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return SalesStockCompanion(
+      productId: productId ?? this.productId,
+      quantity: quantity ?? this.quantity,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<int>(quantity.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SalesStockCompanion(')
+          ..write('productId: $productId, ')
+          ..write('quantity: $quantity, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2095,6 +2329,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalTransactionsTable(this);
   late final $LocalTransactionItemsTable localTransactionItems =
       $LocalTransactionItemsTable(this);
+  late final $SalesStockTable salesStock = $SalesStockTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2104,7 +2339,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         companies,
         localCheckins,
         localTransactions,
-        localTransactionItems
+        localTransactionItems,
+        salesStock
       ];
 }
 
@@ -3350,6 +3586,147 @@ typedef $$LocalTransactionItemsTableProcessedTableManager
         (LocalTransactionItem, $$LocalTransactionItemsTableReferences),
         LocalTransactionItem,
         PrefetchHooks Function({bool transactionLocalId})>;
+typedef $$SalesStockTableCreateCompanionBuilder = SalesStockCompanion Function({
+  required String productId,
+  required int quantity,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$SalesStockTableUpdateCompanionBuilder = SalesStockCompanion Function({
+  Value<String> productId,
+  Value<int> quantity,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$SalesStockTableFilterComposer
+    extends Composer<_$AppDatabase, $SalesStockTable> {
+  $$SalesStockTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get productId => $composableBuilder(
+      column: $table.productId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get quantity => $composableBuilder(
+      column: $table.quantity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$SalesStockTableOrderingComposer
+    extends Composer<_$AppDatabase, $SalesStockTable> {
+  $$SalesStockTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get productId => $composableBuilder(
+      column: $table.productId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get quantity => $composableBuilder(
+      column: $table.quantity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$SalesStockTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SalesStockTable> {
+  $$SalesStockTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<int> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SalesStockTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $SalesStockTable,
+    SalesStockData,
+    $$SalesStockTableFilterComposer,
+    $$SalesStockTableOrderingComposer,
+    $$SalesStockTableAnnotationComposer,
+    $$SalesStockTableCreateCompanionBuilder,
+    $$SalesStockTableUpdateCompanionBuilder,
+    (
+      SalesStockData,
+      BaseReferences<_$AppDatabase, $SalesStockTable, SalesStockData>
+    ),
+    SalesStockData,
+    PrefetchHooks Function()> {
+  $$SalesStockTableTableManager(_$AppDatabase db, $SalesStockTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SalesStockTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SalesStockTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SalesStockTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> productId = const Value.absent(),
+            Value<int> quantity = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SalesStockCompanion(
+            productId: productId,
+            quantity: quantity,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String productId,
+            required int quantity,
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              SalesStockCompanion.insert(
+            productId: productId,
+            quantity: quantity,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$SalesStockTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $SalesStockTable,
+    SalesStockData,
+    $$SalesStockTableFilterComposer,
+    $$SalesStockTableOrderingComposer,
+    $$SalesStockTableAnnotationComposer,
+    $$SalesStockTableCreateCompanionBuilder,
+    $$SalesStockTableUpdateCompanionBuilder,
+    (
+      SalesStockData,
+      BaseReferences<_$AppDatabase, $SalesStockTable, SalesStockData>
+    ),
+    SalesStockData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3364,4 +3741,6 @@ class $AppDatabaseManager {
       $$LocalTransactionsTableTableManager(_db, _db.localTransactions);
   $$LocalTransactionItemsTableTableManager get localTransactionItems =>
       $$LocalTransactionItemsTableTableManager(_db, _db.localTransactionItems);
+  $$SalesStockTableTableManager get salesStock =>
+      $$SalesStockTableTableManager(_db, _db.salesStock);
 }

@@ -145,14 +145,23 @@ func (h *SalesTransferHandler) CreateRequest(c *gin.Context) {
 }
 
 func (h *SalesTransferHandler) GetPendingRequests(c *gin.Context) {
-	branchIDStr, ok := c.Get("branch_id")
-	if !ok {
-		utils.ErrorResponse(c, http.StatusBadRequest, "branch id not found in context")
+	branchIDStr, okBranch := c.Get("branch_id")
+	companyIDStr, okCompany := c.Get("company_id")
+	
+	var transfers []domain.SalesTransfer
+	var err error
+
+	if okBranch {
+		branchID := uuid.MustParse(branchIDStr.(string))
+		transfers, err = h.usecase.GetTransfersByBranch(branchID)
+	} else if okCompany {
+		companyID := uuid.MustParse(companyIDStr.(string))
+		transfers, err = h.usecase.GetTransfersByCompany(companyID)
+	} else {
+		utils.ErrorResponse(c, http.StatusBadRequest, "No branch or company context found")
 		return
 	}
-	branchID := uuid.MustParse(branchIDStr.(string))
 
-	transfers, err := h.usecase.GetTransfersByBranch(branchID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return

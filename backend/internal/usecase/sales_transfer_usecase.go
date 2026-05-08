@@ -15,6 +15,7 @@ type SalesTransferUsecase interface {
 	CompleteTransfer(transferID uuid.UUID) error
 	CancelTransfer(transferID uuid.UUID) error
 	GetTransfersByBranch(branchID uuid.UUID) ([]domain.SalesTransfer, error)
+	GetTransfersByCompany(companyID uuid.UUID) ([]domain.SalesTransfer, error)
 	GetSalesStock(employeeID uuid.UUID) ([]domain.SalesStock, error)
 	DeleteTransfer(id uuid.UUID) error
 }
@@ -174,6 +175,10 @@ func (u *salesTransferUsecase) CancelTransfer(transferID uuid.UUID) error {
 
 func (u *salesTransferUsecase) GetTransfersByBranch(branchID uuid.UUID) ([]domain.SalesTransfer, error) {
 	return u.repo.GetTransfersByBranch(branchID)
+}
+
+func (u *salesTransferUsecase) GetTransfersByCompany(companyID uuid.UUID) ([]domain.SalesTransfer, error) {
+	return u.repo.GetTransfersByCompany(companyID)
 }
 
 func (u *salesTransferUsecase) GetSalesStock(employeeID uuid.UUID) ([]domain.SalesStock, error) {

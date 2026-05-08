@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
-import '../widgets/senior_button.dart';
 import './select_store_page.dart';
 import './sales_history_page.dart';
-import './visit_finalization_page.dart';
 import './store_list_page.dart';
 import './order_banner_page.dart';
 import './route_planning_page.dart';
@@ -16,8 +14,10 @@ import './sales_stock_request_page.dart';
 import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
-import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
+import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:hris_app/features/profile/presentation/bloc/profile_state.dart';
 
 class SalesDashboardPage extends StatefulWidget {
   const SalesDashboardPage({super.key});
@@ -32,6 +32,9 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   
   Map<String, dynamic>? _kpiData;
   List<dynamic> _pendingTransactions = [];
+  List<dynamic> _todayVisitPlans = [];
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -44,9 +47,11 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     try {
       final kpi = await _apiService.getMyPerformance();
       final pending = await _apiService.getPendingTransactions();
+      final visits = await _apiService.getVisitPlans(date: DateFormat('yyyy-MM-dd').format(DateTime.now()));
       setState(() {
         _kpiData = kpi;
-        _pendingTransactions = pending;
+        _pendingTransactions = pending ?? [];
+        _todayVisitPlans = visits ?? [];
       });
     } catch (e) {
       debugPrint('Error fetching sales data: $e');
@@ -56,15 +61,181 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildSwipeableHeader() {
+    return Column(
+      children: [
+        SizedBox(
+          height: 220,
+          child: PageView(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            pageSnapping: true,
+            onPageChanged: (v) => setState(() => _currentPage = v),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: _buildTargetCard(),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: _buildVisitSummaryCard(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(2, (index) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: _currentPage == index ? 24 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: _currentPage == index ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          )),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVisitSummaryCard() {
+    final List<dynamic> visits = _todayVisitPlans;
+    final int totalVisits = visits.length;
+    final int completedVisits = visits.fold<int>(0, (prev, element) {
+      if (element is Map && element['status'] == 'COMPLETED') return prev + 1;
+      return prev;
+    });
+    final double progress = totalVisits > 0 ? completedVisits / totalVisits : 0.0;
+
+    return InkWell(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage())),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF065F46).withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10)),
+          ],
+          border: Border.all(color: const Color(0xFF059669).withOpacity(0.1), width: 1.5),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -10,
+              top: -10,
+              child: Icon(Icons.route_rounded, size: 100, color: const Color(0xFF10B981).withOpacity(0.04)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                            child: const Icon(Icons.calendar_today_rounded, color: Color(0xFF059669), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'RENCANA KUNJUNGAN',
+                            style: GoogleFonts.outfit(color: const Color(0xFF065F46), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${DateFormat('dd MMM').format(DateTime.now())}',
+                        style: GoogleFonts.outfit(color: const Color(0xFF059669), fontWeight: FontWeight.w700, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$completedVisits / $totalVisits', style: GoogleFonts.outfit(color: const Color(0xFF0F172A), fontWeight: FontWeight.w900, fontSize: 24)),
+                            Text('Toko dikunjungi hari ini', style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 50, height: 50,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              value: progress,
+                              backgroundColor: const Color(0xFFECFDF5),
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                              strokeWidth: 6,
+                            ),
+                            Text('${(progress * 100).toInt()}%', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: const Color(0xFF059669))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(12)),
+                    child: Center(
+                      child: Text('LIHAT JADWAL LENGKAP', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9), // Classy Light Gray
+      backgroundColor: const Color(0xFFF8FAF9), // Clean Light Mint
       appBar: AppBar(
-        title: Text(
-          'SALES DASHBOARD',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), fontSize: 16),
+        title: BlocBuilder<ProfileBloc, ProfileState>(
+          builder: (context, state) {
+            String companyName = 'WOWIN PT';
+            if (state is ProfileLoaded) {
+              companyName = state.profile['company']?['name'] ?? 'WOWIN PT';
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'SALES PERFORMANCE',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14, letterSpacing: 1),
+                ),
+                Text(
+                  companyName.toUpperCase(),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: const Color(0xFF10B981), fontSize: 8, letterSpacing: 1),
+                ),
+              ],
+            );
+          },
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF064E3B), // Elegant Dark Green
         centerTitle: true,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -75,13 +246,13 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             child: TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFF1F5F9),
+                backgroundColor: Colors.white.withOpacity(0.1),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
               child: Text(
                 'KE HRIS',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: AppColors.primaryRed),
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white),
               ),
             ),
           ),
@@ -94,15 +265,15 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                   context.read<SyncBloc>().add(SyncMasterDataRequested());
                 },
                 icon: state is SyncInProgress 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent))
-                    : const Icon(Icons.sync_rounded, color: Colors.blueAccent),
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.sync_rounded, color: Colors.white),
                 tooltip: 'Sinkronisasi Data Master',
               );
             },
           ),
           IconButton(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DeliveryTrackingPage())),
-            icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1E293B)),
+            icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
           ),
           const SizedBox(width: 8),
         ],
@@ -120,20 +291,17 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             : RefreshIndicator(
                 onRefresh: _fetchData,
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
+                  physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 10),
-                      _buildTargetCard(),
-                      const SizedBox(height: 20),
-                      _buildVisitProgressCard(),
-                      const SizedBox(height: 20),
+                      _buildSwipeableHeader(),
+                      const SizedBox(height: 24),
                       _buildQuickAccess(),
-                      const SizedBox(height: 24),
-                      _buildFinalizationReport(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 40), // extra bottom padding for comfort
                     ],
                   ),
                 ),
@@ -158,11 +326,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.blueAccent.withOpacity(0.08),
+            color: const Color(0xFF065F46).withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
+        border: Border.all(color: const Color(0xFF059669).withOpacity(0.1), width: 1.5),
       ),
       child: Stack(
         children: [
@@ -180,13 +349,13 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.auto_graph_rounded, color: Colors.blueAccent, size: 20),
+                      decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.auto_graph_rounded, color: Color(0xFF059669), size: 20),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'PERFORMA OMZET',
-                      style: GoogleFonts.outfit(color: Colors.blueGrey, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5),
+                      style: GoogleFonts.outfit(color: const Color(0xFF065F46), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5),
                     ),
                   ],
                 ),
@@ -206,11 +375,11 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(child: _buildStatItem('Realisasi', formatter.format(achievedOmzet), Colors.green)),
+                    Expanded(child: _buildStatItem('Realisasi', formatter.format(achievedOmzet), const Color(0xFF059669))),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildStatItem('Sisa', formatter.format(sisa < 0 ? 0 : sisa), AppColors.primaryRed)),
+                    Expanded(child: _buildStatItem('Sisa', formatter.format(sisa < 0 ? 0 : sisa), const Color(0xFFB91C1C))),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildStatItem('Pencapaian', '${achievementPercentage.toStringAsFixed(1)}%', Colors.blueAccent)),
+                    Expanded(child: _buildStatItem('Pencapaian', '${achievementPercentage.toStringAsFixed(1)}%', const Color(0xFF047857))),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -219,62 +388,14 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                   child: LinearProgressIndicator(
                     value: targetOmzet > 0 ? (achievedOmzet / targetOmzet).clamp(0.0, 1.0) : 0,
                     minHeight: 8,
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                    backgroundColor: const Color(0xFFECFDF5),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
                   ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-  Widget _buildVisitProgressCard() {
-    // We calculate this based on _pendingTransactions vs a hypothetical total
-    // But since we have the new VisitPlan API, ideally we'd fetch it here too.
-    // For now, let's show a beautiful summary card that links to VisitSchedulePage.
-    
-    return InkWell(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage())),
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-              child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('JADWAL KUNJUNGAN', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1)),
-                  const SizedBox(height: 2),
-                  Text('Lihat Rencana Hari Ini', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-                  const SizedBox(height: 4),
-                  Text('Tetap on-track dengan rute PJP Anda.', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.7), fontSize: 12)),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
-          ],
-        ),
       ),
     );
   }
@@ -310,13 +431,13 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
           crossAxisSpacing: 8,
           childAspectRatio: 0.8,
           children: [
-            _buildActionItem(Icons.storefront_rounded, 'Kunjungan', const Color(0xFF3B82F6)),
+            _buildActionItem(Icons.storefront_rounded, 'Kunjungan', const Color(0xFF059669)),
             _buildActionItem(Icons.shopping_cart_checkout_rounded, 'Buat Order', const Color(0xFF10B981)),
-            _buildActionItem(Icons.view_list_rounded, 'Daftar Toko', const Color(0xFF6366F1)),
-            _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFFEC4899)),
-            _buildActionItem(Icons.art_track_rounded, 'Order Spanduk', const Color(0xFF8B5CF6)),
-            _buildActionItem(Icons.history_edu_rounded, 'Riwayat', const Color(0xFFF59E0B)),
-            _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', Colors.teal),
+            _buildActionItem(Icons.view_list_rounded, 'Daftar Toko', const Color(0xFF047857)),
+            _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFF0D9488)),
+            _buildActionItem(Icons.art_track_rounded, 'Order Spanduk', const Color(0xFF0891B2)),
+            _buildActionItem(Icons.history_edu_rounded, 'Riwayat', const Color(0xFFCA8A04)),
+            _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', const Color(0xFF15803D)),
           ],
         ),
       ],
@@ -382,138 +503,6 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     );
   }
 
-  Widget _buildFinalizationReport() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'FINALISASI LAPORAN',
-              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5),
-            ),
-            Text(
-              'Hari Ini',
-              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blueAccent),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10)),
-            ],
-          ),
-          child: Column(
-            children: [
-              if (_pendingTransactions.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text('Belum ada data kunjungan yang harus difinalisasi.', style: GoogleFonts.outfit(color: Colors.blueGrey, fontStyle: FontStyle.italic)),
-                )
-              else
-                ..._pendingTransactions.map((txn) {
-                  final storeName = txn['store']?['name'] ?? 'Toko Tidak Diketahui';
-                  final amount = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0).format(txn['total_amount'] ?? 0);
-                  final time = DateFormat('HH:mm').format(DateTime.parse(txn['created_at']));
-                  final isVerified = txn['status'] == 'VERIFIED';
-                  
-                  return Column(
-                    children: [
-                      _buildFinalizationItem(storeName, amount, time, isVerified, notes: txn['notes'],
-                        onTap: () async {
-                          final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => VisitFinalizationPage(
-                            storeName: storeName, 
-                            transactionId: txn['id'],
-                            receiptPath: txn['receipt_image_url'],
-                            notes: txn['notes'],
-                          )));
-                          if (result == true) {
-                            _fetchData(); // reload on success
-                          }
-                        }
-                      ),
-                      const Divider(height: 1, indent: 24, endIndent: 24),
-                    ],
-                  );
-                }),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SeniorButton(
-                  text: 'SUBMIT SEMUA DATA',
-                  icon: Icons.send_rounded,
-                  color: AppColors.primaryRed,
-                  onPressed: () {},
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFinalizationItem(String store, String amount, String time, bool isVerified, {String? notes, VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.check_circle_rounded, color: isVerified ? Colors.blueAccent : Colors.green, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(store, 
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF1E293B))),
-                  const SizedBox(height: 2),
-                  Text('Order Digital pukul $time', style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.w500)),
-                  if (notes != null && notes.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text('Alasan: $notes', 
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(color: Colors.orange.shade700, fontSize: 11, fontWeight: FontWeight.w700, fontStyle: FontStyle.italic)),
-                  ],
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(amount, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B))),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: (isVerified ? Colors.green : Colors.orange).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isVerified ? 'AUTO-FILL OK' : 'READY TO SYNC',
-                    style: GoogleFonts.outfit(color: isVerified ? Colors.green : Colors.blueAccent, fontSize: 8, fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildSalesDrawer() {
     return Drawer(
@@ -526,30 +515,44 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             padding: const EdgeInsets.fromLTRB(24, 80, 24, 40),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                colors: [Color(0xFF064E3B), Color(0xFF065F46)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.person_pin_rounded, color: Colors.white, size: 32),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'SALES OPERATION',
-                  style: GoogleFonts.outfit(color: Colors.blueAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'PT Wowin Purnomo',
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
-                ),
-              ],
+            child: BlocBuilder<ProfileBloc, ProfileState>(
+              builder: (context, state) {
+                String name = 'Sales Team';
+                String company = 'WOWIN PT';
+                if (state is ProfileLoaded) {
+                  name = state.profile['name'] ?? 'Sales Team';
+                  company = state.profile['company']?['name'] ?? 'WOWIN PT';
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.person_pin_rounded, color: Colors.white, size: 32),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'SALES OPERATION',
+                      style: GoogleFonts.outfit(color: const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      name,
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20),
+                    ),
+                    Text(
+                      company,
+                      style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           Expanded(

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
   bool _isInitialized = false;
   bool _isTaking = false;
   String? _capturedPath;
+  Uint8List? _capturedBytes;
   String _address = 'Mengambil lokasi...';
   String _timestamp = '';
   double _lat = 0.0, _lng = 0.0;
@@ -82,10 +84,24 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
 
     try {
       final xfile = await _controller!.takePicture();
+      final bytes = await xfile.readAsBytes();
 
       // Burn watermark onto the captured image using canvas
-      final burned = await _burnWatermark(xfile.path);
-      setState(() => _capturedPath = burned);
+      final resultBytes = await _burnWatermark(bytes);
+      
+      setState(() {
+        _capturedBytes = resultBytes;
+        // For mobile we still save to path for database reference
+        // For web we keep it in memory
+        _capturedPath = 'memory_image'; 
+      });
+
+      if (!kIsWeb) {
+        final dir = await getTemporaryDirectory();
+        final outPath = '${dir.path}/checkin_${DateTime.now().millisecondsSinceEpoch}.png';
+        await File(outPath).writeAsBytes(resultBytes);
+        setState(() => _capturedPath = outPath);
+      }
     } catch (e) {
       debugPrint('Camera error: $e');
     } finally {
@@ -93,9 +109,7 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
     }
   }
 
-  Future<String> _burnWatermark(String imagePath) async {
-    final imageFile = File(imagePath);
-    final bytes = await imageFile.readAsBytes();
+  Future<Uint8List> _burnWatermark(Uint8List bytes) async {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final srcImg = frame.image;
@@ -137,12 +151,7 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
     final picture = recorder.endRecording();
     final resultImg = await picture.toImage(srcImg.width, srcImg.height);
     final byteData = await resultImg.toByteData(format: ui.ImageByteFormat.png);
-    final resultBytes = byteData!.buffer.asUint8List();
-
-    final dir = await getTemporaryDirectory();
-    final outPath = '${dir.path}/checkin_${DateTime.now().millisecondsSinceEpoch}.png';
-    await File(outPath).writeAsBytes(resultBytes);
-    return outPath;
+    return byteData!.buffer.asUint8List();
   }
 
   @override
@@ -155,7 +164,7 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _capturedPath != null ? _buildPreview() : _buildCamera(),
+      body: _capturedBytes != null ? _buildPreview() : _buildCamera(),
     );
   }
 
@@ -228,7 +237,9 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
   Widget _buildPreview() {
     return Stack(
       children: [
-        SizedBox.expand(child: Image.file(File(_capturedPath!), fit: BoxFit.cover)),
+        SizedBox.expand(
+          child: Image.memory(_capturedBytes!, fit: BoxFit.cover),
+        ),
 
         // Top bar
         Positioned(
@@ -252,7 +263,10 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => setState(() => _capturedPath = null),
+                  onPressed: () => setState(() {
+                    _capturedPath = null;
+                    _capturedBytes = null;
+                  }),
                   icon: const Icon(Icons.replay_rounded, color: Colors.white),
                   label: Text('FOTO ULANG', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800)),
                   style: OutlinedButton.styleFrom(
@@ -281,7 +295,11 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
                     di.sl<SyncBloc>().add(SyncDataRequested());
 
                     if (mounted) {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => VisitTransactionPage(store: widget.store, selfiePath: _capturedPath!)));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => VisitTransactionPage(
+                        store: widget.store, 
+                        selfiePath: _capturedPath!,
+                        selfieBytes: _capturedBytes,
+                      )));
                     }
                   },
                   icon: const Icon(Icons.check_circle_rounded, color: Colors.white),

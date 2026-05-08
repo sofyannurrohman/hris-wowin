@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/features/sales/data/models/store_model.dart';
@@ -15,21 +17,25 @@ import './digital_receipt_page.dart';
 class VisitCheckoutPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
+  final Uint8List? selfieBytes;
   final String? receiptPath;
   final String? companyId;
   final String? companyName;
   final List<Map<String, dynamic>>? items;
   final double? totalAmount;
+  final String? notes;
 
   const VisitCheckoutPage({
     super.key, 
     required this.store, 
     required this.selfiePath, 
+    this.selfieBytes,
     this.receiptPath,
     this.companyId,
     this.companyName,
     this.items,
     this.totalAmount,
+    this.notes,
   });
 
   @override
@@ -86,6 +92,7 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
         receiptPath: Value(widget.receiptPath),
         paymentMethod: Value(_selectedPaymentMethod),
         paymentBank: Value(_selectedBank),
+        notes: Value(widget.notes),
         createdAt: now,
         syncStatus: const Value('pending'),
       ));
@@ -183,105 +190,111 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
                   const SizedBox(height: 10),
                   _row(Icons.business_rounded, 'Entitas', widget.companyName ?? 'Wowin Indonesia'),
                   const SizedBox(height: 10),
-                  _row(Icons.shopping_basket_rounded, 'Item Pesanan', widget.items != null ? '${widget.items!.length} Produk' : 'Kosong'),
+                  _row(Icons.shopping_basket_rounded, 'Item Pesanan', widget.items != null ? '${widget.items!.length} Produk' : 'TIDAK ADA TRANSAKSI'),
+                  if (widget.notes != null && widget.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _row(Icons.speaker_notes_rounded, 'Alasan / Catatan', widget.notes!, valueColor: Colors.orange.shade800),
+                  ],
                 ]),
               ),
 
               const SizedBox(height: 24),
 
-              // Payment Method selection
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))]),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('METODE PEMBAYARAN', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
-                  const SizedBox(height: 16),
-                  ..._paymentOptions.entries.map((e) {
-                    final isSelected = _selectedPaymentMethod == e.key;
-                    return GestureDetector(
-                      onTap: () => setState(() {
-                        _selectedPaymentMethod = e.key;
-                        if (e.key != 'VA') _selectedBank = null;
-                      }),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isSelected ? e.value['color'].withOpacity(0.05) : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: isSelected ? e.value['color'] : Colors.transparent, width: 2),
-                        ),
-                        child: Row(children: [
-                          Icon(e.value['icon'], color: isSelected ? e.value['color'] : Colors.blueGrey, size: 24),
-                          const SizedBox(width: 16),
-                          Expanded(child: Text(e.value['label'], style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF1E293B)))),
-                          if (isSelected) Icon(Icons.check_circle_rounded, color: e.value['color'], size: 20),
-                        ]),
-                      ),
-                    );
-                  }).toList(),
-                  
-                  if (_selectedPaymentMethod == 'VA') ...[
+              const SizedBox(height: 24),
+              // Payment Method selection (Only if there are items)
+              if (widget.items != null && widget.items!.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))]),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('METODE PEMBAYARAN', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
                     const SizedBox(height: 16),
-                    Text('PILIH BANK', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
-                    const SizedBox(height: 12),
-                    ..._bankOptions.map((bank) {
-                      final isBankSelected = _selectedBank == bank['id'];
-                      return InkWell(
-                        onTap: () => setState(() => _selectedBank = bank['id']),
+                    ..._paymentOptions.entries.map((e) {
+                      final isSelected = _selectedPaymentMethod == e.key;
+                      return GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedPaymentMethod = e.key;
+                          if (e.key != 'VA') _selectedBank = null;
+                        }),
                         child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isBankSelected ? Colors.indigo.withOpacity(0.05) : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isBankSelected ? Colors.indigo : Colors.grey.shade200),
+                            color: isSelected ? e.value['color'].withOpacity(0.05) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: isSelected ? e.value['color'] : Colors.transparent, width: 2),
                           ),
                           child: Row(children: [
-                            Text(bank['name']!, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: isBankSelected ? Colors.indigo : const Color(0xFF1E293B))),
-                            const Spacer(),
-                            if (isBankSelected) const Icon(Icons.check_circle_rounded, color: Colors.indigo, size: 18),
+                            Icon(e.value['icon'], color: isSelected ? e.value['color'] : Colors.blueGrey, size: 24),
+                            const SizedBox(width: 16),
+                            Expanded(child: Text(e.value['label'], style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF1E293B)))),
+                            if (isSelected) Icon(Icons.check_circle_rounded, color: e.value['color'], size: 20),
                           ]),
                         ),
                       );
                     }).toList(),
-                  ],
-
-                  if (_selectedPaymentMethod == 'TEMPO') ...[
-                    const SizedBox(height: 16),
-                    Text('JATUH TEMPO', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now().add(const Duration(days: 7)),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 90)),
-                        );
-                        if (picked != null) setState(() => _paymentDueDate = picked);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-                        child: Row(children: [
-                          const Icon(Icons.calendar_month_rounded, color: Colors.blueAccent, size: 20),
-                          const SizedBox(width: 12),
-                          Text(
-                            _paymentDueDate == null ? 'Pilih Tanggal Jatuh Tempo...' : DateFormat('dd MMMM yyyy').format(_paymentDueDate!),
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: _paymentDueDate == null ? Colors.grey : const Color(0xFF1E293B)),
+                    
+                    if (_selectedPaymentMethod == 'VA') ...[
+                      const SizedBox(height: 16),
+                      Text('PILIH BANK', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
+                      const SizedBox(height: 12),
+                      ..._bankOptions.map((bank) {
+                        final isBankSelected = _selectedBank == bank['id'];
+                        return InkWell(
+                          onTap: () => setState(() => _selectedBank = bank['id']),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isBankSelected ? Colors.indigo.withOpacity(0.05) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isBankSelected ? Colors.indigo : Colors.grey.shade200),
+                            ),
+                            child: Row(children: [
+                              Text(bank['name']!, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: isBankSelected ? Colors.indigo : const Color(0xFF1E293B))),
+                              const Spacer(),
+                              if (isBankSelected) const Icon(Icons.check_circle_rounded, color: Colors.indigo, size: 18),
+                            ]),
                           ),
-                        ]),
+                        );
+                      }).toList(),
+                    ],
+
+                    if (_selectedPaymentMethod == 'TEMPO') ...[
+                      const SizedBox(height: 16),
+                      Text('JATUH TEMPO', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now().add(const Duration(days: 7)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 90)),
+                          );
+                          if (picked != null) setState(() => _paymentDueDate = picked);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+                          child: Row(children: [
+                            const Icon(Icons.calendar_month_rounded, color: Colors.blueAccent, size: 20),
+                            const SizedBox(width: 12),
+                            Text(
+                              _paymentDueDate == null ? 'Pilih Tanggal Jatuh Tempo...' : DateFormat('dd MMMM yyyy').format(_paymentDueDate!),
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: _paymentDueDate == null ? Colors.grey : const Color(0xFF1E293B)),
+                            ),
+                          ]),
+                        ),
                       ),
-                    ),
-                  ],
-                ]),
-              ),
+                    ],
+                  ]),
+                ),
 
               const SizedBox(height: 24),
               // Photos
-              if (widget.selfiePath.isNotEmpty)
-                _thumb('Selfie Check-In', widget.selfiePath),
+              if (widget.selfieBytes != null || widget.selfiePath.isNotEmpty)
+                _thumb('Selfie Check-In', widget.selfiePath, widget.selfieBytes),
               const SizedBox(height: 40),
               // Checkout button
               SizedBox(
@@ -289,12 +302,27 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
                 height: 72,
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitAndCheckout,
-                  style: ElevatedButton.styleFrom(backgroundColor: _paymentOptions[_selectedPaymentMethod]!['color'], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), elevation: 12, shadowColor: _paymentOptions[_selectedPaymentMethod]!['color'].withOpacity(0.4)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.items != null ? _paymentOptions[_selectedPaymentMethod]!['color'] : Colors.green, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), 
+                    elevation: 12, 
+                    shadowColor: (widget.items != null ? _paymentOptions[_selectedPaymentMethod]!['color'] : Colors.green).withOpacity(0.4)
+                  ),
                   child: _isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text(_selectedPaymentMethod == 'QRIS' ? 'BAYAR VIA QRIS' : _selectedPaymentMethod == 'VA' ? 'GENERATE VA' : 'SELESAI & CHECKOUT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
-                          Text('Metode: ${_paymentOptions[_selectedPaymentMethod]!['label']}', style: GoogleFonts.outfit(fontSize: 11, color: Colors.white70)),
+                          Text(
+                            widget.items == null 
+                                ? 'SELESAI KUNJUNGAN' 
+                                : _selectedPaymentMethod == 'QRIS' 
+                                    ? 'BAYAR VIA QRIS' 
+                                    : _selectedPaymentMethod == 'VA' 
+                                        ? 'GENERATE VA' 
+                                        : 'SELESAI & CHECKOUT', 
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)
+                          ),
+                          if (widget.items != null)
+                            Text('Metode: ${_paymentOptions[_selectedPaymentMethod]!['label']}', style: GoogleFonts.outfit(fontSize: 11, color: Colors.white70)),
                         ]),
                 ),
               ),
@@ -317,9 +345,14 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
     ]);
   }
 
-  Widget _thumb(String label, String path) {
+  Widget _thumb(String label, String path, Uint8List? bytes) {
     return Column(children: [
-      ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.file(File(path), height: 160, width: double.infinity, fit: BoxFit.cover)),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(20), 
+        child: bytes != null 
+            ? Image.memory(bytes, height: 160, width: double.infinity, fit: BoxFit.cover)
+            : Image.file(File(path), height: 160, width: double.infinity, fit: BoxFit.cover)
+      ),
       const SizedBox(height: 8),
       Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
     ]);

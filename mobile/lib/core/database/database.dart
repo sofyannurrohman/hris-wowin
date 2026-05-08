@@ -68,8 +68,16 @@ class LocalTransactionItems extends Table {
   RealColumn get price => real()();
 }
 
+class SalesStock extends Table {
+  TextColumn get productId => text()();
+  IntColumn get quantity => integer()();
+  DateTimeColumn get updatedAt => dateTime()();
 
-@DriftDatabase(tables: [Products, Companies, LocalCheckins, LocalTransactions, LocalTransactionItems])
+  @override
+  Set<Column> get primaryKey => {productId};
+}
+
+@DriftDatabase(tables: [Products, Companies, LocalCheckins, LocalTransactions, LocalTransactionItems, SalesStock])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(constructDb());
 

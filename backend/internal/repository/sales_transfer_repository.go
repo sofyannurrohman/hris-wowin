@@ -17,6 +17,7 @@ type SalesTransferRepository interface {
 	UpdateTransfer(transfer *domain.SalesTransfer) error
 	GetTransferByID(id uuid.UUID) (*domain.SalesTransfer, error)
 	GetTransfersByBranch(branchID uuid.UUID) ([]domain.SalesTransfer, error)
+	GetTransfersByCompany(companyID uuid.UUID) ([]domain.SalesTransfer, error)
 	GetTransfersByEmployee(employeeID uuid.UUID) ([]domain.SalesTransfer, error)
 	DeleteTransfer(id uuid.UUID) error
 }
@@ -72,6 +73,15 @@ func (r *salesTransferRepository) GetTransfersByBranch(branchID uuid.UUID) ([]do
 	err := r.db.Preload("Product").Preload("Employee").
 		Where("branch_id = ?", branchID).
 		Order("created_at desc").Find(&transfers).Error
+	return transfers, err
+}
+
+func (r *salesTransferRepository) GetTransfersByCompany(companyID uuid.UUID) ([]domain.SalesTransfer, error) {
+	var transfers []domain.SalesTransfer
+	err := r.db.Preload("Product").Preload("Employee").
+		Joins("JOIN employees ON employees.id = sales_transfers.employee_id").
+		Where("employees.company_id = ?", companyID).
+		Order("sales_transfers.created_at desc").Find(&transfers).Error
 	return transfers, err
 }
 

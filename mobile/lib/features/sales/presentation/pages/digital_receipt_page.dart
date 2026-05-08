@@ -32,6 +32,10 @@ class DigitalReceiptPage extends StatelessWidget {
       }
       message += "\n\n_Silakan lakukan pembayaran sesuai nominal di atas._\n";
     }
+
+    if (amount == 0 && transaction['notes'] != null) {
+      message += "\n📝 *Catatan Kunjungan:* ${transaction['notes']}\n";
+    }
     
     message += "\nTerima kasih atas kerja samanya!";
     
@@ -120,6 +124,10 @@ class DigitalReceiptPage extends StatelessWidget {
                         _buildRow('Metode Bayar', transaction['payment_method'] ?? 'CASH'),
                         const SizedBox(height: 12),
                         _buildRow('Total', currencyFormat.format(amount), isPrice: true),
+                        if (transaction['notes'] != null && transaction['notes'].toString().isNotEmpty) ...[
+                          const Divider(height: 32),
+                          _buildRow('Catatan', transaction['notes'], isBold: true),
+                        ],
                       ],
                     ),
                   ),

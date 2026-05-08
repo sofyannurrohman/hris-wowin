@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hris_app/features/sales/data/models/store_model.dart';
@@ -10,8 +11,9 @@ import 'package:hris_app/injection.dart' as di;
 class VisitTransactionPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
+  final Uint8List? selfieBytes;
 
-  const VisitTransactionPage({super.key, required this.store, required this.selfiePath});
+  const VisitTransactionPage({super.key, required this.store, required this.selfiePath, this.selfieBytes});
 
   @override
   State<VisitTransactionPage> createState() => _VisitTransactionPageState();
@@ -23,7 +25,7 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
   void _navigateToSelection() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => SelectCompanyPage(store: widget.store, selfiePath: widget.selfiePath)),
+      MaterialPageRoute(builder: (_) => SelectCompanyPage(store: widget.store, selfiePath: widget.selfiePath, selfieBytes: widget.selfieBytes)),
     );
   }
 
@@ -47,6 +49,7 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
                   builder: (_) => OrderEntryPage(
                     store: widget.store,
                     selfiePath: widget.selfiePath,
+                    selfieBytes: widget.selfieBytes,
                     companyId: companyId.toString(),
                     companyName: companyName ?? 'Wowin Indonesia',
                   ),
@@ -63,6 +66,109 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showNoTransactionDialog() {
+    final TextEditingController reasonCtrl = TextEditingController();
+    final List<String> reasons = [
+      'Toko Tutup',
+      'Stok Masih Banyak',
+      'Owner Tidak Ada',
+      'Toko Sedang Renovasi',
+      'Lainnya (Tulis Catatan)'
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            Text('ALASAN TIDAK ADA TRANSAKSI', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1)),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                itemCount: reasons.length,
+                itemBuilder: (context, index) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.info_outline_rounded, color: Colors.orange),
+                  title: Text(reasons[index], style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                  onTap: () {
+                    if (reasons[index].startsWith('Lainnya')) {
+                      // Stay and let them type
+                    } else {
+                      Navigator.pop(context);
+                      _proceedWithNoTransaction(reasons[index]);
+                    }
+                  },
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: reasonCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Tulis alasan lainnya di sini...',
+                      hintStyle: GoogleFonts.outfit(fontSize: 14),
+                      filled: true,
+                      fillColor: const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (reasonCtrl.text.isNotEmpty) {
+                          Navigator.pop(context);
+                          _proceedWithNoTransaction(reasonCtrl.text);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E293B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text('SIMPAN ALASAN', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _proceedWithNoTransaction(String reason) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => VisitCheckoutPage(
+        store: widget.store, 
+        selfiePath: widget.selfiePath, 
+        selfieBytes: widget.selfieBytes,
+        receiptPath: null,
+        notes: reason,
+      )),
+    );
   }
 
   @override
@@ -166,10 +272,7 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
                         width: double.infinity,
                         height: 64,
                         child: OutlinedButton.icon(
-                          onPressed: _isLoading ? null : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => VisitCheckoutPage(store: widget.store, selfiePath: widget.selfiePath, receiptPath: null)),
-                          ),
+                          onPressed: _isLoading ? null : _showNoTransactionDialog,
                           icon: Icon(Icons.close_rounded, color: Colors.grey.shade600, size: 24),
                           label: Text('TIDAK ADA TRANSAKSI', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.grey.shade700)),
                           style: OutlinedButton.styleFrom(
