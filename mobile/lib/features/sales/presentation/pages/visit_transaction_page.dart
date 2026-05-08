@@ -39,8 +39,8 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
         result.fold(
           (failure) => _navigateToSelection(),
           (profile) {
-            final companyId = profile['company_id'] ?? profile['companyId'];
-            final companyName = profile['company_name'] ?? profile['companyName'] ?? profile['company']?['name'];
+            final companyId = profile['company_id'] ?? profile['companyId'] ?? profile['CompanyID'];
+            final companyName = profile['company_name'] ?? profile['companyName'] ?? profile['CompanyNAME'] ?? profile['company']?['name'];
             
             if (companyId != null) {
               Navigator.push(

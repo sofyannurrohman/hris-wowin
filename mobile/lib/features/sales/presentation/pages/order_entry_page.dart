@@ -9,6 +9,7 @@ import 'package:hris_app/core/database/database.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:drift/drift.dart' hide Column;
 import './visit_checkout_page.dart';
+import 'package:hris_app/features/sync/data/repositories/sync_repository.dart';
 
 class OrderEntryPage extends StatefulWidget {
   final StoreModel store;
@@ -60,13 +61,70 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   Future<void> _fetchProducts() async {
     setState(() => _isLoading = true);
     try {
+      print('DEBUG: Starting _fetchProducts in OrderEntryPage');
+      print('DEBUG: Filtering for Company ID: ${widget.companyId}');
+
+      // 0. Trigger background sync and WAIT for it to ensure data is fresh
+      try {
+        print('DEBUG: Waiting for pullMasterData to finish...');
+        await di.sl<SyncRepository>().pullMasterData();
+        print('DEBUG: Background sync from OrderEntryPage finished');
+      } catch (e) {
+        print('DEBUG: pullMasterData failed or offline: $e');
+      }
+
       // 1. Fetch products for this company
-      final products = await (db.select(db.products)
+      var companyProducts = await (db.select(db.products)
           ..where((t) => t.companyId.equals(widget.companyId))).get();
+      print('DEBUG: Found ${companyProducts.length} products for company ${widget.companyId}');
       
       // 2. Fetch sales stock (bronjong)
       final stocks = await db.select(db.salesStock).get();
-      final Map<String, int> stockMap = {for (var s in stocks) s.productId: s.quantity};
+      print('DEBUG: Found ${stocks.length} items in sales_stock table');
+
+      // 2a. Fetch Pending Quantities to subtract (Real-time stock adjustment)
+      final pendingTrxs = await (db.select(db.localTransactions)
+          ..where((t) => t.syncStatus.equals('pending'))).get();
+      final pendingLocalIds = pendingTrxs.map((t) => t.localId).toList();
+      final Map<String, int> pendingReduction = {};
+      
+      if (pendingLocalIds.isNotEmpty) {
+        final pendingItems = await (db.select(db.localTransactionItems)
+            ..where((t) => t.transactionLocalId.isIn(pendingLocalIds))).get();
+        for (var item in pendingItems) {
+          pendingReduction[item.productId] = (pendingReduction[item.productId] ?? 0) + item.quantity;
+        }
+      }
+
+      final stockProductIds = stocks.map((s) => s.productId).toList();
+      
+      // 3. Fetch products from stock and merge
+      var products = List<Product>.from(companyProducts);
+      if (stockProductIds.isNotEmpty) {
+        print('DEBUG: Fetching details for ${stockProductIds.length} stock products');
+        var stockProducts = await (db.select(db.products)
+            ..where((t) => t.id.isIn(stockProductIds))).get();
+        print('DEBUG: Found ${stockProducts.length} matching products in local DB for stock IDs');
+            
+        final Map<String, Product> productMap = {for (var p in products) p.id: p};
+        for (var p in stockProducts) {
+          productMap[p.id] = p;
+        }
+        products = productMap.values.toList();
+      }
+
+      // Fallback: If empty for this company and no stock, show ALL products in DB
+      if (products.isEmpty) {
+        print('DEBUG: No products found for company or stock. Falling back to all products in DB.');
+        products = await db.select(db.products).get();
+        print('DEBUG: Global fallback found ${products.length} products');
+      }
+      
+      // Determine stockMap (with adjustment)
+      final Map<String, int> stockMap = {
+        for (var s in stocks) 
+          s.productId: (s.quantity - (pendingReduction[s.productId] ?? 0)).clamp(0, 999999)
+      };
 
       if (mounted) {
         final cats = products.map((p) => p.category ?? 'Uncategorized').toSet().toList();
@@ -85,8 +143,10 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
           _categories = ['Semua', ...cats];
           _applyFilters();
         });
+        print('DEBUG: UI updated with ${_allProducts.length} products');
       }
     } catch (e) {
+      print('ERROR fetching products in OrderEntryPage: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat produk: $e')));
       }
@@ -109,7 +169,6 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   Future<void> _loadLastOrder() async {
     setState(() => _isLoading = true);
     try {
-      // Find the most recent transaction for this store and company
       final lastTxn = await (db.select(db.localTransactions)
         ..where((t) => t.storeId.equals(widget.store.id))
         ..where((t) => t.companyId.equals(widget.companyId))
@@ -192,7 +251,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   double get _totalAmount {
     double total = 0;
     _cart.forEach((id, qty) {
-      final product = _allProducts.firstWhere((p) => p['id'] == id, orElse: () => {});
+      final product = _allProducts.firstWhere((p) => p['id'] == id, orElse: () => <String, dynamic>{});
       if (product.isNotEmpty) {
         total += (product['selling_price'] ?? 0) * qty;
       }
@@ -219,6 +278,10 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.blueAccent),
+            onPressed: _fetchProducts,
+          ),
           TextButton.icon(
             onPressed: _loadLastOrder,
             icon: const Icon(Icons.history_rounded, size: 18, color: Colors.blueAccent),
@@ -330,7 +393,46 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
             const Icon(Icons.search_off_rounded, size: 64, color: Color(0xFFE2E8F0)),
             const SizedBox(height: 16),
             Text('Produk tidak ditemukan', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
-          ],
+            const SizedBox(height: 8),
+            Text('Perusahaan: ${widget.companyName}', style: GoogleFonts.outfit(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+            Text('ID Perusahaan: ${widget.companyId}', style: GoogleFonts.outfit(color: Colors.grey, fontSize: 10)),
+            FutureBuilder<Map<String, dynamic>>(
+              future: di.sl<ApiClient>().client.get('employees/profile').then((res) => res.data['data'] as Map<String, dynamic>),
+              builder: (context, profileSnap) {
+                if (profileSnap.hasData) {
+                  return Text('ID Employee: ${profileSnap.data!['id']}', style: GoogleFonts.outfit(color: Colors.grey, fontSize: 10));
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            FutureBuilder<int>(
+              future: db.select(db.products).get().then((list) => list.length),
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Column(
+                  children: [
+                    Text('Total Produk di HP: $count', style: GoogleFonts.outfit(color: count == 0 ? Colors.red : Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                    FutureBuilder<int>(
+                      future: db.select(db.salesStock).get().then((list) => list.length),
+                      builder: (context, stockSnap) => Text('Data Stok Sales di HP: ${stockSnap.data ?? 0}', style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 10)),
+                    ),
+                    if (count > 0) ...[
+                      const SizedBox(height: 4),
+                      Text('Ada data, tapi mungkin ID Perusahaan tidak cocok.', style: GoogleFonts.outfit(color: Colors.orange, fontSize: 10)),
+                      FutureBuilder<List<Product>>(
+                        future: db.select(db.products).get(),
+                        builder: (context, prodSnap) {
+                          if (prodSnap.hasData && prodSnap.data!.isNotEmpty) {
+                            return Text('ID Co. di DB: ${prodSnap.data![0].companyId}', style: GoogleFonts.outfit(color: Colors.purple, fontSize: 9));
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),          ],
         ),
       );
     }

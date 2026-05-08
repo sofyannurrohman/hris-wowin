@@ -18,6 +18,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_state.dart';
+import 'package:hris_app/core/database/database.dart';
+import './digital_receipt_page.dart';
 
 class SalesDashboardPage extends StatefulWidget {
   const SalesDashboardPage({super.key});
@@ -43,16 +45,42 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   }
 
   Future<void> _fetchData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
+      final db = di.sl<AppDatabase>();
+      
+      // 1. Fetch Remote Data
       final kpi = await _apiService.getMyPerformance();
-      final pending = await _apiService.getPendingTransactions();
       final visits = await _apiService.getVisitPlans(date: DateFormat('yyyy-MM-dd').format(DateTime.now()));
-      setState(() {
-        _kpiData = kpi;
-        _pendingTransactions = pending ?? [];
-        _todayVisitPlans = visits ?? [];
-      });
+      
+      // 2. Fetch Local Pending Transactions
+      final localPending = await (db.select(db.localTransactions)
+          ..where((t) => t.syncStatus.equals('pending')))
+        .get();
+
+      // 3. Fetch Remote Pending (for reconciliation)
+      final remotePending = await _apiService.getPendingTransactions();
+
+      if (mounted) {
+        setState(() {
+          _kpiData = kpi;
+          _todayVisitPlans = visits ?? [];
+          
+          // Combine local and remote pending
+          _pendingTransactions = [
+            ...localPending.map((t) => {
+              'id': t.localId,
+              'receipt_no': t.receiptNo ?? 'PENDING (OFFLINE)',
+              'store': {'name': t.storeName},
+              'total_amount': t.totalAmount,
+              'status': 'PENDING',
+              'is_local': true,
+            }),
+            ...(remotePending ?? []),
+          ];
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching sales data: $e');
     } finally {
@@ -300,7 +328,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                       const SizedBox(height: 10),
                       _buildSwipeableHeader(),
                       const SizedBox(height: 24),
+                      const SizedBox(height: 24),
                       _buildQuickAccess(),
+                      if (_pendingTransactions.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        _buildPendingTransactionsList(),
+                      ],
                       const SizedBox(height: 40), // extra bottom padding for comfort
                     ],
                   ),
@@ -432,15 +465,87 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
           childAspectRatio: 0.8,
           children: [
             _buildActionItem(Icons.storefront_rounded, 'Kunjungan', const Color(0xFF059669)),
-            _buildActionItem(Icons.shopping_cart_checkout_rounded, 'Buat Order', const Color(0xFF10B981)),
-            _buildActionItem(Icons.view_list_rounded, 'Daftar Toko', const Color(0xFF047857)),
+            _buildActionItem(Icons.view_list_rounded, 'Toko & Spanduk', const Color(0xFF047857)),
             _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFF0D9488)),
-            _buildActionItem(Icons.art_track_rounded, 'Order Spanduk', const Color(0xFF0891B2)),
-            _buildActionItem(Icons.history_edu_rounded, 'Riwayat', const Color(0xFFCA8A04)),
+            _buildActionItem(Icons.history_edu_rounded, 'Riwayat Nota', const Color(0xFFCA8A04)),
             _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', const Color(0xFF15803D)),
           ],
         ),
       ],
+    );
+  }
+
+  void _showStoreManagementOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Manajemen Toko', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 24),
+            _buildDialogOption(
+              context, 
+              Icons.view_list_rounded, 
+              'Daftar & Edit Toko', 
+              'Kelola semua database outlet Anda',
+              () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StoreListPage()));
+              }
+            ),
+            const SizedBox(height: 12),
+            _buildDialogOption(
+              context, 
+              Icons.art_track_rounded, 
+              'Order Spanduk', 
+              'Pemesanan spanduk promosi outlet',
+              () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OrderBannerPage()));
+              }
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogOption(BuildContext context, IconData icon, String title, String desc, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.blue.withOpacity(0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: Colors.blueAccent, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15)),
+                  Text(desc, style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.blueGrey),
+          ],
+        ),
+      ),
     );
   }
 
@@ -449,16 +554,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       onTap: () {
         if (label == 'Kunjungan') {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage()));
-        } else if (label == 'Buat Order') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SelectStorePage(isQuickOrder: true)));
-        } else if (label == 'Daftar Toko') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StoreListPage()));
+        } else if (label == 'Toko & Spanduk') {
+          _showStoreManagementOptions(context);
         } else if (label == 'Katalog') {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProductCatalogPage()));
-        } else if (label == 'Riwayat') {
+        } else if (label == 'Riwayat Nota') {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryPage()));
-        } else if (label == 'Order Spanduk') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OrderBannerPage()));
         } else if (label == 'Ambil Barang') {
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesStockRequestPage()));
         }
@@ -503,6 +604,79 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     );
   }
 
+
+  Widget _buildPendingTransactionsList() {
+    final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'TRANSAKSI PENDING (BELUM SYNC)',
+              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.orange.shade800, letterSpacing: 1.5),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(8)),
+              child: Text('${_pendingTransactions.length}', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.orange.shade900)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _pendingTransactions.length > 3 ? 3 : _pendingTransactions.length,
+          itemBuilder: (context, index) {
+            final txn = _pendingTransactions[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.orange.shade100),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
+                    child: Icon(Icons.cloud_off_rounded, color: Colors.orange.shade400, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(txn['store']?['name'] ?? 'Toko', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14)),
+                        Text(formatter.format(txn['total_amount'] ?? 0), style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => DigitalReceiptPage(transaction: txn, localId: txn['is_local'] == true ? txn['id'] : null)));
+                    },
+                    child: Text('LIHAT NOTA', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        if (_pendingTransactions.length > 3)
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryPage())),
+              child: Text('LIHAT SEMUA PENDING', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.blueGrey)),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _buildSalesDrawer() {
     return Drawer(

@@ -6,6 +6,7 @@ import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
 import 'package:intl/intl.dart';
 import './digital_receipt_page.dart';
+import 'package:hris_app/core/database/database.dart';
 
 class SalesHistoryPage extends StatefulWidget {
   const SalesHistoryPage({super.key});
@@ -28,15 +29,60 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
     try {
-      final history = await _apiService.getHistoryTransactions();
-      // Sort by date descending
-      history.sort((a, b) {
+      // 1. Fetch from Local Database (Pending & Synced)
+      final db = di.sl<AppDatabase>();
+      final localTrxs = await db.select(db.localTransactions).get();
+      
+      // Convert local items to Map structure matching API
+      final mappedLocal = localTrxs.map((t) => {
+        'id': t.localId,
+        'receipt_no': t.receiptNo ?? 'PENDING-${t.localId.substring(0, 8).toUpperCase()}',
+        'store': {'name': t.storeName},
+        'total_amount': t.totalAmount,
+        'created_at': t.createdAt.toIso8601String(),
+        'transaction_date': t.createdAt.toIso8601String(),
+        'status': t.syncStatus == 'synced' ? 'VERIFIED' : (t.paymentMethod == 'CASH' ? 'LUNAS (CASH)' : 'PENDING (OFFLINE)'),
+        'payment_method': t.paymentMethod,
+        'notes': t.notes,
+        'is_local': true,
+        'local_id': t.localId,
+        'midtrans_qris_url': t.midtransQrisUrl,
+        'midtrans_va_number': t.midtransVaNumber,
+        'midtrans_bank': t.midtransBank,
+        'midtrans_bill_key': t.midtransBillKey,
+        'midtrans_biller_code': t.midtransBillerCode,
+      }).toList();
+
+      // 2. Fetch from API
+      List<dynamic> remoteHistory = [];
+      try {
+        remoteHistory = await _apiService.getHistoryTransactions();
+      } catch (e) {
+        debugPrint('API History fetch failed, using local only: $e');
+      }
+
+      // 3. Merge (Avoid duplicates if possible, but localId is different from API ID)
+      // We'll use receipt_no for deduplication if synced
+      final Map<String, dynamic> merged = {};
+      
+      for (var t in mappedLocal) {
+        merged[t['receipt_no'].toString()] = t;
+      }
+      for (var t in remoteHistory) {
+        merged[t['receipt_no'].toString()] = t;
+      }
+
+      final combined = merged.values.toList();
+
+      // 4. Sort by date descending
+      combined.sort((a, b) {
         final dateA = DateTime.parse(a['created_at']);
         final dateB = DateTime.parse(b['created_at']);
         return dateB.compareTo(dateA);
       });
+
       setState(() {
-        _historyTransactions = history;
+        _historyTransactions = combined;
       });
     } catch (e) {
       debugPrint('Error fetching history: $e');
@@ -123,12 +169,12 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: isVerified ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                color: isVerified ? Colors.green.withOpacity(0.1) : (txn['is_local'] == true ? Colors.blue.withOpacity(0.1) : Colors.orange.withOpacity(0.1)),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                isVerified ? 'VERIFIED' : 'NEED REVIEW',
-                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: isVerified ? Colors.green : Colors.orange),
+                isVerified ? 'VERIFIED' : (txn['is_local'] == true ? 'OFFLINE / PENDING' : 'NEED REVIEW'),
+                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: isVerified ? Colors.green : (txn['is_local'] == true ? Colors.blue : Colors.orange)),
               ),
             ),
           ],
@@ -137,7 +183,10 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => DigitalReceiptPage(transaction: txn),
+              builder: (_) => DigitalReceiptPage(
+                transaction: txn,
+                localId: txn['local_id'],
+              ),
             ),
           );
         },

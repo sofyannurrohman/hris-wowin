@@ -417,9 +417,12 @@ class DashboardTab extends StatelessWidget {
               children: [
                 const Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
                 const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

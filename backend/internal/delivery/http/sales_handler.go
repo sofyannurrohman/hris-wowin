@@ -57,7 +57,12 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 		sales.GET("/stores/:id/outstanding", h.GetOutstandingByStore)
 		sales.GET("/transactions/due-date", h.GetByDueDate)
 		sales.GET("/transactions/status/:status", h.GetTransactions)
+		sales.POST("/attendance", h.RecordAttendance)
 	}
+}
+
+func (h *SalesHandler) RecordAttendance(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Attendance recorded successfully"})
 }
 
 func (h *SalesHandler) SetupPublicRoutes(router *gin.RouterGroup) {

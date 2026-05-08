@@ -116,7 +116,7 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
         'store': {'name': widget.store.name},
         'total_amount': widget.totalAmount ?? 0.0,
         'transaction_date': now.toUtc().toIso8601String(),
-        'status': 'PENDING (OFFLINE)',
+        'status': _selectedPaymentMethod == 'CASH' ? 'LUNAS (CASH)' : 'PENDING (OFFLINE)',
         'payment_method': _selectedPaymentMethod,
         'bank': _selectedBank,
       };
@@ -127,7 +127,10 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => DigitalReceiptPage(transaction: transaction),
+            builder: (_) => DigitalReceiptPage(
+              transaction: transaction,
+              localId: localId,
+            ),
           ),
         );
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

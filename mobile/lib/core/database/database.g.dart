@@ -1117,6 +1117,42 @@ class $LocalTransactionsTable extends LocalTransactions
   late final GeneratedColumn<String> paymentBank = GeneratedColumn<String>(
       'payment_bank', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _midtransIdMeta =
+      const VerificationMeta('midtransId');
+  @override
+  late final GeneratedColumn<String> midtransId = GeneratedColumn<String>(
+      'midtrans_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _midtransQrisUrlMeta =
+      const VerificationMeta('midtransQrisUrl');
+  @override
+  late final GeneratedColumn<String> midtransQrisUrl = GeneratedColumn<String>(
+      'midtrans_qris_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _midtransVaNumberMeta =
+      const VerificationMeta('midtransVaNumber');
+  @override
+  late final GeneratedColumn<String> midtransVaNumber = GeneratedColumn<String>(
+      'midtrans_va_number', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _midtransBankMeta =
+      const VerificationMeta('midtransBank');
+  @override
+  late final GeneratedColumn<String> midtransBank = GeneratedColumn<String>(
+      'midtrans_bank', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _midtransBillKeyMeta =
+      const VerificationMeta('midtransBillKey');
+  @override
+  late final GeneratedColumn<String> midtransBillKey = GeneratedColumn<String>(
+      'midtrans_bill_key', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _midtransBillerCodeMeta =
+      const VerificationMeta('midtransBillerCode');
+  @override
+  late final GeneratedColumn<String> midtransBillerCode =
+      GeneratedColumn<String>('midtrans_biller_code', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -1145,6 +1181,12 @@ class $LocalTransactionsTable extends LocalTransactions
         notes,
         paymentMethod,
         paymentBank,
+        midtransId,
+        midtransQrisUrl,
+        midtransVaNumber,
+        midtransBank,
+        midtransBillKey,
+        midtransBillerCode,
         createdAt,
         syncStatus
       ];
@@ -1230,6 +1272,42 @@ class $LocalTransactionsTable extends LocalTransactions
           paymentBank.isAcceptableOrUnknown(
               data['payment_bank']!, _paymentBankMeta));
     }
+    if (data.containsKey('midtrans_id')) {
+      context.handle(
+          _midtransIdMeta,
+          midtransId.isAcceptableOrUnknown(
+              data['midtrans_id']!, _midtransIdMeta));
+    }
+    if (data.containsKey('midtrans_qris_url')) {
+      context.handle(
+          _midtransQrisUrlMeta,
+          midtransQrisUrl.isAcceptableOrUnknown(
+              data['midtrans_qris_url']!, _midtransQrisUrlMeta));
+    }
+    if (data.containsKey('midtrans_va_number')) {
+      context.handle(
+          _midtransVaNumberMeta,
+          midtransVaNumber.isAcceptableOrUnknown(
+              data['midtrans_va_number']!, _midtransVaNumberMeta));
+    }
+    if (data.containsKey('midtrans_bank')) {
+      context.handle(
+          _midtransBankMeta,
+          midtransBank.isAcceptableOrUnknown(
+              data['midtrans_bank']!, _midtransBankMeta));
+    }
+    if (data.containsKey('midtrans_bill_key')) {
+      context.handle(
+          _midtransBillKeyMeta,
+          midtransBillKey.isAcceptableOrUnknown(
+              data['midtrans_bill_key']!, _midtransBillKeyMeta));
+    }
+    if (data.containsKey('midtrans_biller_code')) {
+      context.handle(
+          _midtransBillerCodeMeta,
+          midtransBillerCode.isAcceptableOrUnknown(
+              data['midtrans_biller_code']!, _midtransBillerCodeMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -1275,6 +1353,18 @@ class $LocalTransactionsTable extends LocalTransactions
           .read(DriftSqlType.string, data['${effectivePrefix}payment_method'])!,
       paymentBank: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}payment_bank']),
+      midtransId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}midtrans_id']),
+      midtransQrisUrl: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}midtrans_qris_url']),
+      midtransVaNumber: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}midtrans_va_number']),
+      midtransBank: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}midtrans_bank']),
+      midtransBillKey: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}midtrans_bill_key']),
+      midtransBillerCode: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}midtrans_biller_code']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       syncStatus: attachedDatabase.typeMapping
@@ -1302,6 +1392,12 @@ class LocalTransaction extends DataClass
   final String? notes;
   final String paymentMethod;
   final String? paymentBank;
+  final String? midtransId;
+  final String? midtransQrisUrl;
+  final String? midtransVaNumber;
+  final String? midtransBank;
+  final String? midtransBillKey;
+  final String? midtransBillerCode;
   final DateTime createdAt;
   final String syncStatus;
   const LocalTransaction(
@@ -1317,6 +1413,12 @@ class LocalTransaction extends DataClass
       this.notes,
       required this.paymentMethod,
       this.paymentBank,
+      this.midtransId,
+      this.midtransQrisUrl,
+      this.midtransVaNumber,
+      this.midtransBank,
+      this.midtransBillKey,
+      this.midtransBillerCode,
       required this.createdAt,
       required this.syncStatus});
   @override
@@ -1343,6 +1445,24 @@ class LocalTransaction extends DataClass
     map['payment_method'] = Variable<String>(paymentMethod);
     if (!nullToAbsent || paymentBank != null) {
       map['payment_bank'] = Variable<String>(paymentBank);
+    }
+    if (!nullToAbsent || midtransId != null) {
+      map['midtrans_id'] = Variable<String>(midtransId);
+    }
+    if (!nullToAbsent || midtransQrisUrl != null) {
+      map['midtrans_qris_url'] = Variable<String>(midtransQrisUrl);
+    }
+    if (!nullToAbsent || midtransVaNumber != null) {
+      map['midtrans_va_number'] = Variable<String>(midtransVaNumber);
+    }
+    if (!nullToAbsent || midtransBank != null) {
+      map['midtrans_bank'] = Variable<String>(midtransBank);
+    }
+    if (!nullToAbsent || midtransBillKey != null) {
+      map['midtrans_bill_key'] = Variable<String>(midtransBillKey);
+    }
+    if (!nullToAbsent || midtransBillerCode != null) {
+      map['midtrans_biller_code'] = Variable<String>(midtransBillerCode);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['sync_status'] = Variable<String>(syncStatus);
@@ -1372,6 +1492,24 @@ class LocalTransaction extends DataClass
       paymentBank: paymentBank == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentBank),
+      midtransId: midtransId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(midtransId),
+      midtransQrisUrl: midtransQrisUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(midtransQrisUrl),
+      midtransVaNumber: midtransVaNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(midtransVaNumber),
+      midtransBank: midtransBank == null && nullToAbsent
+          ? const Value.absent()
+          : Value(midtransBank),
+      midtransBillKey: midtransBillKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(midtransBillKey),
+      midtransBillerCode: midtransBillerCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(midtransBillerCode),
       createdAt: Value(createdAt),
       syncStatus: Value(syncStatus),
     );
@@ -1393,6 +1531,13 @@ class LocalTransaction extends DataClass
       notes: serializer.fromJson<String?>(json['notes']),
       paymentMethod: serializer.fromJson<String>(json['paymentMethod']),
       paymentBank: serializer.fromJson<String?>(json['paymentBank']),
+      midtransId: serializer.fromJson<String?>(json['midtransId']),
+      midtransQrisUrl: serializer.fromJson<String?>(json['midtransQrisUrl']),
+      midtransVaNumber: serializer.fromJson<String?>(json['midtransVaNumber']),
+      midtransBank: serializer.fromJson<String?>(json['midtransBank']),
+      midtransBillKey: serializer.fromJson<String?>(json['midtransBillKey']),
+      midtransBillerCode:
+          serializer.fromJson<String?>(json['midtransBillerCode']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
     );
@@ -1413,6 +1558,12 @@ class LocalTransaction extends DataClass
       'notes': serializer.toJson<String?>(notes),
       'paymentMethod': serializer.toJson<String>(paymentMethod),
       'paymentBank': serializer.toJson<String?>(paymentBank),
+      'midtransId': serializer.toJson<String?>(midtransId),
+      'midtransQrisUrl': serializer.toJson<String?>(midtransQrisUrl),
+      'midtransVaNumber': serializer.toJson<String?>(midtransVaNumber),
+      'midtransBank': serializer.toJson<String?>(midtransBank),
+      'midtransBillKey': serializer.toJson<String?>(midtransBillKey),
+      'midtransBillerCode': serializer.toJson<String?>(midtransBillerCode),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'syncStatus': serializer.toJson<String>(syncStatus),
     };
@@ -1431,6 +1582,12 @@ class LocalTransaction extends DataClass
           Value<String?> notes = const Value.absent(),
           String? paymentMethod,
           Value<String?> paymentBank = const Value.absent(),
+          Value<String?> midtransId = const Value.absent(),
+          Value<String?> midtransQrisUrl = const Value.absent(),
+          Value<String?> midtransVaNumber = const Value.absent(),
+          Value<String?> midtransBank = const Value.absent(),
+          Value<String?> midtransBillKey = const Value.absent(),
+          Value<String?> midtransBillerCode = const Value.absent(),
           DateTime? createdAt,
           String? syncStatus}) =>
       LocalTransaction(
@@ -1446,6 +1603,21 @@ class LocalTransaction extends DataClass
         notes: notes.present ? notes.value : this.notes,
         paymentMethod: paymentMethod ?? this.paymentMethod,
         paymentBank: paymentBank.present ? paymentBank.value : this.paymentBank,
+        midtransId: midtransId.present ? midtransId.value : this.midtransId,
+        midtransQrisUrl: midtransQrisUrl.present
+            ? midtransQrisUrl.value
+            : this.midtransQrisUrl,
+        midtransVaNumber: midtransVaNumber.present
+            ? midtransVaNumber.value
+            : this.midtransVaNumber,
+        midtransBank:
+            midtransBank.present ? midtransBank.value : this.midtransBank,
+        midtransBillKey: midtransBillKey.present
+            ? midtransBillKey.value
+            : this.midtransBillKey,
+        midtransBillerCode: midtransBillerCode.present
+            ? midtransBillerCode.value
+            : this.midtransBillerCode,
         createdAt: createdAt ?? this.createdAt,
         syncStatus: syncStatus ?? this.syncStatus,
       );
@@ -1470,6 +1642,23 @@ class LocalTransaction extends DataClass
           : this.paymentMethod,
       paymentBank:
           data.paymentBank.present ? data.paymentBank.value : this.paymentBank,
+      midtransId:
+          data.midtransId.present ? data.midtransId.value : this.midtransId,
+      midtransQrisUrl: data.midtransQrisUrl.present
+          ? data.midtransQrisUrl.value
+          : this.midtransQrisUrl,
+      midtransVaNumber: data.midtransVaNumber.present
+          ? data.midtransVaNumber.value
+          : this.midtransVaNumber,
+      midtransBank: data.midtransBank.present
+          ? data.midtransBank.value
+          : this.midtransBank,
+      midtransBillKey: data.midtransBillKey.present
+          ? data.midtransBillKey.value
+          : this.midtransBillKey,
+      midtransBillerCode: data.midtransBillerCode.present
+          ? data.midtransBillerCode.value
+          : this.midtransBillerCode,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
@@ -1491,6 +1680,12 @@ class LocalTransaction extends DataClass
           ..write('notes: $notes, ')
           ..write('paymentMethod: $paymentMethod, ')
           ..write('paymentBank: $paymentBank, ')
+          ..write('midtransId: $midtransId, ')
+          ..write('midtransQrisUrl: $midtransQrisUrl, ')
+          ..write('midtransVaNumber: $midtransVaNumber, ')
+          ..write('midtransBank: $midtransBank, ')
+          ..write('midtransBillKey: $midtransBillKey, ')
+          ..write('midtransBillerCode: $midtransBillerCode, ')
           ..write('createdAt: $createdAt, ')
           ..write('syncStatus: $syncStatus')
           ..write(')'))
@@ -1511,6 +1706,12 @@ class LocalTransaction extends DataClass
       notes,
       paymentMethod,
       paymentBank,
+      midtransId,
+      midtransQrisUrl,
+      midtransVaNumber,
+      midtransBank,
+      midtransBillKey,
+      midtransBillerCode,
       createdAt,
       syncStatus);
   @override
@@ -1529,6 +1730,12 @@ class LocalTransaction extends DataClass
           other.notes == this.notes &&
           other.paymentMethod == this.paymentMethod &&
           other.paymentBank == this.paymentBank &&
+          other.midtransId == this.midtransId &&
+          other.midtransQrisUrl == this.midtransQrisUrl &&
+          other.midtransVaNumber == this.midtransVaNumber &&
+          other.midtransBank == this.midtransBank &&
+          other.midtransBillKey == this.midtransBillKey &&
+          other.midtransBillerCode == this.midtransBillerCode &&
           other.createdAt == this.createdAt &&
           other.syncStatus == this.syncStatus);
 }
@@ -1546,6 +1753,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
   final Value<String?> notes;
   final Value<String> paymentMethod;
   final Value<String?> paymentBank;
+  final Value<String?> midtransId;
+  final Value<String?> midtransQrisUrl;
+  final Value<String?> midtransVaNumber;
+  final Value<String?> midtransBank;
+  final Value<String?> midtransBillKey;
+  final Value<String?> midtransBillerCode;
   final Value<DateTime> createdAt;
   final Value<String> syncStatus;
   final Value<int> rowid;
@@ -1562,6 +1775,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     this.notes = const Value.absent(),
     this.paymentMethod = const Value.absent(),
     this.paymentBank = const Value.absent(),
+    this.midtransId = const Value.absent(),
+    this.midtransQrisUrl = const Value.absent(),
+    this.midtransVaNumber = const Value.absent(),
+    this.midtransBank = const Value.absent(),
+    this.midtransBillKey = const Value.absent(),
+    this.midtransBillerCode = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1579,6 +1798,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     this.notes = const Value.absent(),
     this.paymentMethod = const Value.absent(),
     this.paymentBank = const Value.absent(),
+    this.midtransId = const Value.absent(),
+    this.midtransQrisUrl = const Value.absent(),
+    this.midtransVaNumber = const Value.absent(),
+    this.midtransBank = const Value.absent(),
+    this.midtransBillKey = const Value.absent(),
+    this.midtransBillerCode = const Value.absent(),
     required DateTime createdAt,
     this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1602,6 +1827,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     Expression<String>? notes,
     Expression<String>? paymentMethod,
     Expression<String>? paymentBank,
+    Expression<String>? midtransId,
+    Expression<String>? midtransQrisUrl,
+    Expression<String>? midtransVaNumber,
+    Expression<String>? midtransBank,
+    Expression<String>? midtransBillKey,
+    Expression<String>? midtransBillerCode,
     Expression<DateTime>? createdAt,
     Expression<String>? syncStatus,
     Expression<int>? rowid,
@@ -1619,6 +1850,13 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
       if (notes != null) 'notes': notes,
       if (paymentMethod != null) 'payment_method': paymentMethod,
       if (paymentBank != null) 'payment_bank': paymentBank,
+      if (midtransId != null) 'midtrans_id': midtransId,
+      if (midtransQrisUrl != null) 'midtrans_qris_url': midtransQrisUrl,
+      if (midtransVaNumber != null) 'midtrans_va_number': midtransVaNumber,
+      if (midtransBank != null) 'midtrans_bank': midtransBank,
+      if (midtransBillKey != null) 'midtrans_bill_key': midtransBillKey,
+      if (midtransBillerCode != null)
+        'midtrans_biller_code': midtransBillerCode,
       if (createdAt != null) 'created_at': createdAt,
       if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
@@ -1638,6 +1876,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
       Value<String?>? notes,
       Value<String>? paymentMethod,
       Value<String?>? paymentBank,
+      Value<String?>? midtransId,
+      Value<String?>? midtransQrisUrl,
+      Value<String?>? midtransVaNumber,
+      Value<String?>? midtransBank,
+      Value<String?>? midtransBillKey,
+      Value<String?>? midtransBillerCode,
       Value<DateTime>? createdAt,
       Value<String>? syncStatus,
       Value<int>? rowid}) {
@@ -1654,6 +1898,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
       notes: notes ?? this.notes,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentBank: paymentBank ?? this.paymentBank,
+      midtransId: midtransId ?? this.midtransId,
+      midtransQrisUrl: midtransQrisUrl ?? this.midtransQrisUrl,
+      midtransVaNumber: midtransVaNumber ?? this.midtransVaNumber,
+      midtransBank: midtransBank ?? this.midtransBank,
+      midtransBillKey: midtransBillKey ?? this.midtransBillKey,
+      midtransBillerCode: midtransBillerCode ?? this.midtransBillerCode,
       createdAt: createdAt ?? this.createdAt,
       syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
@@ -1699,6 +1949,24 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
     if (paymentBank.present) {
       map['payment_bank'] = Variable<String>(paymentBank.value);
     }
+    if (midtransId.present) {
+      map['midtrans_id'] = Variable<String>(midtransId.value);
+    }
+    if (midtransQrisUrl.present) {
+      map['midtrans_qris_url'] = Variable<String>(midtransQrisUrl.value);
+    }
+    if (midtransVaNumber.present) {
+      map['midtrans_va_number'] = Variable<String>(midtransVaNumber.value);
+    }
+    if (midtransBank.present) {
+      map['midtrans_bank'] = Variable<String>(midtransBank.value);
+    }
+    if (midtransBillKey.present) {
+      map['midtrans_bill_key'] = Variable<String>(midtransBillKey.value);
+    }
+    if (midtransBillerCode.present) {
+      map['midtrans_biller_code'] = Variable<String>(midtransBillerCode.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1726,6 +1994,12 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
           ..write('notes: $notes, ')
           ..write('paymentMethod: $paymentMethod, ')
           ..write('paymentBank: $paymentBank, ')
+          ..write('midtransId: $midtransId, ')
+          ..write('midtransQrisUrl: $midtransQrisUrl, ')
+          ..write('midtransVaNumber: $midtransVaNumber, ')
+          ..write('midtransBank: $midtransBank, ')
+          ..write('midtransBillKey: $midtransBillKey, ')
+          ..write('midtransBillerCode: $midtransBillerCode, ')
           ..write('createdAt: $createdAt, ')
           ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
@@ -2901,6 +3175,12 @@ typedef $$LocalTransactionsTableCreateCompanionBuilder
   Value<String?> notes,
   Value<String> paymentMethod,
   Value<String?> paymentBank,
+  Value<String?> midtransId,
+  Value<String?> midtransQrisUrl,
+  Value<String?> midtransVaNumber,
+  Value<String?> midtransBank,
+  Value<String?> midtransBillKey,
+  Value<String?> midtransBillerCode,
   required DateTime createdAt,
   Value<String> syncStatus,
   Value<int> rowid,
@@ -2919,6 +3199,12 @@ typedef $$LocalTransactionsTableUpdateCompanionBuilder
   Value<String?> notes,
   Value<String> paymentMethod,
   Value<String?> paymentBank,
+  Value<String?> midtransId,
+  Value<String?> midtransQrisUrl,
+  Value<String?> midtransVaNumber,
+  Value<String?> midtransBank,
+  Value<String?> midtransBillKey,
+  Value<String?> midtransBillerCode,
   Value<DateTime> createdAt,
   Value<String> syncStatus,
   Value<int> rowid,
@@ -2994,6 +3280,28 @@ class $$LocalTransactionsTableFilterComposer
 
   ColumnFilters<String> get paymentBank => $composableBuilder(
       column: $table.paymentBank, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get midtransId => $composableBuilder(
+      column: $table.midtransId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get midtransQrisUrl => $composableBuilder(
+      column: $table.midtransQrisUrl,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get midtransVaNumber => $composableBuilder(
+      column: $table.midtransVaNumber,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get midtransBank => $composableBuilder(
+      column: $table.midtransBank, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get midtransBillKey => $composableBuilder(
+      column: $table.midtransBillKey,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get midtransBillerCode => $composableBuilder(
+      column: $table.midtransBillerCode,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -3071,6 +3379,29 @@ class $$LocalTransactionsTableOrderingComposer
   ColumnOrderings<String> get paymentBank => $composableBuilder(
       column: $table.paymentBank, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get midtransId => $composableBuilder(
+      column: $table.midtransId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get midtransQrisUrl => $composableBuilder(
+      column: $table.midtransQrisUrl,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get midtransVaNumber => $composableBuilder(
+      column: $table.midtransVaNumber,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get midtransBank => $composableBuilder(
+      column: $table.midtransBank,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get midtransBillKey => $composableBuilder(
+      column: $table.midtransBillKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get midtransBillerCode => $composableBuilder(
+      column: $table.midtransBillerCode,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -3122,6 +3453,24 @@ class $$LocalTransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get paymentBank => $composableBuilder(
       column: $table.paymentBank, builder: (column) => column);
+
+  GeneratedColumn<String> get midtransId => $composableBuilder(
+      column: $table.midtransId, builder: (column) => column);
+
+  GeneratedColumn<String> get midtransQrisUrl => $composableBuilder(
+      column: $table.midtransQrisUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get midtransVaNumber => $composableBuilder(
+      column: $table.midtransVaNumber, builder: (column) => column);
+
+  GeneratedColumn<String> get midtransBank => $composableBuilder(
+      column: $table.midtransBank, builder: (column) => column);
+
+  GeneratedColumn<String> get midtransBillKey => $composableBuilder(
+      column: $table.midtransBillKey, builder: (column) => column);
+
+  GeneratedColumn<String> get midtransBillerCode => $composableBuilder(
+      column: $table.midtransBillerCode, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -3190,6 +3539,12 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             Value<String?> notes = const Value.absent(),
             Value<String> paymentMethod = const Value.absent(),
             Value<String?> paymentBank = const Value.absent(),
+            Value<String?> midtransId = const Value.absent(),
+            Value<String?> midtransQrisUrl = const Value.absent(),
+            Value<String?> midtransVaNumber = const Value.absent(),
+            Value<String?> midtransBank = const Value.absent(),
+            Value<String?> midtransBillKey = const Value.absent(),
+            Value<String?> midtransBillerCode = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<String> syncStatus = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -3207,6 +3562,12 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             notes: notes,
             paymentMethod: paymentMethod,
             paymentBank: paymentBank,
+            midtransId: midtransId,
+            midtransQrisUrl: midtransQrisUrl,
+            midtransVaNumber: midtransVaNumber,
+            midtransBank: midtransBank,
+            midtransBillKey: midtransBillKey,
+            midtransBillerCode: midtransBillerCode,
             createdAt: createdAt,
             syncStatus: syncStatus,
             rowid: rowid,
@@ -3224,6 +3585,12 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             Value<String?> notes = const Value.absent(),
             Value<String> paymentMethod = const Value.absent(),
             Value<String?> paymentBank = const Value.absent(),
+            Value<String?> midtransId = const Value.absent(),
+            Value<String?> midtransQrisUrl = const Value.absent(),
+            Value<String?> midtransVaNumber = const Value.absent(),
+            Value<String?> midtransBank = const Value.absent(),
+            Value<String?> midtransBillKey = const Value.absent(),
+            Value<String?> midtransBillerCode = const Value.absent(),
             required DateTime createdAt,
             Value<String> syncStatus = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -3241,6 +3608,12 @@ class $$LocalTransactionsTableTableManager extends RootTableManager<
             notes: notes,
             paymentMethod: paymentMethod,
             paymentBank: paymentBank,
+            midtransId: midtransId,
+            midtransQrisUrl: midtransQrisUrl,
+            midtransVaNumber: midtransVaNumber,
+            midtransBank: midtransBank,
+            midtransBillKey: midtransBillKey,
+            midtransBillerCode: midtransBillerCode,
             createdAt: createdAt,
             syncStatus: syncStatus,
             rowid: rowid,

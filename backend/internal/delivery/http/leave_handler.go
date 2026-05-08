@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
@@ -348,6 +350,11 @@ func (h *LeaveHandler) AdminDeleteBalance(c *gin.Context) {
 }
 
 func (h *LeaveHandler) handleFileUpload(c *gin.Context) (string, error) {
+	contentType := c.GetHeader("Content-Type")
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		return "", nil
+	}
+
 	file, err := c.FormFile("attachment")
 	if err != nil {
 		if err == http.ErrMissingFile {

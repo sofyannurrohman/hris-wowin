@@ -244,6 +244,11 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 }
 
 func (h *StoreHandler) handleImageUpload(c *gin.Context) (string, error) {
+	contentType := c.GetHeader("Content-Type")
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		return "", nil
+	}
+
 	file, err := c.FormFile("photo")
 	if err != nil {
 		if err == http.ErrMissingFile {

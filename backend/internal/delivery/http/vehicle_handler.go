@@ -157,6 +157,11 @@ func (h *VehicleHandler) GetVehicleLogs(c *gin.Context) {
 }
 
 func (h *VehicleHandler) handleImageUpload(c *gin.Context) (string, error) {
+	contentType := c.GetHeader("Content-Type")
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		return "", nil
+	}
+
 	file, err := c.FormFile("image")
 	if err != nil {
 		if err == http.ErrMissingFile {

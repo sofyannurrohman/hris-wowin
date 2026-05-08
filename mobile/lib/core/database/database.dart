@@ -52,6 +52,12 @@ class LocalTransactions extends Table {
   TextColumn get notes => text().nullable()();
   TextColumn get paymentMethod => text().withDefault(const Constant('CASH'))(); // 'CASH', 'QRIS', 'TEMPO', 'VA'
   TextColumn get paymentBank => text().nullable()(); // 'bca', 'bni', 'bri'
+  TextColumn get midtransId => text().nullable()();
+  TextColumn get midtransQrisUrl => text().nullable()();
+  TextColumn get midtransVaNumber => text().nullable()();
+  TextColumn get midtransBank => text().nullable()();
+  TextColumn get midtransBillKey => text().nullable()();
+  TextColumn get midtransBillerCode => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
   
@@ -82,5 +88,23 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(constructDb());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Add Midtrans columns
+        await m.addColumn(localTransactions, localTransactions.midtransId);
+        await m.addColumn(localTransactions, localTransactions.midtransQrisUrl);
+        await m.addColumn(localTransactions, localTransactions.midtransVaNumber);
+        await m.addColumn(localTransactions, localTransactions.midtransBank);
+        await m.addColumn(localTransactions, localTransactions.midtransBillKey);
+        await m.addColumn(localTransactions, localTransactions.midtransBillerCode);
+      }
+    },
+  );
 }

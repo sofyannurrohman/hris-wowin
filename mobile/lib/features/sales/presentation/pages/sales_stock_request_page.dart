@@ -50,7 +50,11 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
       // Fetch available products from warehouse stock of the branch
       final response = await apiClient.client.get('warehouse/stock');
       setState(() {
-        _products = (response.data as List<dynamic>?) ?? [];
+        if (response.data is Map && response.data.containsKey('data')) {
+          _products = (response.data['data'] as List<dynamic>?) ?? [];
+        } else {
+          _products = (response.data as List<dynamic>?) ?? [];
+        }
       });
     } catch (e) {
       _showError('Gagal mengambil daftar produk: $e');

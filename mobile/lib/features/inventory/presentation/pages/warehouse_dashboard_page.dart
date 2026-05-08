@@ -58,7 +58,11 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
   Future<void> _fetchInventory() async {
     final response = await apiClient.client.get('warehouse/stock');
     setState(() {
-      _inventory = (response.data as List<dynamic>?) ?? [];
+      if (response.data is Map && response.data.containsKey('data')) {
+        _inventory = (response.data['data'] as List<dynamic>?) ?? [];
+      } else {
+        _inventory = (response.data as List<dynamic>?) ?? [];
+      }
       _filteredInventory = _inventory;
     });
   }
@@ -66,21 +70,33 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
   Future<void> _fetchPendingInbound() async {
     final response = await apiClient.client.get('warehouse/transfers/pending');
     setState(() {
-      _pendingInbound = (response.data as List<dynamic>?) ?? [];
+      if (response.data is Map && response.data.containsKey('data')) {
+        _pendingInbound = (response.data['data'] as List<dynamic>?) ?? [];
+      } else {
+        _pendingInbound = (response.data as List<dynamic>?) ?? [];
+      }
     });
   }
 
   Future<void> _fetchPendingOutbound() async {
     final response = await apiClient.client.get('sales/transactions/status/VERIFIED');
     setState(() {
-      _pendingOutbound = (response.data as List<dynamic>?) ?? [];
+      if (response.data is Map && response.data.containsKey('data')) {
+        _pendingOutbound = (response.data['data'] as List<dynamic>?) ?? [];
+      } else {
+        _pendingOutbound = (response.data as List<dynamic>?) ?? [];
+      }
     });
   }
 
   Future<void> _fetchSalesRequests() async {
     final response = await apiClient.client.get('sales-transfers/pending');
     setState(() {
-      _salesRequests = (response.data as List<dynamic>?) ?? [];
+      if (response.data is Map && response.data.containsKey('data')) {
+        _salesRequests = (response.data['data'] as List<dynamic>?) ?? [];
+      } else {
+        _salesRequests = (response.data as List<dynamic>?) ?? [];
+      }
     });
   }
 
@@ -171,7 +187,7 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
               child: Text(doNo, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(color: AppColors.success, fontWeight: FontWeight.w800, fontSize: 16)),
             ),
             const SizedBox(height: 20),
-            _buildDetailBox(tr['product']['name'], '${tr['quantity']} ${tr['product']['unit']}'),
+            _buildDetailBox(tr['product']?['name'] ?? 'Produk Tidak Diketahui', '${tr['quantity'] ?? 0} ${tr['product']?['unit'] ?? 'Unit'}'),
           ],
         ),
         actions: [
@@ -199,7 +215,12 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
     setState(() => _isLoading = true);
     try {
       final response = await apiClient.client.get('sales/transactions/receipt/$receiptNo');
-      final transaction = response.data;
+      Map<String, dynamic> transaction;
+      if (response.data is Map && response.data.containsKey('data')) {
+        transaction = response.data['data'];
+      } else {
+        transaction = response.data;
+      }
       if (mounted) _showDispatchSheet(transaction);
     } catch (e) { _showError('Nota tidak valid.'); }
     finally { setState(() => _isLoading = false); }
@@ -235,8 +256,8 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
                       children: [
                         Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.grayLight, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.textSecondary)),
                         const SizedBox(width: 16),
-                        Expanded(child: Text(it['product']['name'], style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: AppColors.textPrimary))),
-                        Text('${it['quantity']} ${it['product']['unit']}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary)),
+                        Expanded(child: Text(it['product']?['name'] ?? 'Produk', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: AppColors.textPrimary))),
+                        Text('${it['quantity'] ?? 0} ${it['product']?['unit'] ?? 'Unit'}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary)),
                       ],
                     ),
                   );
@@ -473,12 +494,12 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item['product']['name'], style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary)),
+                Text(item['product']?['name'] ?? 'Produk Tanpa Nama', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary)),
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Text('SKU: ${item['product']['sku']}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
-                    if (item['product']['items_per_unit'] != null || item['product']['pcs_per_unit'] != null) ...[
+                    Text('SKU: ${item['product']?['sku'] ?? '-'}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.w600)),
+                    if (item['product'] != null && (item['product']['items_per_unit'] != null || item['product']['pcs_per_unit'] != null)) ...[
                       const SizedBox(width: 8),
                       Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.grayBorder, shape: BoxShape.circle)),
                       const SizedBox(width: 8),
@@ -513,12 +534,12 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
               itemBuilder: (context, index) {
                 final it = _pendingInbound[index];
                 return _buildTaskCard(
-                  title: it['delivery_order_no'],
+                  title: it['delivery_order_no'] ?? 'NO DO',
                   subtitle: 'Dari: ${it['from_factory']?['name'] ?? 'Pabrik'}',
                   type: 'PABRIK',
-                  date: it['created_at'],
+                  date: it['created_at'] ?? DateTime.now().toIso8601String(),
                   color: AppColors.success,
-                  onTap: () => _processInboundScan(it['delivery_order_no']),
+                  onTap: () => _processInboundScan(it['delivery_order_no'] ?? ''),
                 );
               },
             ),
@@ -542,9 +563,9 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
                 
                 return _buildTaskCard(
                   title: isRequest ? (it['employee']?['first_name'] ?? 'Sales').toUpperCase() : (it['store']?['name'] ?? 'Toko').toUpperCase(),
-                  subtitle: isRequest ? 'Request: ${it['product']?['name']}' : 'Kirim Nota: ${it['receipt_no']}',
+                  subtitle: isRequest ? 'Request: ${it['product']?['name'] ?? 'Produk'}' : 'Kirim Nota: ${it['receipt_no'] ?? '-'}',
                   type: isRequest ? 'STOK SALES' : 'SALES ORDER',
-                  date: it['created_at'],
+                  date: it['created_at'] ?? DateTime.now().toIso8601String(),
                   color: isRequest ? Colors.deepOrange : AppColors.info,
                   trailing: isRequest ? _formatStock(it['quantity'], it['product']) : null,
                   onTap: () => isRequest 

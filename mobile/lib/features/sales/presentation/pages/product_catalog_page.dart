@@ -5,6 +5,7 @@ import 'package:hris_app/features/sales/data/services/sales_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/database/database.dart';
 import 'package:hris_app/core/network/api_client.dart';
+import 'package:hris_app/features/sync/data/repositories/sync_repository.dart';
 import 'package:intl/intl.dart';
 
 class ProductCatalogPage extends StatefulWidget {
@@ -33,6 +34,10 @@ class _ProductCatalogPageState extends State<ProductCatalogPage> {
     });
     try {
       final db = di.sl<AppDatabase>();
+      
+      // Pull latest from backend first (fails silently if offline)
+      await di.sl<SyncRepository>().pullMasterData();
+      
       final products = await db.select(db.products).get();
       setState(() {
         _products = products.map((p) => ProductModel(
