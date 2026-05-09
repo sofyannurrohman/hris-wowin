@@ -39,6 +39,7 @@ func (r *salesTransactionRepository) Create(transaction *domain.SalesTransaction
 func (r *salesTransactionRepository) FindAll() ([]domain.SalesTransaction, error) {
 	var transactions []domain.SalesTransaction
 	if err := r.db.Preload("Company").Preload("Store").Preload("Employee").
+		Preload("Employee.Company").Preload("Employee.JobPosition").
 		Preload("DeliveryItems").Preload("DeliveryItems.DeliveryBatch").
 		Preload("Items").Preload("Items.Product").
 		Find(&transactions).Error; err != nil {
@@ -50,6 +51,7 @@ func (r *salesTransactionRepository) FindAll() ([]domain.SalesTransaction, error
 func (r *salesTransactionRepository) FindByID(id uuid.UUID) (*domain.SalesTransaction, error) {
 	var transaction domain.SalesTransaction
 	if err := r.db.Preload("Company").Preload("Store").Preload("Employee").
+		Preload("Employee.Company").Preload("Employee.JobPosition").
 		Preload("Items").Preload("Items.Product").
 		Where("id = ?", id).First(&transaction).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -85,7 +87,9 @@ func (r *salesTransactionRepository) GetTransactionsByEmployeeAndPeriod(employee
 
 func (r *salesTransactionRepository) FindByReceiptNo(receiptNo string) (*domain.SalesTransaction, error) {
 	var transaction domain.SalesTransaction
-	if err := r.db.Preload("Company").Preload("Store").Preload("Employee").Where("receipt_no = ?", receiptNo).First(&transaction).Error; err != nil {
+	if err := r.db.Preload("Company").Preload("Store").Preload("Employee").
+		Preload("Employee.Company").Preload("Employee.JobPosition").
+		Where("receipt_no = ?", receiptNo).First(&transaction).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -117,6 +121,7 @@ func (r *salesTransactionRepository) GetByDueDate(date string, employeeID uuid.U
 func (r *salesTransactionRepository) FindByStatusAndCompany(status string, companyID uuid.UUID) ([]domain.SalesTransaction, error) {
 	var transactions []domain.SalesTransaction
 	db := r.db.Preload("Store").Preload("Employee").Preload("Company").
+		Preload("Employee.Company").Preload("Employee.JobPosition").
 		Preload("DeliveryItems").Preload("DeliveryItems.DeliveryBatch").
 		Preload("Items").Preload("Items.Product")
 	if status != "" {
@@ -134,6 +139,7 @@ func (r *salesTransactionRepository) FindDeliveryPending(companyID uuid.UUID) ([
 	
 	// Query transactions with status VERIFIED that are NOT in any delivery_items
 	db := r.db.Preload("Store").Preload("Employee").Preload("Company").
+		Preload("Employee.Company").Preload("Employee.JobPosition").
 		Where("status = ?", "VERIFIED").
 		Where("id NOT IN (SELECT sales_transaction_id FROM delivery_items)")
 

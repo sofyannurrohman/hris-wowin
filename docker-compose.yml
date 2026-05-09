@@ -49,6 +49,15 @@ services:
       - SERVER_PORT=8081
       - JWT_SECRET=${JWT_SECRET:-supersecretkey_dev}
       - SKIP_SEED=true
+      - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY}
+      - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY}
+      - MIDTRANS_MERCHANT_ID=${MIDTRANS_MERCHANT_ID}
+      - MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-false}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
     depends_on:
       postgres:
         condition: service_healthy

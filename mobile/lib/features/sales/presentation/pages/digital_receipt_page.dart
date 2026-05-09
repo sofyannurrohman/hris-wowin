@@ -71,7 +71,9 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
     final receiptNo = _currentTrx['receipt_no'] ?? 'NO-DATA';
     final amount = (_currentTrx['total_amount'] ?? 0.0).toDouble();
     final paymentMethod = _currentTrx['payment_method'] ?? 'CASH';
-    final vaNumber = _currentTrx['midtrans_va_number'] ?? _currentTrx['midtrans_bill_key'] ?? '';
+    final vaNumber = (_currentTrx['midtrans_va_number'] != null && _currentTrx['midtrans_va_number'].toString().isNotEmpty)
+        ? _currentTrx['midtrans_va_number']
+        : (_currentTrx['midtrans_bill_key'] ?? '');
     final bank = _currentTrx['midtrans_bank'] ?? '';
     
     final currencyFormat = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
@@ -171,7 +173,7 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
                   ),
 
                   // VA Information if exists
-                  if (_currentTrx['midtrans_va_number'] != null || _currentTrx['midtrans_bill_key'] != null) ...[
+                  if (_currentTrx['payment_method'] == 'VA') ...[
                     const SizedBox(height: 24),
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -180,10 +182,23 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
                       child: Column(children: [
                         Text('NOMOR VIRTUAL ACCOUNT (${(_currentTrx['midtrans_bank'] ?? 'Bank').toString().toUpperCase()})', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.blueAccent, letterSpacing: 1)),
                         const SizedBox(height: 8),
-                        Text(_currentTrx['midtrans_va_number'] ?? _currentTrx['midtrans_bill_key'], style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B), letterSpacing: 1)),
-                        if (_currentTrx['midtrans_biller_code'] != null) ...[
-                          const SizedBox(height: 4),
-                          Text('Kode Biller: ${_currentTrx['midtrans_biller_code']}', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                        if (_currentTrx['midtrans_va_number'] != null && _currentTrx['midtrans_va_number'].toString().isNotEmpty || 
+                            _currentTrx['midtrans_bill_key'] != null && _currentTrx['midtrans_bill_key'].toString().isNotEmpty) ...[
+                          Text(
+                            (_currentTrx['midtrans_va_number'] != null && _currentTrx['midtrans_va_number'].toString().isNotEmpty)
+                                ? _currentTrx['midtrans_va_number']
+                                : _currentTrx['midtrans_bill_key'],
+                            style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B), letterSpacing: 1),
+                          ),
+                          if (_currentTrx['midtrans_biller_code'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text('Kode Biller: ${_currentTrx['midtrans_biller_code']}', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                          ]
+                        ] else ...[
+                          const SizedBox(height: 8),
+                          const CircularProgressIndicator(strokeWidth: 2),
+                          const SizedBox(height: 8),
+                          Text('Sedang menyiapkan nomor VA...', style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey, fontStyle: FontStyle.italic)),
                         ]
                       ]),
                     ),

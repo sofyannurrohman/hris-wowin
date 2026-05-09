@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -352,6 +353,8 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 					break
 				}
 			}
+		} else {
+			fmt.Printf("DEBUG: Midtrans QRIS Error for %s: %v\n", trx.ReceiptNo, err)
 		}
 	}
 
@@ -359,19 +362,43 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 	if trx.PaymentMethod == "VA" && u.midtransClient != nil {
 		resp, err := u.midtransClient.CreateBankTransfer(trx.ReceiptNo, int64(trx.TotalAmount), req.Bank)
 		if err == nil && resp != nil {
+			// Deep inspection of the response
+			respJSON, _ := json.Marshal(resp)
+			fmt.Printf("DEBUG MIDTRANS FULL Response: %s\n", string(respJSON))
+
 			if len(resp.VaNumbers) > 0 {
-				trx.MidtransVANumber = resp.VaNumbers[0].VANumber
-				trx.MidtransBank = resp.VaNumbers[0].Bank
+				vaNum := resp.VaNumbers[0].VANumber
+				bank := resp.VaNumbers[0].Bank
+				trx.MidtransVANumber = &vaNum
+				trx.MidtransBank = &bank
 				trx.MidtransID = resp.TransactionID
-				_ = u.salesRepo.Update(trx)
+				errUpdate := u.salesRepo.Update(trx)
+				if errUpdate != nil {
+					fmt.Printf("ERROR updating VA info to DB: %v\n", errUpdate)
+				} else {
+					fmt.Printf("SUCCESS: Saved VA Number %s to DB\n", *trx.MidtransVANumber)
+				}
 			} else if resp.BillKey != "" {
-				// Mandiri Bill
-				trx.MidtransBillKey = resp.BillKey
-				trx.MidtransBillerCode = resp.BillerCode
-				trx.MidtransBank = "mandiri"
+				// Mandiri Bill (E-Channel)
+				fmt.Printf("DEBUG: Found Mandiri BillKey: %s, BillerCode: %s\n", resp.BillKey, resp.BillerCode)
+				billKey := resp.BillKey
+				billerCode := resp.BillerCode
+				bankName := "mandiri"
+				trx.MidtransBillKey = &billKey
+				trx.MidtransBillerCode = &billerCode
+				trx.MidtransBank = &bankName
 				trx.MidtransID = resp.TransactionID
-				_ = u.salesRepo.Update(trx)
+				errUpdate := u.salesRepo.Update(trx)
+				if errUpdate != nil {
+					fmt.Printf("ERROR updating Mandiri VA info to DB: %v\n", errUpdate)
+				} else {
+					fmt.Printf("SUCCESS: Saved Mandiri BillKey %s to DB\n", *trx.MidtransBillKey)
+				}
+			} else {
+				fmt.Printf("DEBUG: Midtrans VA Response has no VA Numbers or Bill Key. Status: %s\n", resp.TransactionStatus)
 			}
+		} else {
+			fmt.Printf("DEBUG: Midtrans VA Error for %s (%s): %v\n", trx.ReceiptNo, req.Bank, err)
 		}
 	}
 
@@ -763,18 +790,12 @@ func (u *salesUsecase) HandleMidtransNotification(payload map[string]interface{}
 		return errors.New("transaction not found for midtrans notification")
 	}
 
-	if transactionStatus == "capture" {
-		if fraudStatus == "challenge" {
-			// TODO: handle fraud challenge
-		} else if fraudStatus == "accept" {
-			trx.PaymentStatus = string(domain.PaymentStatusPaid)
-			trx.PaidAmount = trx.TotalAmount
-		}
-	} else if transactionStatus == "settlement" {
+	if transactionStatus == "capture" && fraudStatus == "accept" || transactionStatus == "settlement" {
 		trx.PaymentStatus = string(domain.PaymentStatusPaid)
 		trx.PaidAmount = trx.TotalAmount
+		trx.Status = "VERIFIED"
 	} else if transactionStatus == "deny" || transactionStatus == "expire" || transactionStatus == "cancel" {
-		// handle failed payment if needed
+		trx.PaymentStatus = "FAILED"
 	}
 
 	return u.salesRepo.Update(trx)

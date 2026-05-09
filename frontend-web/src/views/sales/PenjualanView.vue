@@ -53,6 +53,7 @@ const zoomLevel = ref(1)
 const deliveryStore = useDeliveryStore()
 const masterDataStore = useMasterDataStore()
 const selectedDO = ref<any>(null)
+const selectedNota = ref<any>(null)
 const selectedQR = ref<string | null>(null)
 
 const currentSale = ref({
@@ -158,7 +159,8 @@ const fetchData = async () => {
           no: di.delivery_batch?.delivery_order_no,
           status: di.delivery_batch?.status,
           date: di.delivery_batch?.assigned_at
-        })) || []
+        })) || [],
+        raw: trx
       }))
     }
   } catch (error) {
@@ -434,6 +436,14 @@ const openSJPriority = async (batch: any) => {
     isLoading.value = false
   }
 }
+const openNotaPreview = (sale: any) => {
+  // Find raw data to get all details including store and items
+  const rawSale = salesData.value.find(s => s.id === sale.id)
+  selectedNota.value = {
+    ...sale,
+    raw: rawSale?.raw || rawSale
+  }
+}
 
 </script>
 
@@ -573,9 +583,15 @@ const openSJPriority = async (batch: any) => {
             <div class="grid grid-cols-2 gap-4 mt-6">
               <div class="space-y-1">
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salesman</p>
-                <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <User class="w-3.5 h-3.5" /> {{ sale.salesman }}
-                </p>
+                <div class="flex flex-col">
+                  <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <User class="w-3.5 h-3.5" /> {{ sale.salesman }}
+                  </p>
+                  <p class="text-[10px] font-medium text-slate-500 mt-0.5 ml-5">
+                    {{ sale.raw?.employee?.job_position?.title || 'Sales' }} • 
+                    {{ sale.raw?.employee?.company?.name || '-' }}
+                  </p>
+                </div>
               </div>
               <div class="space-y-1">
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waktu Input</p>
@@ -664,21 +680,27 @@ const openSJPriority = async (batch: any) => {
                  <XCircle class="w-4 h-4" /> TRANSAKSI DITOLAK
                </div>
 
-               <!-- Admin General Actions -->
-               <div class="flex gap-3">
-                 <button 
-                   @click="handleEdit(sale)"
-                   class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
-                 >
-                   <Pencil class="w-4 h-4" /> EDIT
-                 </button>
-                 <button 
-                   @click="handleDelete(sale.id)"
-                   class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
-                 >
-                   <Trash2 class="w-4 h-4" /> HAPUS
-                 </button>
-               </div>
+                <!-- Admin General Actions -->
+                <div class="flex flex-wrap gap-3">
+                  <button 
+                    @click="openNotaPreview(sale)"
+                    class="flex-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2 border border-primary/10"
+                  >
+                    <Printer class="w-4 h-4" /> CETAK NOTA
+                  </button>
+                  <button 
+                    @click="handleEdit(sale)"
+                    class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
+                  >
+                    <Pencil class="w-4 h-4" /> EDIT
+                  </button>
+                  <button 
+                    @click="handleDelete(sale.id)"
+                    class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
+                  >
+                    <Trash2 class="w-4 h-4" /> HAPUS
+                  </button>
+                </div>
             </div>
           </div>
         </div>
@@ -796,7 +818,7 @@ const openSJPriority = async (batch: any) => {
           </div>
 
           <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Upload Foto Nota (Opsional)</label>
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Foto Nota (Opsional - Digital First)</label>
             <div class="flex items-center gap-4">
               <input type="file" @change="handleFileUpload" accept="image/*" class="hidden" id="nota-upload" />
               <label for="nota-upload" class="flex-1 flex items-center justify-center gap-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-4 cursor-pointer hover:border-primary/40 hover:bg-slate-100/50 transition-all">
@@ -868,11 +890,15 @@ const openSJPriority = async (batch: any) => {
                  </p>
                </div>
                <div class="space-y-1">
-                 <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">SALESMAN / HELPER</p>
-                 <p class="text-[11px] font-black text-slate-900">
-                   {{ selectedDO.items?.[0]?.sales_transaction?.employee?.first_name || '........................' }}
-                 </p>
-               </div>
+                  <p class="text-[9px] font-black text-slate-900 uppercase tracking-widest">SALESMAN / HELPER</p>
+                  <p class="text-[11px] font-black text-slate-900 leading-tight">
+                    {{ selectedDO.items?.[0]?.sales_transaction?.employee?.first_name || '........................' }}
+                  </p>
+                  <p class="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
+                    {{ selectedDO.items?.[0]?.sales_transaction?.employee?.job_position?.title || '.....' }} • 
+                    {{ selectedDO.items?.[0]?.sales_transaction?.employee?.company?.name || '.....' }}
+                  </p>
+                </div>
                <div class="text-right">
                  <p class="text-[10px] font-mono font-bold text-slate-900 pb-1 italic uppercase tracking-tighter">SURAT JALAN #{{ selectedDO.delivery_order_no }}</p>
                  <p class="text-[9px] font-bold text-slate-900 mt-1 uppercase">{{ new Date(selectedDO.created_at).toLocaleDateString('id-ID', { dateStyle: 'long' }) }}</p>
@@ -987,6 +1013,149 @@ const openSJPriority = async (batch: any) => {
        </Card>
     </div>
 
+    <!-- Nota Printing Modal (Individual Receipt) -->
+    <div v-if="selectedNota" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-start justify-center p-0 sm:p-8 overflow-y-auto print:p-0">
+      <Card id="nota-penjualan-card" class="w-full max-w-[210mm] bg-white shadow-2xl border-0 sm:rounded-[24px] print:rounded-none my-auto">
+        <div class="p-8 print:p-4">
+          <!-- Header -->
+          <div class="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
+            <div class="flex items-center gap-4">
+              <div class="bg-primary p-3 rounded-2xl">
+                <Store class="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h2 class="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">WOWIN FOOD</h2>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">
+                  CV. WOWIN FOOD • CABANG {{ masterDataStore.branches.find(b => b.id === masterDataStore.selectedBranchId)?.name || 'UTAMA' }}
+                </p>
+              </div>
+            </div>
+            <div class="text-right">
+              <h3 class="text-xl font-black text-slate-900 italic tracking-tighter">NOTA PENJUALAN</h3>
+              <p class="text-xs font-black text-slate-400 mt-1">#{{ selectedNota.receiptNo || selectedNota.id.slice(0, 8).toUpperCase() }}</p>
+            </div>
+          </div>
+
+          <!-- Transaction Info -->
+          <div class="grid grid-cols-2 gap-8 mb-8">
+            <div class="space-y-4">
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">PELANGGAN / TOKO</p>
+                <p class="text-sm font-black text-slate-900 uppercase">{{ selectedNota.store }}</p>
+                <p class="text-[11px] font-bold text-slate-500 mt-0.5">{{ selectedNota.raw?.store?.address || '-' }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">SALESMAN</p>
+                <p class="text-sm font-black text-slate-900 uppercase">{{ selectedNota.salesman }}</p>
+                <p class="text-[10px] font-bold text-slate-500 mt-0.5">
+                  {{ selectedNota.raw?.employee?.job_position?.title || 'SALES' }} • 
+                  {{ selectedNota.raw?.employee?.company?.name || '-' }}
+                </p>
+              </div>
+            </div>
+            <div class="space-y-4 text-right">
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TANGGAL TRANSAKSI</p>
+                <p class="text-sm font-black text-slate-900">{{ formatDate(selectedNota.rawDate) }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">METODE PEMBAYARAN</p>
+                <p class="text-sm font-black text-slate-900 uppercase">{{ selectedNota.raw?.payment_method || 'CASH' }}</p>
+              </div>
+              <!-- Midtrans Info -->
+              <div v-if="selectedNota.raw?.midtrans_qris_url" class="flex flex-col items-end">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">SCAN QRIS</p>
+                <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${selectedNota.raw.midtrans_qris_url}`" class="w-24 h-24 border border-slate-200 p-1 rounded" />
+              </div>
+              <div v-if="selectedNota.raw?.midtrans_va_number || selectedNota.raw?.midtrans_bill_key" class="text-right">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  {{ selectedNota.raw?.midtrans_bank?.toUpperCase() }} VA
+                </p>
+                <p class="text-base font-black text-primary tracking-wider">
+                  {{ selectedNota.raw?.midtrans_va_number || selectedNota.raw?.midtrans_bill_key }}
+                </p>
+                <p v-if="selectedNota.raw?.midtrans_biller_code" class="text-[10px] font-bold text-slate-500">
+                  Biller: {{ selectedNota.raw?.midtrans_biller_code }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <div class="border-2 border-slate-900 rounded-xl overflow-hidden mb-8">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b-2 border-slate-900">
+                  <th class="p-3 font-black text-center w-12 border-r border-slate-300">NO</th>
+                  <th class="p-3 font-black border-r border-slate-300">NAMA PRODUK</th>
+                  <th class="p-3 font-black text-center w-20 border-r border-slate-300">QTY</th>
+                  <th class="p-3 font-black text-right w-32 border-r border-slate-300">HARGA</th>
+                  <th class="p-3 font-black text-right w-32 bg-slate-100/50">SUBTOTAL</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y border-slate-300">
+                <tr v-for="(item, idx) in selectedNota.raw?.items" :key="item.id" class="h-10">
+                  <td class="p-3 text-center font-bold border-r border-slate-300">{{ (idx as number) + 1 }}</td>
+                  <td class="p-3 font-bold text-slate-900 border-r border-slate-300 uppercase">{{ item.product?.name }}</td>
+                  <td class="p-3 text-center font-bold border-r border-slate-300">{{ item.quantity }}</td>
+                  <td class="p-3 text-right font-bold border-r border-slate-300">{{ formatCurrency(item.price_at_transaction).replace('Rp', '').trim() }}</td>
+                  <td class="p-3 text-right font-black bg-slate-50/50">{{ formatCurrency(item.subtotal).replace('Rp', '').trim() }}</td>
+                </tr>
+                <!-- Padding Rows if few items -->
+                <tr v-for="n in Math.max(0, 5 - (selectedNota.raw?.items?.length || 0))" :key="'blank-'+n" class="h-10">
+                  <td class="p-3 border-r border-slate-300"></td>
+                  <td class="p-3 border-r border-slate-300"></td>
+                  <td class="p-3 border-r border-slate-300"></td>
+                  <td class="p-3 border-r border-slate-300"></td>
+                  <td class="p-3 bg-slate-50/20"></td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="bg-slate-900 text-white font-black">
+                  <td colspan="4" class="p-4 text-right uppercase tracking-widest text-[10px]">TOTAL TAGIHAN</td>
+                  <td class="p-4 text-right text-base">{{ formatCurrency(selectedNota.amount) }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Footer/Signatures -->
+          <div class="grid grid-cols-3 gap-8 mt-12">
+            <div class="text-center space-y-12">
+              <p class="text-[10px] font-black uppercase tracking-widest">PELANGGAN</p>
+              <div class="border-b border-slate-400 w-32 mx-auto"></div>
+            </div>
+            <div class="text-center space-y-12">
+              <p class="text-[10px] font-black uppercase tracking-widest">SALESMAN</p>
+              <p class="text-xs font-black uppercase">( {{ selectedNota.salesman }} )</p>
+            </div>
+            <div class="flex justify-end items-center pr-4">
+              <div class="text-right mr-4">
+                <p class="text-[9px] font-black text-slate-400 uppercase leading-none">VALIDASI NOTA</p>
+                <p class="text-[7px] text-slate-300 italic mt-1 uppercase">DIGITAL RECORD</p>
+              </div>
+              <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${selectedNota.receiptNo || selectedNota.id}`" class="w-16 h-16 border-2 border-slate-900 p-1 rounded bg-white shadow-sm" />
+            </div>
+          </div>
+
+          <div class="mt-8 pt-6 border-t border-dashed border-slate-200">
+            <p class="text-[9px] text-slate-400 italic text-center">
+              Nota ini dihasilkan secara otomatis oleh Sistem HRIS & Penjualan Wowin Food. 
+              Dokumen digital ini sah dan valid untuk keperluan audit internal.
+            </p>
+          </div>
+        </div>
+
+        <CardFooter class="p-6 bg-slate-50 border-t flex justify-end gap-3 print:hidden">
+          <Button variant="ghost" class="font-bold text-slate-500" @click="selectedNota = null">BATAL</Button>
+          <Button class="bg-slate-900 hover:bg-slate-800 text-white font-black px-12 py-6 rounded-2xl shadow-xl shadow-slate-200" @click="handlePrint">
+            <Printer class="w-5 h-5 mr-3" />
+            CETAK NOTA
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+
     <!-- Receipt QR Modal -->
     <div v-if="selectedQR" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-6" @click="selectedQR = null">
        <Card class="w-full max-w-sm bg-white shadow-2xl rounded-[32px] overflow-hidden" @click.stop>
@@ -1028,7 +1197,9 @@ const openSJPriority = async (batch: any) => {
   .fixed.inset-0,
   .fixed.inset-0 *,
   #surat-jalan-card,
-  #surat-jalan-card * {
+  #surat-jalan-card *,
+  #nota-penjualan-card,
+  #nota-penjualan-card * {
     visibility: visible;
   }
   .fixed.inset-0 {
@@ -1043,29 +1214,38 @@ const openSJPriority = async (batch: any) => {
     display: block !important;
     z-index: 9999 !important;
   }
-  #surat-jalan-card {
+  #surat-jalan-card, #nota-penjualan-card {
     position: static !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     width: 100% !important;
     border: none !important;
     box-shadow: none !important;
     transform: none !important;
-    zoom: 0.80;
-    -moz-transform: scale(0.80);
-    -moz-transform-origin: top left;
     page-break-after: avoid !important;
     break-after: avoid !important;
   }
-  #surat-jalan-card .p-4 {
+  #surat-jalan-card {
+    zoom: 0.80;
+    -moz-transform: scale(0.80);
+    -moz-transform-origin: top left;
+    transform: scale(0.80);
+    transform-origin: top left;
+  }
+  #nota-penjualan-card {
+    max-width: 210mm !important;
+    padding: 20px !important;
+  }
+  #surat-jalan-card .p-4, #nota-penjualan-card .p-8 {
     padding: 2px 4px !important;
   }
-  #surat-jalan-card table {
+  #surat-jalan-card table, #nota-penjualan-card table {
     font-size: 7.5pt !important;
     border-collapse: collapse !important;
     width: 100% !important;
     line-height: 1.0 !important;
   }
-  #surat-jalan-card th, #surat-jalan-card td {
+  #surat-jalan-card th, #surat-jalan-card td,
+  #nota-penjualan-card th, #nota-penjualan-card td {
     padding: 1.5px !important;
     border: 1px solid #000 !important;
     visibility: visible !important;
@@ -1073,7 +1253,7 @@ const openSJPriority = async (batch: any) => {
   .print\:hidden {
     display: none !important;
   }
-  #surat-jalan-card div {
+  #surat-jalan-card div, #nota-penjualan-card div {
     max-height: none !important;
     overflow: visible !important;
     margin: 0 !important;

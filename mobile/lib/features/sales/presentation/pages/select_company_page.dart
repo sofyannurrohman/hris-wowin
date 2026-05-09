@@ -11,8 +11,15 @@ class SelectCompanyPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
   final Uint8List? selfieBytes;
+  final String jobPositionTitle;
 
-  const SelectCompanyPage({super.key, required this.store, required this.selfiePath, this.selfieBytes});
+  const SelectCompanyPage({
+    super.key, 
+    required this.store, 
+    required this.selfiePath, 
+    this.selfieBytes,
+    required this.jobPositionTitle,
+  });
 
   @override
   State<SelectCompanyPage> createState() => _SelectCompanyPageState();
@@ -114,6 +121,7 @@ class _SelectCompanyPageState extends State<SelectCompanyPage> {
                               selfieBytes: widget.selfieBytes,
                               companyId: comp['id'],
                               companyName: comp['name'],
+                              jobPositionTitle: widget.jobPositionTitle,
                             ),
                           ),
                         ),

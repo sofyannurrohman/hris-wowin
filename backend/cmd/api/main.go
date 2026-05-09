@@ -41,6 +41,7 @@ func main() {
 		&domain.SalesItem{},
 		&domain.SalesStock{},
 		&domain.SalesTransfer{},
+		&domain.SalesTransaction{},
 	)
 
 	// Setup Repositories

@@ -35,10 +35,10 @@ type SalesTransaction struct {
 	PaymentMethod   string     `gorm:"type:varchar(20);default:'CASH'" json:"payment_method"` // 'CASH', 'QRIS', 'TEMPO', 'VA'
 	MidtransID      string     `gorm:"type:varchar(100)" json:"midtrans_id"`
 	MidtransQRISURL string     `gorm:"type:text" json:"midtrans_qris_url"`
-	MidtransVANumber string    `gorm:"type:varchar(50)" json:"midtrans_va_number"`
-	MidtransBank     string    `gorm:"type:varchar(20)" json:"midtrans_bank"`
-	MidtransBillKey  string    `gorm:"type:varchar(50)" json:"midtrans_bill_key"`
-	MidtransBillerCode string  `gorm:"type:varchar(20)" json:"midtrans_biller_code"`
+	MidtransVANumber   *string    `gorm:"type:varchar(50)" json:"midtrans_va_number"`
+	MidtransBank       *string    `gorm:"type:varchar(20)" json:"midtrans_bank"`
+	MidtransBillKey    *string    `gorm:"type:varchar(50)" json:"midtrans_bill_key"`
+	MidtransBillerCode *string    `gorm:"type:varchar(20)" json:"midtrans_biller_code"`
 	Notes           *string    `gorm:"type:text" json:"notes"`
 	CreatedAt       time.Time  `gorm:"default:now()" json:"created_at"`
 	UpdatedAt       time.Time  `gorm:"default:now()" json:"updated_at"`

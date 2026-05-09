@@ -179,6 +179,11 @@ const router = createRouter({
               path: 'delivery',
               name: 'deliveryManagement',
               component: () => import('@/views/sales/DeliveryManagement.vue'),
+            },
+            {
+              path: 'verification',
+              name: 'cashierVerification',
+              component: () => import('@/views/warehouse/CashierVerificationView.vue'),
             }
           ]
         },
@@ -241,11 +246,6 @@ const router = createRouter({
               path: 'sales-transfers',
               name: 'salesTransfers',
               component: () => import('@/views/warehouse/SalesTransferView.vue'),
-            },
-            {
-              path: 'verification',
-              name: 'cashierVerification',
-              component: () => import('@/views/warehouse/CashierVerificationView.vue'),
             }
           ]
         }

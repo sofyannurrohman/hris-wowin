@@ -32,7 +32,7 @@ func (r *employeeRepository) Create(employee *domain.Employee) error {
 func (r *employeeRepository) FindAll(limit int, branchID *uuid.UUID) ([]domain.Employee, error) {
 	var employees []domain.Employee
 	today := time.Now().Format("2006-01-02")
-	query := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition").
+	query := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition").Preload("Company").
 		Preload("EmployeeShifts", "date = ?", today).
 		Preload("EmployeeShifts.Shift")
 	if limit > 0 {
@@ -49,7 +49,7 @@ func (r *employeeRepository) FindAll(limit int, branchID *uuid.UUID) ([]domain.E
 
 func (r *employeeRepository) FindByID(id uuid.UUID) (*domain.Employee, error) {
 	var employee domain.Employee
-	if err := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition").Where("id = ?", id).First(&employee).Error; err != nil {
+	if err := r.db.Preload("User").Preload("Branch").Preload("Department").Preload("JobPosition").Preload("Company").Where("id = ?", id).First(&employee).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -60,7 +60,7 @@ func (r *employeeRepository) FindByID(id uuid.UUID) (*domain.Employee, error) {
 
 func (r *employeeRepository) FindByUserID(userID uuid.UUID) (*domain.Employee, error) {
 	var employee domain.Employee
-	if err := r.db.Preload("Branch").Preload("User").Preload("Department").Preload("JobPosition").Where("user_id = ?", userID).First(&employee).Error; err != nil {
+	if err := r.db.Preload("Branch").Preload("User").Preload("Department").Preload("JobPosition").Preload("Company").Where("user_id = ?", userID).First(&employee).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}

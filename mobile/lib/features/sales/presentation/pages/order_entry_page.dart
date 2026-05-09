@@ -17,6 +17,7 @@ class OrderEntryPage extends StatefulWidget {
   final Uint8List? selfieBytes;
   final String companyId;
   final String companyName;
+  final String jobPositionTitle;
 
   const OrderEntryPage({
     super.key,
@@ -25,6 +26,7 @@ class OrderEntryPage extends StatefulWidget {
     this.selfieBytes,
     required this.companyId,
     required this.companyName,
+    required this.jobPositionTitle,
   });
 
   @override
@@ -479,11 +481,15 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            (p['stock'] as int) > 0 ? 'Tersedia di Bronjong (${p['stock']})' : 'Taking Order (Katalog)', 
+                            (widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO'))
+                                ? 'Taking Order (Katalog)'
+                                : ((p['stock'] as int) > 0 ? 'Tersedia di Bronjong (${p['stock']})' : 'Taking Order (Katalog)'), 
                             style: GoogleFonts.outfit(
                               fontSize: 10, 
                               fontWeight: FontWeight.w800, 
-                              color: (p['stock'] as int) > 0 ? Colors.green : Colors.orange.shade800
+                              color: (widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO'))
+                                  ? Colors.orange.shade800
+                                  : ((p['stock'] as int) > 0 ? Colors.green : Colors.orange.shade800)
                             )
                           ),
                         ),
@@ -508,7 +514,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
                         final currentQty = _cart[id] ?? 0;
                         setState(() => _cart[id] = currentQty + 1);
                         
-                        if (currentQty >= (p['stock'] as int)) {
+                        if (!(widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO')) && currentQty >= (p['stock'] as int)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('⚠️ Pesanan melebihi stok bronjong. Sisanya akan menjadi Taking Order (Inden).'),

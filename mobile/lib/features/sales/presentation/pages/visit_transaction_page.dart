@@ -22,10 +22,15 @@ class VisitTransactionPage extends StatefulWidget {
 class _VisitTransactionPageState extends State<VisitTransactionPage> {
   bool _isLoading = false;
 
-  void _navigateToSelection() {
+  void _navigateToSelection(String jobPosition) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => SelectCompanyPage(store: widget.store, selfiePath: widget.selfiePath, selfieBytes: widget.selfieBytes)),
+      MaterialPageRoute(builder: (_) => SelectCompanyPage(
+        store: widget.store, 
+        selfiePath: widget.selfiePath, 
+        selfieBytes: widget.selfieBytes,
+        jobPositionTitle: jobPosition,
+      )),
     );
   }
 
@@ -37,10 +42,11 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
       
       if (mounted) {
         result.fold(
-          (failure) => _navigateToSelection(),
+          (failure) => _navigateToSelection(''),
           (profile) {
             final companyId = profile['company_id'] ?? profile['companyId'] ?? profile['CompanyID'];
             final companyName = profile['company_name'] ?? profile['companyName'] ?? profile['CompanyNAME'] ?? profile['company']?['name'];
+            final jobPosition = profile['job_position']?['title'] ?? '';
             
             if (companyId != null) {
               Navigator.push(
@@ -52,17 +58,18 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
                     selfieBytes: widget.selfieBytes,
                     companyId: companyId.toString(),
                     companyName: companyName ?? 'Wowin Indonesia',
+                    jobPositionTitle: jobPosition,
                   ),
                 ),
               );
             } else {
-              _navigateToSelection();
+              _navigateToSelection(jobPosition);
             }
           },
         );
       }
     } catch (e) {
-      if (mounted) _navigateToSelection();
+      if (mounted) _navigateToSelection('');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

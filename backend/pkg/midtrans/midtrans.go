@@ -1,6 +1,7 @@
 package midtrans
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/midtrans/midtrans-go"
@@ -34,14 +35,25 @@ func (m *MidtransClient) CreateQRIS(orderID string, amount int64) (*coreapi.Char
 			GrossAmt: amount,
 		},
 		Qris: &coreapi.QrisDetails{
-			Acquirer: "gopay", // Default acquirer for QRIS
+			Acquirer: "gopay",
+		},
+		CustomerDetails: &midtrans.CustomerDetails{
+			FName: "Customer",
+			LName: orderID,
+			Email: "customer@example.com",
 		},
 	}
 
-	return m.CoreAPI.ChargeTransaction(req)
+	resp, err := m.CoreAPI.ChargeTransaction(req)
+	if err != nil {
+		return resp, err
+	}
+	return resp, nil
 }
 
 func (m *MidtransClient) CreateBankTransfer(orderID string, amount int64, bank string) (*coreapi.ChargeResponse, error) {
+	fmt.Printf("DEBUG MIDTRANS: Creating Bank Transfer for OrderID: %s, Amount: %d, Bank: %s\n", orderID, amount, bank)
+	
 	if bank == "mandiri" {
 		req := &coreapi.ChargeReq{
 			PaymentType: coreapi.PaymentTypeEChannel,
@@ -53,8 +65,41 @@ func (m *MidtransClient) CreateBankTransfer(orderID string, amount int64, bank s
 				BillInfo1: "Pembayaran Sales",
 				BillInfo2: "Wowin Indonesia",
 			},
+			CustomerDetails: &midtrans.CustomerDetails{
+				FName: "Customer",
+				LName: orderID,
+				Email: "customer@example.com",
+			},
 		}
-		return m.CoreAPI.ChargeTransaction(req)
+		resp, err := m.CoreAPI.ChargeTransaction(req)
+		if err != nil {
+			fmt.Printf("ERROR MIDTRANS Mandiri: %v\n", err)
+			return resp, err
+		}
+		return resp, nil
+	}
+
+	if bank == "permata" {
+		req := &coreapi.ChargeReq{
+			PaymentType: coreapi.PaymentTypeBankTransfer,
+			TransactionDetails: midtrans.TransactionDetails{
+				OrderID:  orderID,
+				GrossAmt: amount,
+			},
+			BankTransfer: &coreapi.BankTransferDetails{
+				Bank: midtrans.BankPermata,
+			},
+			CustomerDetails: &midtrans.CustomerDetails{
+				FName: "Customer",
+				LName: orderID,
+				Email: "customer@example.com",
+			},
+		}
+		resp, err := m.CoreAPI.ChargeTransaction(req)
+		if err != nil {
+			return resp, err
+		}
+		return resp, nil
 	}
 
 	var bankEnum midtrans.Bank
@@ -78,7 +123,17 @@ func (m *MidtransClient) CreateBankTransfer(orderID string, amount int64, bank s
 		BankTransfer: &coreapi.BankTransferDetails{
 			Bank: bankEnum,
 		},
+		CustomerDetails: &midtrans.CustomerDetails{
+			FName: "Customer",
+			LName: orderID,
+			Email: "customer@example.com",
+		},
 	}
 
-	return m.CoreAPI.ChargeTransaction(req)
+	resp, err := m.CoreAPI.ChargeTransaction(req)
+	if err != nil {
+		fmt.Printf("ERROR MIDTRANS %s: %v\n", bank, err)
+		return resp, err
+	}
+	return resp, nil
 }

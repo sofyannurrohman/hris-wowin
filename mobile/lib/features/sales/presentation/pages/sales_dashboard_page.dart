@@ -329,7 +329,15 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                       _buildSwipeableHeader(),
                       const SizedBox(height: 24),
                       const SizedBox(height: 24),
-                      _buildQuickAccess(),
+                      BlocBuilder<ProfileBloc, ProfileState>(
+                        builder: (context, state) {
+                          String position = '';
+                          if (state is ProfileLoaded) {
+                            position = state.profile['job_position']?['title'] ?? '';
+                          }
+                          return _buildQuickAccess(position);
+                        },
+                      ),
                       if (_pendingTransactions.isNotEmpty) ...[
                         const SizedBox(height: 32),
                         _buildPendingTransactionsList(),
@@ -447,7 +455,9 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     );
   }
 
-  Widget _buildQuickAccess() {
+  Widget _buildQuickAccess(String jobPosition) {
+    final bool isSalesTO = jobPosition.contains('Task Order') || jobPosition.contains('Sales TO');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -468,7 +478,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             _buildActionItem(Icons.view_list_rounded, 'Toko & Spanduk', const Color(0xFF047857)),
             _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFF0D9488)),
             _buildActionItem(Icons.history_edu_rounded, 'Riwayat Nota', const Color(0xFFCA8A04)),
-            _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', const Color(0xFF15803D)),
+            if (!isSalesTO)
+              _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', const Color(0xFF15803D)),
           ],
         ),
       ],
