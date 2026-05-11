@@ -133,8 +133,52 @@
         </div>
       </div>
 
-      <!-- Recent Activity / Logistics (1/3 width) -->
+      <!-- Demand Analysis / Backorder Queue (1/3 width) -->
       <div class="space-y-6">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold text-slate-900">Analisis Permintaan</h2>
+          <Badge variant="outline" class="bg-red-50 text-red-600 border-red-100 px-3 py-1 rounded-full text-[10px] font-bold">
+            Real-time
+          </Badge>
+        </div>
+
+        <Card class="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
+          <CardHeader class="p-6 pb-2">
+            <CardTitle class="text-sm font-bold text-slate-500 uppercase tracking-wider">Antrean Backorder (FIFO)</CardTitle>
+            <CardDescription class="text-xs">Produk yang habis stok & ditunggu pelanggan.</CardDescription>
+          </CardHeader>
+          <CardContent class="p-0">
+            <div v-if="factoryStore.backorderDemand.length === 0" class="p-8 text-center">
+              <CheckCircle2 class="h-10 w-10 text-emerald-400 mx-auto mb-3" />
+              <p class="text-sm font-medium text-slate-900">Semua Terpenuhi</p>
+              <p class="text-xs text-slate-500 mt-1">Tidak ada antrean pesanan menggantung.</p>
+            </div>
+            <div v-else class="divide-y divide-slate-50">
+              <div v-for="item in factoryStore.backorderDemand" :key="item.product_id" class="p-5 hover:bg-slate-50/50 transition-colors group">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-2xl bg-red-50 flex flex-col items-center justify-center text-red-600 group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+                    <span class="text-lg font-black leading-none">{{ item.total_qty }}</span>
+                    <span class="text-[8px] font-bold uppercase mt-1">PCS</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-start">
+                      <p class="text-sm font-extrabold text-slate-900 truncate">{{ item.product_name }}</p>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2">
+                      <Badge variant="secondary" class="text-[9px] font-bold bg-slate-100 text-slate-600 border-none">
+                        {{ item.order_count }} Invoice
+                      </Badge>
+                      <div class="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden mt-0.5">
+                        <div class="h-full bg-red-500 w-full animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <h2 class="text-xl font-bold text-slate-900">Pengiriman Terbaru</h2>
         
         <Card class="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
@@ -269,7 +313,8 @@ import {
   Download, 
   MapPin, 
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  CheckCircle2
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -288,8 +333,10 @@ const newFactoryForm = reactive({
 onMounted(() => {
   factoryStore.fetchFactories()
   factoryStore.fetchProducts()
+  factoryStore.fetchBackorderDemand(masterDataStore.selectedBranchCompanyId || '')
   masterDataStore.fetchBranches()
 })
+
 
 const goToFactory = (id: string) => {
   router.push({ name: 'factoryInventory', params: { id } })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, h } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import {
   FlexRender,
@@ -38,7 +38,7 @@ const normalizedColumns = computed(() => {
 
     // Handle custom render if provided in legacy format
     if (col.render) {
-      newCol.cell = (info: any) => col.render(info.getValue())
+      newCol.cell = (info: any) => h('div', { innerHTML: col.render(info.getValue(), info.row.original) })
     } else if (col.type === 'datetime') {
       newCol.cell = (info: any) => {
         const val = info.getValue()

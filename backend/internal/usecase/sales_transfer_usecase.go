@@ -34,8 +34,10 @@ type CreateSalesTransferRequest struct {
 	EmployeeID uuid.UUID              `json:"employee_id" binding:"required"`
 	ProductID  uuid.UUID              `json:"product_id" binding:"required"`
 	Quantity   int                    `json:"quantity" binding:"required"`
+	Unit       string                 `json:"unit"`
 	Type       domain.SalesTransferType `json:"type" binding:"required"`
-	Notes      string                 `json:"notes"`
+	Notes       string                   `json:"notes"`
+	ReferenceNo string                   `json:"reference_no"`
 }
 
 func (u *salesTransferUsecase) CreateTransfer(branchID uuid.UUID, req CreateSalesTransferRequest) error {
@@ -45,11 +47,16 @@ func (u *salesTransferUsecase) CreateTransfer(branchID uuid.UUID, req CreateSale
 
 		// 1. Validate quantity if it's a TRANSFER (Warehouse -> Salesman)
 		if req.Type == domain.SalesTransferOut {
-			wStock, err := wRepo.GetStock(branchID, req.ProductID)
+			// Validate aggregate available stock
+			batches, err := wRepo.GetAvailableBatches(branchID, req.ProductID, "GOOD")
 			if err != nil {
 				return err
 			}
-			if wStock.Quantity < req.Quantity {
+			totalAvailable := 0
+			for _, b := range batches {
+				totalAvailable += (b.Quantity - b.ReservedQuantity)
+			}
+			if totalAvailable < req.Quantity {
 				return errors.New("stok gudang tidak mencukupi")
 			}
 		} else if req.Type == domain.SalesTransferIn {
@@ -68,10 +75,20 @@ func (u *salesTransferUsecase) CreateTransfer(branchID uuid.UUID, req CreateSale
 			EmployeeID:   req.EmployeeID,
 			ProductID:    req.ProductID,
 			Quantity:     req.Quantity,
+			Unit:         req.Unit,
 			Type:         req.Type,
 			Status:       domain.SalesTransferPending,
+			ReferenceNo:  req.ReferenceNo,
 			Notes:        req.Notes,
 			TransferDate: time.Now(),
+		}
+
+		if transfer.ReferenceNo == "" {
+			prefix := "TRF"
+			if transfer.Type == domain.SalesTransferIn {
+				prefix = "RTN"
+			}
+			transfer.ReferenceNo = prefix + "-" + time.Now().Format("20060102") + "-" + uuid.New().String()[:4]
 		}
 
 		return repo.CreateTransfer(transfer)
@@ -93,18 +110,47 @@ func (u *salesTransferUsecase) CompleteTransfer(transferID uuid.UUID) error {
 		}
 
 		if transfer.Type == domain.SalesTransferOut {
-			// Warehouse -> Salesman
-			// Decrease Warehouse
-			wStock, err := wRepo.GetStock(transfer.BranchID, transfer.ProductID)
+			// Warehouse -> Salesman (FEFO)
+			// Ambil semua batch yang tersedia (FEFO)
+			batches, err := wRepo.GetAvailableBatches(transfer.BranchID, transfer.ProductID, "GOOD")
 			if err != nil {
 				return err
 			}
-			wStock.Quantity -= transfer.Quantity
-			if err := wRepo.UpdateStock(wStock); err != nil {
-				return err
+
+			totalAvailable := 0
+			for _, b := range batches {
+				totalAvailable += (b.Quantity - b.ReservedQuantity)
 			}
 
-			// Increase Salesman
+			if totalAvailable < transfer.Quantity {
+				return errors.New("stok gudang tidak mencukupi (termasuk reservasi)")
+			}
+
+			remainingToDeduct := transfer.Quantity
+			for i := range batches {
+				b := &batches[i]
+				availableInBatch := b.Quantity - b.ReservedQuantity
+				if availableInBatch <= 0 {
+					continue
+				}
+
+				deduct := availableInBatch
+				if deduct > remainingToDeduct {
+					deduct = remainingToDeduct
+				}
+
+				b.Quantity -= deduct
+				remainingToDeduct -= deduct
+				if err := wRepo.UpdateStock(b); err != nil {
+					return err
+				}
+
+				if remainingToDeduct <= 0 {
+					break
+				}
+			}
+
+			// Increase Salesman (Aggregate)
 			sStock, err := repo.GetSalesStock(transfer.EmployeeID, transfer.ProductID)
 			if err != nil {
 				return err
@@ -135,8 +181,8 @@ func (u *salesTransferUsecase) CompleteTransfer(transferID uuid.UUID) error {
 				return err
 			}
 
-			// Increase Warehouse
-			wStock, err := wRepo.GetStock(transfer.BranchID, transfer.ProductID)
+			// Increase Warehouse (Default Batch for Returns)
+			wStock, err := wRepo.GetStock(transfer.BranchID, transfer.ProductID, "GOOD", "DEFAULT")
 			if err != nil {
 				return err
 			}

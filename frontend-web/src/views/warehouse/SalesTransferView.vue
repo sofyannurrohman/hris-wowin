@@ -16,7 +16,7 @@
       <div class="lg:col-span-8 space-y-4">
         <h2 class="text-xl font-bold flex items-center gap-2">
           <History class="h-5 w-5 text-primary" />
-          Riwayat Perpindahan
+          Riwayat Perpindahan & Retur
         </h2>
         <Card class="border-none shadow-sm overflow-hidden">
           <DataTable :columns="columns" :data="transferStore.transfers">
@@ -26,6 +26,11 @@
               </span>
               <span v-else class="flex items-center gap-1 text-amber-600 font-bold">
                 <ArrowLeft class="h-3 w-3" /> RETUR
+              </span>
+            </template>
+            <template #cell-reference_no="{ row }">
+              <span class="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                {{ row.reference_no || '-' }}
               </span>
             </template>
             <template #cell-employee_name="{ row }">
@@ -155,6 +160,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, reactive, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useSalesTransferStore } from '@/stores/salesTransfer'
 import { useWarehouseStore } from '@/stores/warehouse'
 import { useMasterDataStore } from '@/stores/masterData'
@@ -168,6 +174,7 @@ const transferStore = useSalesTransferStore()
 const warehouseStore = useWarehouseStore()
 const masterStore = useMasterDataStore()
 const factoryStore = useFactoryStore()
+const route = useRoute()
 
 const showForm = ref(false)
 const loading = ref(false)
@@ -196,6 +203,7 @@ const openForm = async () => {
 }
 
 const columns = [
+  { key: 'reference_no', label: 'No. Nota/Ref' },
   { key: 'type', label: 'Tipe' },
   { key: 'employee_name', label: 'Salesman' },
   { key: 'product.name', label: 'Produk' },
@@ -272,5 +280,10 @@ onMounted(() => {
   warehouseStore.fetchInventory()
   masterStore.fetchEmployees()
   factoryStore.fetchProducts()
+
+  if (route.path.includes('/retur')) {
+    form.type = 'RETURN'
+    openForm()
+  }
 })
 </script>

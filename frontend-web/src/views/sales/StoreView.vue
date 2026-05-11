@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import apiClient from '@/api/axios'
 import { toast } from 'vue-sonner'
 import { 
@@ -30,7 +30,7 @@ import 'leaflet-defaulticon-compatibility'
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css'
 
 const isLoading = ref(true)
-const stores = ref<any[]>([])
+const stores = computed(() => masterDataStore.stores)
 const salesmen = ref<any[]>([])
 const searchQuery = ref('')
 const selectedStatus = ref('ALL')
@@ -68,10 +68,7 @@ const fetchStores = async () => {
   if (!masterDataStore.selectedBranchId) return
   isLoading.value = true
   try {
-    const res = await apiClient.get(`/stores?company_id=${masterDataStore.selectedBranchCompanyId || ''}`)
-    if (res.data?.data) {
-      stores.value = res.data.data
-    }
+    await masterDataStore.fetchStores(masterDataStore.selectedBranchCompanyId)
   } catch (error) {
     toast.error('Gagal mengambil data toko')
   } finally {
@@ -94,15 +91,26 @@ const fetchSalesmen = async () => {
   }
 }
 
-const initMap = () => {
+const initMap = async () => {
   if (map.value) return
   
+  await nextTick()
+  const mapElement = document.getElementById('store-map')
+  if (!mapElement) return
+
+  // Small delay to ensure modal transition finished
   setTimeout(() => {
+    const el = document.getElementById('store-map')
+    if (!el || map.value) return
+    
     const defaultLat = currentStore.value.latitude || -6.2088
     const defaultLng = currentStore.value.longitude || 106.8456
     
-    map.value = L.map('store-map').setView([defaultLat, defaultLng], 15)
-    
+    map.value = L.map('store-map', {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView([defaultLat, defaultLng], 15)
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map.value)
@@ -115,7 +123,6 @@ const initMap = () => {
       const pos = e.target.getLatLng()
       currentStore.value.latitude = pos.lat
       currentStore.value.longitude = pos.lng
-      reverseGeocode(pos.lat, pos.lng)
     })
 
     map.value.on('click', (e: any) => {
@@ -123,12 +130,30 @@ const initMap = () => {
       marker.value.setLatLng(pos)
       currentStore.value.latitude = pos.lat
       currentStore.value.longitude = pos.lng
-      reverseGeocode(pos.lat, pos.lng)
     })
-  }, 300)
+    
+    // Force invalidation to fix grey tiles
+    setTimeout(() => {
+       map.value?.invalidateSize()
+    }, 400)
+  }, 100)
 }
 
+// Watch showModal to trigger map init and cleanup
+watch(showModal, (newVal) => {
+  if (newVal) {
+    initMap()
+  } else {
+    if (map.value) {
+      map.value.remove()
+      map.value = null
+      marker.value = null
+    }
+  }
+})
+
 const reverseGeocode = async (lat: number, lng: number) => {
+  if (lat === 0 && lng === 0) return
   isGeocoding.value = true
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
@@ -160,7 +185,6 @@ const openAddModal = () => {
   selectedFile.value = null
   imagePreview.value = null
   showModal.value = true
-  initMap()
 }
 
 const handleEdit = (store: any) => {
@@ -180,7 +204,6 @@ const handleEdit = (store: any) => {
   selectedFile.value = null
   imagePreview.value = null
   showModal.value = true
-  initMap()
 }
 
 const handleDelete = async (id: string) => {
@@ -240,7 +263,7 @@ watch(() => currentStore.value.longitude, (newVal) => {
 })
 
 const filteredStores = computed(() => {
-  return stores.value.filter(s => {
+  return stores.value.filter((s: any) => {
     const matchesSearch = s.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
                           (s.owner_name && s.owner_name.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
                           (s.address && s.address.toLowerCase().includes(searchQuery.value.toLowerCase()))

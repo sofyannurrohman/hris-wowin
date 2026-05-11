@@ -1,0 +1,111 @@
+package domain
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+type SalesOrderStatus string
+
+const (
+	SOStatusDraft            SalesOrderStatus = "DRAFT"             // Baru dibuat salesman
+	SOStatusWaitingWarehouse SalesOrderStatus = "WAITING_WAREHOUSE" // Siap diproses gudang (Stok ter-reserve)
+	SOStatusWaitingStock     SalesOrderStatus = "WAITING_STOCK"     // Antrean Backorder (Stok tidak cukup)
+	SOStatusProcessing       SalesOrderStatus = "PROCESSING"        // Sedang dipacking gudang
+	SOStatusShipped          SalesOrderStatus = "SHIPPED"           // Surat Jalan terbit (Stok keluar permanen)
+	SOStatusDelivered        SalesOrderStatus = "DELIVERED"         // Barang sampai di pelanggan (POD)
+	SOStatusConverted        SalesOrderStatus = "CONVERTED"         // Invoice diterbitkan
+	SOStatusCancelled        SalesOrderStatus = "CANCELLED"         // Dibatalkan
+	SOStatusRejected         SalesOrderStatus = "REJECTED"          // Ditolak admin
+)
+
+// SalesOrder adalah dokumen Pesanan Order (PO) yang dibuat salesman.
+type SalesOrder struct {
+	ID            uuid.UUID        `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	SONumber      string           `gorm:"type:varchar(50);unique;not null" json:"so_number"`
+	BranchID      uuid.UUID        `gorm:"type:uuid;not null" json:"branch_id"`
+	CompanyID     uuid.UUID        `gorm:"type:uuid;not null" json:"company_id"`
+	EmployeeID    uuid.UUID        `gorm:"type:uuid;not null" json:"employee_id"`
+	StoreID       uuid.UUID        `gorm:"type:uuid;not null" json:"store_id"`
+	StoreCategory string           `gorm:"type:varchar(50)" json:"store_category"`
+	Status        SalesOrderStatus `gorm:"type:varchar(30);default:'DRAFT'" json:"status"`
+	TotalAmount   float64          `gorm:"type:decimal(15,2);default:0" json:"total_amount"`
+	Notes         string           `gorm:"type:text" json:"notes"`
+
+	// Metadata Pengiriman (Gudang)
+	DeliveryOrderNo string     `gorm:"type:varchar(50);unique" json:"delivery_order_no"`
+	ShippedAt       *time.Time `json:"shipped_at,omitempty"`
+
+	// Proof of Delivery (POD)
+	PODImageURL *string    `gorm:"type:text" json:"pod_image_url"`
+	ReceivedAt  *time.Time `json:"received_at,omitempty"`
+	ReceivedBy  string     `gorm:"type:varchar(100)" json:"received_by"`
+
+	// Link ke Invoice setelah dikonversi
+	InvoiceID *uuid.UUID `gorm:"type:uuid" json:"invoice_id"`
+
+	// Approval metadata
+	ConfirmedAt   *time.Time `json:"confirmed_at,omitempty"`
+	ConfirmedByID *uuid.UUID `gorm:"type:uuid" json:"confirmed_by_id"`
+	ConvertedAt   *time.Time `json:"converted_at,omitempty"`
+	RejectedAt    *time.Time `json:"rejected_at,omitempty"`
+	RejectedByID  *uuid.UUID `gorm:"type:uuid" json:"rejected_by_id"`
+	RejectNotes   string     `gorm:"type:text" json:"reject_notes"`
+
+	OrderDate time.Time `gorm:"default:now()" json:"order_date"`
+	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`
+
+	Branch      *Branch          `gorm:"foreignKey:BranchID" json:"branch,omitempty"`
+	Company     *Company         `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
+	Employee    *Employee        `gorm:"foreignKey:EmployeeID" json:"employee,omitempty"`
+	Store       *Store           `gorm:"foreignKey:StoreID" json:"store,omitempty"`
+	ConfirmedBy *Employee        `gorm:"foreignKey:ConfirmedByID" json:"confirmed_by,omitempty"`
+	Items       []SalesOrderItem `gorm:"foreignKey:SalesOrderID" json:"items,omitempty"`
+}
+
+// SalesOrderItem adalah item produk dalam sebuah Sales Order.
+type SalesOrderItem struct {
+	ID             uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	SalesOrderID   uuid.UUID `gorm:"type:uuid;not null" json:"sales_order_id"`
+	ProductID      uuid.UUID `gorm:"type:uuid;not null" json:"product_id"`
+	Quantity         int       `gorm:"type:int;not null" json:"quantity"`        // Total Qty dalam satuan terkecil (Base Unit)
+	OrderedQuantity  int       `gorm:"type:int;not null;default:0" json:"ordered_quantity"` // Qty yang diinput (misal: 3)
+	Unit             string    `gorm:"type:varchar(20);not null;default:'PCS'" json:"unit"` // Satuan yang dipilih (misal: Karton)
+	PiecesPerUnit    int       `gorm:"type:int;not null;default:1" json:"pieces_per_unit"` // Isi per satuan (misal: 24)
+	ReservedQuantity int       `gorm:"type:int;default:0" json:"reserved_quantity"` // Stok ter-lock (Auto-Allocation)
+	ActualQuantity   int       `gorm:"type:int;default:0" json:"actual_quantity"` // Qty Riil yang dikirim Gudang
+	Price            float64   `gorm:"type:decimal(15,2);default:0" json:"price"`
+	Subtotal         float64   `gorm:"type:decimal(15,2);default:0" json:"subtotal"`
+	CreatedAt        time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt        time.Time `gorm:"default:now()" json:"updated_at"`
+
+	Product *Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	Batches []SalesOrderItemBatch `gorm:"foreignKey:SalesOrderItemID" json:"batches,omitempty"`
+}
+
+// SalesOrderItemBatch menyimpan rincian batch mana saja yang ter-reserve untuk item ini.
+type SalesOrderItemBatch struct {
+	ID               uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	SalesOrderItemID uuid.UUID `gorm:"type:uuid;not null;index" json:"sales_order_item_id"`
+	BatchNo          string    `gorm:"type:varchar(50);not null" json:"batch_no"`
+	Quantity         int       `gorm:"type:int;not null" json:"quantity"`
+	CreatedAt        time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt        time.Time `gorm:"default:now()" json:"updated_at"`
+}
+
+func (so *SalesOrder) BeforeCreate(tx *gorm.DB) (err error) {
+	if so.ID == uuid.Nil {
+		so.ID = uuid.New()
+	}
+	return
+}
+
+func (soi *SalesOrderItem) BeforeCreate(tx *gorm.DB) (err error) {
+	if soi.ID == uuid.Nil {
+		soi.ID = uuid.New()
+	}
+	return
+}

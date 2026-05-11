@@ -127,6 +127,7 @@ func (h *WarehouseHandler) SetStockLimit(c *gin.Context) {
 	var req struct {
 		ProductID uuid.UUID `json:"product_id" binding:"required"`
 		Limit     int       `json:"limit" binding:"required"`
+		BatchNo   string    `json:"batch_no"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -145,7 +146,7 @@ func (h *WarehouseHandler) SetStockLimit(c *gin.Context) {
 		return
 	}
 
-	if err := h.usecase.SetStockLimit(branchID, req.ProductID, req.Limit); err != nil {
+	if err := h.usecase.SetStockLimit(branchID, req.ProductID, req.Limit, req.BatchNo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -157,6 +158,7 @@ func (h *WarehouseHandler) AdjustStock(c *gin.Context) {
 		ProductID uuid.UUID `json:"product_id" binding:"required"`
 		Quantity  int       `json:"quantity" binding:"required"`
 		Reason    string    `json:"reason"`
+		BatchNo   string    `json:"batch_no"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -175,7 +177,7 @@ func (h *WarehouseHandler) AdjustStock(c *gin.Context) {
 		return
 	}
 
-	if err := h.usecase.AdjustStock(branchID, req.ProductID, req.Quantity, req.Reason); err != nil {
+	if err := h.usecase.AdjustStock(branchID, req.ProductID, req.Quantity, req.Reason, req.BatchNo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

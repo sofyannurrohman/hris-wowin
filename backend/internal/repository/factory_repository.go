@@ -22,10 +22,11 @@ type FactoryRepository interface {
 	DeleteProduct(id uuid.UUID) error
 
 	// Stock
-	GetStock(factoryID, productID uuid.UUID) (*domain.FactoryStock, error)
+	GetStock(factoryID, productID uuid.UUID, batchNo string) (*domain.FactoryStock, error)
 	UpdateStock(stock *domain.FactoryStock) error
 	GetStocksByFactoryID(factoryID uuid.UUID) ([]domain.FactoryStock, error)
 	GetAllStocksByCompanyID(companyID uuid.UUID) ([]domain.FactoryStock, error)
+	GetAvailableBatches(factoryID, productID uuid.UUID) ([]domain.FactoryStock, error)
 
 	// Logs
 	CreateProductionLog(log *domain.ProductionLog) error
@@ -44,7 +45,14 @@ type FactoryRepository interface {
 	GetTransferByID(id uuid.UUID) (*domain.ProductTransfer, error)
 	UpdateTransfer(transfer *domain.ProductTransfer) error
 	UpdateTransferStatus(id uuid.UUID, status string) error
+	
+	// Recipe
+	CreateRecipe(recipe *domain.ProductionRecipe) error
+	GetRecipeByFinishedProduct(productID uuid.UUID) (*domain.ProductionRecipe, error)
+	GetRecipesByCompany(companyID uuid.UUID) ([]domain.ProductionRecipe, error)
+	DeleteRecipe(id uuid.UUID) error
 }
+
 
 type factoryRepository struct {
 	db *gorm.DB
@@ -102,11 +110,11 @@ func (r *factoryRepository) DeleteProduct(id uuid.UUID) error {
 	return r.db.Delete(&domain.Product{}, "id = ?", id).Error
 }
 
-func (r *factoryRepository) GetStock(factoryID, productID uuid.UUID) (*domain.FactoryStock, error) {
+func (r *factoryRepository) GetStock(factoryID, productID uuid.UUID, batchNo string) (*domain.FactoryStock, error) {
 	var stock domain.FactoryStock
-	err := r.db.Where("factory_id = ? AND product_id = ?", factoryID, productID).First(&stock).Error
+	err := r.db.Where("factory_id = ? AND product_id = ? AND batch_no = ?", factoryID, productID, batchNo).First(&stock).Error
 	if err == gorm.ErrRecordNotFound {
-		return &domain.FactoryStock{FactoryID: factoryID, ProductID: productID, Quantity: 0}, nil
+		return &domain.FactoryStock{FactoryID: factoryID, ProductID: productID, BatchNo: batchNo, Quantity: 0}, nil
 	}
 	return &stock, err
 }
@@ -129,6 +137,14 @@ func (r *factoryRepository) GetAllStocksByCompanyID(companyID uuid.UUID) ([]doma
 	err := r.db.Preload("Product").Preload("Factory").
 		Joins("JOIN factories ON factories.id = factory_stocks.factory_id").
 		Where("factories.company_id = ?", companyID).
+		Find(&stocks).Error
+	return stocks, err
+}
+
+func (r *factoryRepository) GetAvailableBatches(factoryID, productID uuid.UUID) ([]domain.FactoryStock, error) {
+	var stocks []domain.FactoryStock
+	err := r.db.Where("factory_id = ? AND product_id = ? AND quantity > 0 AND batch_no != 'BACKORDER'", factoryID, productID).
+		Order("expiry_date ASC").
 		Find(&stocks).Error
 	return stocks, err
 }
@@ -208,3 +224,35 @@ func (r *factoryRepository) UpdateTransfer(transfer *domain.ProductTransfer) err
 func (r *factoryRepository) UpdateTransferStatus(id uuid.UUID, status string) error {
 	return r.db.Model(&domain.ProductTransfer{}).Where("id = ?", id).Update("status", status).Error
 }
+
+func (r *factoryRepository) CreateRecipe(recipe *domain.ProductionRecipe) error {
+	return r.db.Create(recipe).Error
+}
+
+func (r *factoryRepository) GetRecipeByFinishedProduct(productID uuid.UUID) (*domain.ProductionRecipe, error) {
+	var recipe domain.ProductionRecipe
+	err := r.db.Preload("Items.RawProduct").Where("finished_product_id = ?", productID).First(&recipe).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &recipe, err
+}
+
+func (r *factoryRepository) GetRecipesByCompany(companyID uuid.UUID) ([]domain.ProductionRecipe, error) {
+	var recipes []domain.ProductionRecipe
+	err := r.db.Preload("FinishedProduct").
+		Joins("JOIN products ON products.id = production_recipes.finished_product_id").
+		Where("products.company_id = ?", companyID).
+		Find(&recipes).Error
+	return recipes, err
+}
+
+func (r *factoryRepository) DeleteRecipe(id uuid.UUID) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&domain.ProductionRecipeItem{}, "recipe_id = ?", id).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&domain.ProductionRecipe{}, "id = ?", id).Error
+	})
+}
+

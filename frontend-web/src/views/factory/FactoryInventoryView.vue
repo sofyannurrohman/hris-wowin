@@ -122,6 +122,16 @@
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
+              <label class="text-sm font-bold text-slate-700">Nomor Batch</label>
+              <input type="text" v-model="productionForm.batch_no" class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Contoh: B1-2024" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-bold text-slate-700">Tgl Kadaluarsa</label>
+              <input type="date" v-model="productionForm.expiry_date" class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
               <label class="text-sm font-bold text-slate-700">Jumlah Hasil</label>
               <input type="number" v-model="productionForm.quantity" class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
@@ -292,6 +302,8 @@ const selectedStock = ref<any>(null)
 const productionForm = reactive({
   product_id: '',
   quantity: 0,
+  batch_no: '',
+  expiry_date: '',
   employee_id: '',
   notes: ''
 })
@@ -339,6 +351,8 @@ const openLogProduction = () => {
   Object.assign(productionForm, {
     product_id: '',
     quantity: 0,
+    batch_no: '',
+    expiry_date: '',
     employee_id: '',
     notes: ''
   })
@@ -351,6 +365,8 @@ const openEditProduction = (item: any) => {
   Object.assign(productionForm, {
     product_id: item.product_id,
     quantity: item.quantity,
+    batch_no: item.batch_no,
+    expiry_date: item.expiry_date ? new Date(item.expiry_date).toISOString().split('T')[0] : '',
     employee_id: item.employee_id,
     notes: item.notes
   })
@@ -398,6 +414,7 @@ const handleAdjustStockSubmit = async () => {
   try {
     await factoryStore.adjustStock(factoryId, {
       product_id: selectedStock.value.product_id,
+      batch_no: selectedStock.value.batch_no,
       quantity: adjustStockForm.quantity,
       reason: adjustStockForm.reason
     })
@@ -429,6 +446,8 @@ const handleTransferSubmit = async () => {
 const stockColumns = [
   { key: 'product.sku', label: 'SKU' },
   { key: 'product.name', label: 'Produk' },
+  { key: 'batch_no', label: 'Batch' },
+  { key: 'expiry_date', label: 'Kadaluarsa', type: 'date' },
   { key: 'quantity', label: 'Stok Gudang' },
   { key: 'actions', label: '' }
 ]
@@ -436,6 +455,7 @@ const stockColumns = [
 const productionColumns = [
   { key: 'production_date', label: 'Tanggal', type: 'datetime' },
   { key: 'product.name', label: 'Produk' },
+  { key: 'batch_no', label: 'Batch' },
   { key: 'quantity', label: 'Qty' },
   { key: 'actions', label: '' }
 ]

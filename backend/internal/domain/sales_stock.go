@@ -39,8 +39,10 @@ type SalesTransfer struct {
 	EmployeeID    uuid.UUID           `gorm:"type:uuid;not null" json:"employee_id"`
 	ProductID     uuid.UUID           `gorm:"type:uuid;not null" json:"product_id"`
 	Quantity      int                 `gorm:"type:int;not null" json:"quantity"`
+	Unit          string              `gorm:"type:varchar(20);default:'pcs'" json:"unit"`
 	Type          SalesTransferType   `gorm:"type:varchar(20);not null" json:"type"`
 	Status        SalesTransferStatus `gorm:"type:varchar(20);default:'PENDING'" json:"status"`
+	ReferenceNo   string              `gorm:"type:varchar(50)" json:"reference_no"`
 	Notes         string              `gorm:"type:text" json:"notes"`
 	TransferDate  time.Time           `gorm:"default:now()" json:"transfer_date"`
 	CreatedAt     time.Time           `gorm:"default:now()" json:"created_at"`

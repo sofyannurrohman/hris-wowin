@@ -43,6 +43,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:hris_app/features/sales/presentation/pages/store_visit_page.dart';
 import 'package:hris_app/features/sales/presentation/pages/sales_dashboard_page.dart';
 import 'package:hris_app/features/sales/presentation/pages/delivery_tracking_page.dart';
+import 'package:hris_app/features/sales/presentation/pages/delivery_dashboard_page.dart';
 import 'package:hris_app/features/inventory/presentation/pages/warehouse_dashboard_page.dart';
 
 import 'package:hris_app/features/announcement/presentation/pages/notification_list_page.dart';
@@ -365,15 +366,8 @@ class DashboardTab extends StatelessWidget {
     final isWarehouse = jobTitle.contains('gudang') || jobTitle.contains('warehouse') || jobTitle.contains('logistik');
     
     final themeColor = isWarehouse ? Colors.teal : (isDelivery ? Colors.blueAccent : Colors.orange);
-    final icon = isWarehouse ? Icons.inventory_2_rounded : (isDelivery ? Icons.local_shipping_rounded : Icons.storefront_rounded);
-    final title = isWarehouse ? 'KHUSUS OPERASIONAL GUDANG' : (isDelivery ? 'KHUSUS OPERASIONAL PENGIRIMAN' : 'KHUSUS OPERASIONAL SALES');
-    final question = isWarehouse ? 'CEK STOK GUDANG?' : (isDelivery ? 'SIAP KIRIM BARANG?' : 'SIAP MULAI KUNJUNGAN?');
-    final desc = isWarehouse 
-        ? 'Tekan tombol di bawah untuk melihat kondisi stok gudang dan menerima kiriman dari pabrik.'
-        : (isDelivery 
-            ? 'Tekan tombol di bawah untuk melihat rute dan daftar pengiriman Surat Jalan Anda.'
-            : 'Tekan tombol besar di bawah untuk masuk ke Dashboard Penjualan Anda.');
-    final btnText = isWarehouse ? 'MASUK KE GUDANG SEKARANG' : (isDelivery ? 'MULAI PENGIRIMAN SEKARANG' : 'MULAI BEKERJA SEKARANG');
+    final roleName = isWarehouse ? 'Gudang' : (isDelivery ? 'Pengiriman' : 'Sales');
+    final btnText = 'MULAI BEKERJA SEBAGAI $roleName';
     
     Widget destination;
     String routeName;
@@ -381,7 +375,7 @@ class DashboardTab extends StatelessWidget {
       destination = const WarehouseDashboardPage();
       routeName = '/warehouse_dashboard';
     } else if (isDelivery) {
-      destination = const DeliveryTrackingPage();
+      destination = const DeliveryDashboardPage();
       routeName = '/delivery_dashboard';
     } else {
       destination = const SalesDashboardPage();
@@ -391,88 +385,80 @@ class DashboardTab extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          colors: [themeColor, themeColor.withOpacity(0.85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: themeColor.withOpacity(0.15),
-            blurRadius: 30,
+            color: themeColor.withOpacity(0.3),
+            blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: themeColor.withOpacity(0.3), width: 2),
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-            decoration: BoxDecoration(
-              color: themeColor,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(26),
-                topRight: Radius.circular(26),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                settings: RouteSettings(name: routeName),
+                builder: (context) => destination,
               ),
-            ),
+            );
+          },
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
-                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isWarehouse ? Icons.inventory_2_rounded : (isDelivery ? Icons.local_shipping_rounded : Icons.storefront_rounded), 
+                    color: Colors.white, 
+                    size: 28
+                  ),
+                ),
+                const SizedBox(width: 20),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Icon(icon, color: themeColor, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  question,
-                  style: GoogleFonts.outfit(color: const Color(0xFF1E293B), fontWeight: FontWeight.w900, fontSize: 20),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  desc,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 60, 
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          settings: RouteSettings(name: routeName),
-                          builder: (context) => destination,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'OPERASIONAL'.toUpperCase(),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white.withOpacity(0.7),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 10,
+                          letterSpacing: 1.5,
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: themeColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      elevation: 8,
-                      shadowColor: themeColor.withOpacity(0.5),
-                    ),
-                    child: Text(
-                      btnText,
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
-                    ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        btnText.toUpperCase(),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 18),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -17,6 +17,7 @@ import 'package:hris_app/features/announcement/presentation/bloc/announcement_bl
 import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:hris_app/features/sales/presentation/pages/sales_dashboard_page.dart';
+import 'package:hris_app/features/sales/presentation/pages/delivery_dashboard_page.dart';
 import 'package:hris_app/core/utils/dialog_utils.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -76,6 +77,7 @@ class MyApp extends StatelessWidget {
         home: const AuthWrapper(),
         routes: {
           '/sales_dashboard': (context) => const SalesDashboardPage(),
+          '/delivery_dashboard': (context) => const DeliveryDashboardPage(),
         },
       ),
     );

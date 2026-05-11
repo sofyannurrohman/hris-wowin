@@ -9,6 +9,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const leaveTypes = ref<any[]>([])
   const employees = ref<any[]>([])
   const companies = ref<any[]>([])
+  const stores = ref<any[]>([])
   const selectedBranchId = ref<string | null>(localStorage.getItem('selectedBranchId'))
   
   const isBranchesLoading = ref(false)
@@ -104,6 +105,15 @@ export const useMasterDataStore = defineStore('masterData', () => {
     }
   }
 
+  async function fetchStores(companyID?: string) {
+    try {
+      const res = await apiClient.get(`/stores?company_id=${companyID || ''}`)
+      stores.value = res.data.data || []
+    } catch (error) {
+      console.error('Failed to fetch stores:', error)
+    }
+  }
+
   return {
     branches,
     departments,
@@ -111,6 +121,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     leaveTypes,
     employees,
     companies,
+    stores,
     selectedBranchId,
     isBranchesLoading,
     isDepartmentsLoading,
@@ -124,6 +135,7 @@ export const useMasterDataStore = defineStore('masterData', () => {
     fetchLeaveTypes,
     fetchEmployees,
     fetchCompanies,
+    fetchStores,
     setSelectedBranchId,
     selectedBranchCompanyId
   }

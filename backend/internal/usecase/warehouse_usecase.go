@@ -18,20 +18,21 @@ type WarehouseUsecase interface {
 	GetTransferByDO(doNo string) (*domain.ProductTransfer, error)
 	ReceiveShipmentByDO(doNo string) error
 	GetWarehouseLogs(branchID uuid.UUID) ([]domain.WarehouseLog, error)
-	AdjustStock(branchID, productID uuid.UUID, quantity int, reason string) error
+	AdjustStock(branchID, productID uuid.UUID, quantity int, reason string, batchNo string) error
 	
 	ApproveTransfer(transferID uuid.UUID) error
 	RejectTransfer(transferID uuid.UUID) error
 
 	// Executor Workflow
 	DispatchByInvoice(receiptNo string, branchID uuid.UUID) error
-	SetStockLimit(branchID, productID uuid.UUID, limit int) error
+	SetStockLimit(branchID, productID uuid.UUID, limit int, batchNo string) error
 }
 
 type warehouseUsecase struct {
 	repo      repository.WarehouseRepository
 	notifRepo  repository.NotificationRepository
 	salesRepo  repository.SalesTransactionRepository
+	soRepo     repository.SalesOrderRepository
 	db        *gorm.DB
 }
 
@@ -39,10 +40,12 @@ func NewWarehouseUsecase(
 	repo repository.WarehouseRepository, 
 	notifRepo repository.NotificationRepository, 
 	salesRepo repository.SalesTransactionRepository,
+	soRepo repository.SalesOrderRepository,
 	db *gorm.DB,
 ) WarehouseUsecase {
-	return &warehouseUsecase{repo, notifRepo, salesRepo, db}
+	return &warehouseUsecase{repo, notifRepo, salesRepo, soRepo, db}
 }
+
 
 func (u *warehouseUsecase) GetInventory(branchID uuid.UUID) ([]domain.WarehouseStock, error) {
 	return u.repo.GetStocksByBranchID(branchID)
@@ -64,11 +67,12 @@ func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID) error {
 			return errors.New("shipment is not in SHIPPED status")
 		}
 
-		stock, err := repo.GetStock(transfer.ToBranchID, transfer.ProductID)
+		stock, err := repo.GetStock(transfer.ToBranchID, transfer.ProductID, "GOOD", transfer.BatchNo)
 		if err != nil {
 			return err
 		}
 		stock.Quantity += transfer.Quantity
+		stock.ExpiryDate = transfer.ExpiryDate
 		if err := repo.UpdateStock(stock); err != nil {
 			return err
 		}
@@ -88,9 +92,112 @@ func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID) error {
 			Source:    "FACTORY_TRANSFER",
 			Quantity:  transfer.Quantity,
 		}
-		return repo.CreateLog(log)
+		if err := repo.CreateLog(log); err != nil {
+			return err
+		}
+
+		// Trigger Auto-Fulfillment
+		return u.internalRunAutoFulfillment(tx, transfer.ToBranchID, transfer.ProductID)
 	})
 }
+
+func (u *warehouseUsecase) internalRunAutoFulfillment(tx *gorm.DB, branchID, productID uuid.UUID) error {
+	soRepo := repository.NewSalesOrderRepository(tx)
+	wRepo := repository.NewWarehouseRepository(tx)
+
+	// 1. Ambil semua batch yang punya stok tersedia (FEFO)
+	availableBatches, err := wRepo.GetAvailableBatches(branchID, productID, "GOOD")
+	if err != nil {
+		return err
+	}
+
+	// 2. Cari semua rincian reservasi BACKORDER untuk produk ini
+	var backorderReservations []domain.SalesOrderItemBatch
+	if err := tx.Joins("JOIN sales_order_items ON sales_order_items.id = sales_order_item_batches.sales_order_item_id").
+		Joins("JOIN sales_orders ON sales_orders.id = sales_order_items.sales_order_id").
+		Where("sales_order_items.product_id = ? AND sales_order_item_batches.batch_no = 'BACKORDER' AND sales_order_item_batches.quantity > 0", productID).
+		Where("sales_orders.branch_id = ?", branchID).
+		Order("sales_orders.created_at ASC").
+		Find(&backorderReservations).Error; err != nil {
+		return err
+	}
+
+	// 3. Alokasikan stok baru ke reservasi BACKORDER (FIFO)
+	for i := range backorderReservations {
+		res := &backorderReservations[i]
+		
+		for _, b := range availableBatches {
+			availableInBatch := b.Quantity - b.ReservedQuantity
+			if availableInBatch <= 0 {
+				continue
+			}
+
+			moveQty := res.Quantity
+			if availableInBatch < moveQty {
+				moveQty = availableInBatch
+			}
+
+			// Pindahkan reservasi:
+			// a. Kurangi dari BACKORDER
+			if err := wRepo.ReleaseStock(branchID, productID, "BACKORDER", moveQty); err != nil {
+				return err
+			}
+			// b. Tambah ke Batch Riil
+			if err := wRepo.ReserveStock(branchID, productID, b.BatchNo, moveQty); err != nil {
+				return err
+			}
+
+			// c. Update/Split rincian batch di SO Item
+			res.Quantity -= moveQty
+			if res.Quantity == 0 {
+				tx.Delete(res)
+			} else {
+				tx.Save(res)
+			}
+
+			// Tambah rincian batch baru
+			newRes := &domain.SalesOrderItemBatch{
+				SalesOrderItemID: res.SalesOrderItemID,
+				BatchNo:          b.BatchNo,
+				Quantity:         moveQty,
+			}
+			tx.Create(newRes)
+
+			// Update total available in batch for next iteration
+			b.ReservedQuantity += moveQty
+			if res.Quantity <= 0 {
+				break
+			}
+		}
+	}
+
+	// 4. Cek apakah ada SO yang sekarang sudah fully fulfilled
+	orders, err := soRepo.FindWaitingStockByProduct(branchID, productID)
+	if err != nil {
+		return err
+	}
+
+	for _, so := range orders {
+		allFulfilled := true
+		for _, item := range so.Items {
+			// Check if there's any BACKORDER batch left for this item
+			var boCount int64
+			tx.Model(&domain.SalesOrderItemBatch{}).Where("sales_order_item_id = ? AND batch_no = 'BACKORDER'", item.ID).Count(&boCount)
+			if boCount > 0 {
+				allFulfilled = false
+				break
+			}
+		}
+
+		if allFulfilled {
+			so.Status = domain.SOStatusWaitingWarehouse
+			soRepo.Update(&so)
+		}
+	}
+
+	return nil
+}
+
 
 func (u *warehouseUsecase) GetTransferByDO(doNo string) (*domain.ProductTransfer, error) {
 	return u.repo.GetTransferByDO(doNo)
@@ -111,11 +218,11 @@ func (u *warehouseUsecase) GetWarehouseLogs(branchID uuid.UUID) ([]domain.Wareho
 	return u.repo.GetLogsByBranchID(branchID)
 }
 
-func (u *warehouseUsecase) AdjustStock(branchID, productID uuid.UUID, quantity int, reason string) error {
+func (u *warehouseUsecase) AdjustStock(branchID, productID uuid.UUID, quantity int, reason string, batchNo string) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewWarehouseRepository(tx)
 
-		stock, err := repo.GetStock(branchID, productID)
+		stock, err := repo.GetStock(branchID, productID, "GOOD", batchNo)
 		if err != nil {
 			return err
 		}
@@ -149,12 +256,21 @@ func (u *warehouseUsecase) AdjustStock(branchID, productID uuid.UUID, quantity i
 			Source:    "OPNAME: " + reason,
 			Quantity:  absDiff,
 		}
-		return repo.CreateLog(log)
+		if err := repo.CreateLog(log); err != nil {
+			return err
+		}
+
+		// Trigger Auto-Fulfillment if adjustment was positive
+		if diff > 0 {
+			return u.internalRunAutoFulfillment(tx, branchID, productID)
+		}
+		return nil
 	})
 }
 
-func (u *warehouseUsecase) SetStockLimit(branchID, productID uuid.UUID, limit int) error {
-	stock, err := u.repo.GetStock(branchID, productID)
+
+func (u *warehouseUsecase) SetStockLimit(branchID, productID uuid.UUID, limit int, batchNo string) error {
+	stock, err := u.repo.GetStock(branchID, productID, "GOOD", batchNo)
 	if err != nil {
 		return err
 	}
@@ -185,7 +301,7 @@ func (u *warehouseUsecase) RejectTransfer(transferID uuid.UUID) error {
 
 func (u *warehouseUsecase) triggerLowStockNotification(stock *domain.WarehouseStock) {
 	// Re-fetch with product details for message
-	fullStock, err := u.repo.GetStock(stock.BranchID, stock.ProductID)
+	fullStock, err := u.repo.GetStock(stock.BranchID, stock.ProductID, "GOOD", stock.BatchNo)
 	if err != nil || fullStock.Branch == nil || fullStock.Branch.CompanyID == nil || fullStock.Product == nil {
 		return
 	}
@@ -219,31 +335,46 @@ func (u *warehouseUsecase) DispatchByInvoice(receiptNo string, branchID uuid.UUI
 			return errors.New("transaksi ini sudah selesai dikirim (Status: DELIVERED)")
 		}
 
-		// 3. Deduct Stock for each item
+		// 3. Deduct Stock for each item using reserved batches
 		for _, item := range transaction.Items {
-			stock, err := warehouseRepo.GetStock(branchID, item.ProductID)
-			if err != nil {
-				return err
-			}
-			if stock.Quantity < item.Quantity {
-				return fmt.Errorf("stok tidak mencukupi untuk produk %s (Stok: %d, Butuh: %d)", item.Product.Name, stock.Quantity, item.Quantity)
-			}
-			
-			stock.Quantity -= item.Quantity
-			if err := warehouseRepo.UpdateStock(stock); err != nil {
+			// Find batches reserved for this item
+			var reservedBatches []domain.SalesOrderItemBatch
+			if err := tx.Where("sales_order_item_id = ?", item.ID).Find(&reservedBatches).Error; err != nil {
 				return err
 			}
 
-			// Log movement
-			log := &domain.WarehouseLog{
-				BranchID:  branchID,
-				ProductID: item.ProductID,
-				Type:      "OUT",
-				Source:    "SALES_DISPATCH: " + receiptNo,
-				Quantity:  item.Quantity,
+			if len(reservedBatches) == 0 {
+				// Fallback if no batch reservation found (should not happen for new orders)
+				return fmt.Errorf("tidak ada reservasi batch untuk produk %s", item.Product.Name)
 			}
-			if err := warehouseRepo.CreateLog(log); err != nil {
-				return err
+
+			for _, rb := range reservedBatches {
+				stock, err := warehouseRepo.GetStock(branchID, item.ProductID, "GOOD", rb.BatchNo)
+				if err != nil {
+					return err
+				}
+
+				if stock.Quantity < rb.Quantity {
+					return fmt.Errorf("stok batch %s tidak mencukupi (Stok: %d, Butuh: %d)", rb.BatchNo, stock.Quantity, rb.Quantity)
+				}
+
+				stock.Quantity -= rb.Quantity
+				stock.ReservedQuantity -= rb.Quantity
+				if err := warehouseRepo.UpdateStock(stock); err != nil {
+					return err
+				}
+
+				// Log movement per batch
+				log := &domain.WarehouseLog{
+					BranchID:  branchID,
+					ProductID: item.ProductID,
+					Type:      "OUT",
+					Source:    "SALES_DISPATCH: " + receiptNo + " (Batch: " + rb.BatchNo + ")",
+					Quantity:  rb.Quantity,
+				}
+				if err := warehouseRepo.CreateLog(log); err != nil {
+					return err
+				}
 			}
 		}
 

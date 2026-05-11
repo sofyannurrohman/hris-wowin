@@ -42,7 +42,15 @@ func main() {
 		&domain.SalesStock{},
 		&domain.SalesTransfer{},
 		&domain.SalesTransaction{},
+		&domain.SalesOrder{},
+		&domain.SalesOrderItem{},
+		&domain.SalesOrderItemBatch{},
+		&domain.SalesReturn{},
+		&domain.SalesReturnItem{},
+		&domain.ProductionRecipe{},
+		&domain.ProductionRecipeItem{},
 	)
+
 
 	// Setup Repositories
 	userRepo := repository.NewUserRepository(db)
@@ -73,6 +81,8 @@ func main() {
 	financeRepo := repository.NewFinanceRepository(db)
 	deliveryRepo := repository.NewDeliveryRepository(db)
 	salesTransferRepo := repository.NewSalesTransferRepository(db)
+	salesOrderRepo := repository.NewSalesOrderRepository(db)
+	salesReturnRepo := repository.NewSalesReturnRepository(db)
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
@@ -100,11 +110,13 @@ func main() {
 	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo, midtransClient)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
-	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, db)
+	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, salesOrderRepo, db)
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
 	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo)
 	salesTransferUsecase := usecase.NewSalesTransferUsecase(salesTransferRepo, warehouseRepo, db)
+	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, salesRepo, db)
+	salesReturnUsecase := usecase.NewSalesReturnUsecase(salesReturnRepo, salesOrderRepo, salesRepo, warehouseRepo, db)
 
 	// Initialize Gin
 	r := gin.Default()
@@ -152,6 +164,8 @@ func main() {
 	financeHandler := http.NewFinanceHandler(financeUsecase)
 	deliveryHandler := http.NewDeliveryHandler(deliveryUsecase, employeeUseCase)
 	salesTransferHandler := http.NewSalesTransferHandler(salesTransferUsecase)
+	salesOrderHandler := http.NewSalesOrderHandler(salesOrderUsecase, employeeUseCase)
+	salesReturnHandler := http.NewSalesReturnHandler(salesReturnUsecase, employeeUseCase)
 
 	// API v1 Routes
 	v1 := r.Group("/api/v1")
@@ -197,6 +211,9 @@ func main() {
 			financeHandler.RegisterRoutes(protected)
 			deliveryHandler.RegisterRoutes(protected)
 			salesTransferHandler.RegisterRoutes(protected)
+			salesOrderHandler.RegisterRoutes(protected)
+			salesOrderHandler.SetupMobileRoutes(protected)
+			salesReturnHandler.RegisterRoutes(protected)
 		}
 	}
 

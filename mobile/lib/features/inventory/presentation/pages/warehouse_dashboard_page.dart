@@ -567,7 +567,7 @@ class _WarehouseDashboardPageState extends State<WarehouseDashboardPage> with Si
                   type: isRequest ? 'STOK SALES' : 'SALES ORDER',
                   date: it['created_at'] ?? DateTime.now().toIso8601String(),
                   color: isRequest ? Colors.deepOrange : AppColors.info,
-                  trailing: isRequest ? _formatStock(it['quantity'], it['product']) : null,
+                  trailing: isRequest ? '${it['quantity'] ?? 0} ${it['unit'] ?? it['product']?['unit'] ?? 'PCS'}' : null,
                   onTap: () => isRequest 
                       ? _processSalesRequestApproval(it['id'])
                       : _openScanner((v) => _processOutboundScan(v)),

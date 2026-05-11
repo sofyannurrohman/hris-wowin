@@ -151,9 +151,30 @@ const router = createRouter({
               component: () => import('@/views/sales/SalesmanView.vue'),
             },
             {
+              path: 'pesanan',
+              name: 'salesOrders',
+              component: () => import('@/views/sales/SalesOrderView.vue'),
+            },
+            {
+              path: 'retur',
+              name: 'salesReturns',
+              component: () => import('@/views/sales/SalesReturnView.vue'),
+            },
+            {
+              path: 'delivery-batch',
+              name: 'deliveryBatch',
+              component: () => import('@/views/sales/DeliveryBatchView.vue'),
+            },
+            {
               path: 'penjualan',
               name: 'penjualan',
               component: () => import('@/views/sales/PenjualanView.vue'),
+            },
+            {
+              path: 'pindah-barang',
+              alias: 'retur',
+              name: 'salesTransfers',
+              component: () => import('@/views/warehouse/SalesTransferView.vue'),
             },
             {
               path: 'spanduk',
@@ -171,12 +192,17 @@ const router = createRouter({
               component: () => import('@/views/sales/KPI-Manager.vue'),
             },
             {
-              path: 'stores',
-              name: 'stores',
+              path: 'customers',
+              name: 'customers',
               component: () => import('@/views/sales/StoreView.vue'),
             },
             {
-              path: 'delivery',
+              path: 'bukti-terima',
+              name: 'salesPOD',
+              component: () => import('@/views/warehouse/DeliveryControlView.vue'),
+            },
+            {
+              path: 'delivery-tracking',
               name: 'deliveryManagement',
               component: () => import('@/views/sales/DeliveryManagement.vue'),
             },
@@ -207,6 +233,11 @@ const router = createRouter({
               component: () => import('@/views/factory/FactoryProductView.vue'),
             },
             {
+              path: 'recipes',
+              name: 'factoryRecipes',
+              component: () => import('@/views/factory/RecipeView.vue'),
+            },
+            {
               path: 'stock',
               name: 'factoryStockGlobal',
               component: () => import('@/views/factory/FactoryStockListView.vue'),
@@ -234,6 +265,7 @@ const router = createRouter({
             },
             {
               path: 'stock',
+              alias: 'adjustment',
               name: 'warehouseStock',
               component: () => import('@/views/warehouse/WarehouseManagementView.vue'),
             },
@@ -243,8 +275,13 @@ const router = createRouter({
               component: () => import('@/views/warehouse/WarehouseLogView.vue'),
             },
             {
+              path: 'incoming-orders',
+              name: 'warehouseIncomingOrders',
+              component: () => import('@/views/warehouse/IncomingOrdersView.vue'),
+            },
+            {
               path: 'sales-transfers',
-              name: 'salesTransfers',
+              name: 'warehouseSalesTransfers',
               component: () => import('@/views/warehouse/SalesTransferView.vue'),
             }
           ]

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import apiClient from '@/api/axios'
 import DeliveryManagement from './DeliveryManagement.vue'
 import { 
@@ -55,6 +56,7 @@ const masterDataStore = useMasterDataStore()
 const selectedDO = ref<any>(null)
 const selectedNota = ref<any>(null)
 const selectedQR = ref<string | null>(null)
+const route = useRoute()
 
 const currentSale = ref({
   id: '',
@@ -350,6 +352,12 @@ const generateReceiptNo = async () => {
 
 
 onMounted(() => {
+  if (route.path.includes('/pesanan')) {
+    selectedStatus.value = 'PENDING'
+  } else if (route.path.includes('/faktur')) {
+    selectedStatus.value = 'APPROVED'
+  }
+
   fetchData()
   fetchSalesmen()
   fetchStores()

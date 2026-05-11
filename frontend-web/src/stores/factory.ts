@@ -34,6 +34,8 @@ export interface FactoryStock {
   id: string
   factory_id: string
   product_id: string
+  batch_no: string
+  expiry_date?: string
   quantity: number
   updated_at: string
   product?: Product
@@ -43,6 +45,8 @@ export interface ProductionLog {
   id: string
   factory_id: string
   product_id: string
+  batch_no: string
+  expiry_date?: string
   employee_id: string
   quantity: number
   production_date: string
@@ -64,6 +68,9 @@ export interface ProductTransfer {
   status: string
   delivery_order_no?: string
   notes: string
+  target_shipment_date?: string
+  estimated_arrival?: string
+  initiated_by?: string
   created_at: string
   product?: Product
   from_factory?: {
@@ -86,11 +93,20 @@ export const useFactoryStore = defineStore('factory', {
     allProductionHistory: [] as ProductionLog[],
     transferHistory: [] as ProductTransfer[],
     allTransfers: [] as ProductTransfer[],
+    backorderDemand: [] as any[],
     loading: false,
     error: null as string | null,
   }),
 
   actions: {
+    async fetchBackorderDemand(companyId: string) {
+      try {
+        const response = await factoryApi.getBackorderDemand(companyId)
+        this.backorderDemand = response.data.data
+      } catch (err: any) {
+        console.error('Failed to fetch backorder demand:', err)
+      }
+    },
     async fetchFactories() {
       this.loading = true
       try {

@@ -17,8 +17,11 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
   List<dynamic> _products = [];
   
   String? _selectedProductId;
+  String _selectedUnit = 'PCS';
   int _quantity = 1;
   final TextEditingController _notesController = TextEditingController();
+  
+  final List<String> _availableUnits = ['PCS', 'KARDUS', 'BAL', 'KRAT', 'PACK', 'LUSIN'];
   
   bool _showQR = false;
   String _requestId = '';
@@ -84,6 +87,7 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
         'employee_id': _employeeId,
         'product_id': _selectedProductId,
         'quantity': _quantity,
+        'unit': _selectedUnit,
         'type': 'TRANSFER',
         'notes': _notesController.text,
       });
@@ -137,9 +141,33 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
                   const SizedBox(height: 12),
                   _buildProductDropdown(),
                   const SizedBox(height: 24),
-                  Text('Jumlah Pengambilan', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                  const SizedBox(height: 12),
-                  _buildQuantitySelector(),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Jumlah', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                            const SizedBox(height: 12),
+                            _buildQuantitySelector(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Satuan', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                            const SizedBox(height: 12),
+                            _buildUnitDropdown(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   Text('Catatan (Opsional)', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                   const SizedBox(height: 12),
@@ -222,7 +250,7 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
 
   Widget _buildQuantitySelector() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -231,14 +259,29 @@ class _SalesStockRequestPageState extends State<SalesStockRequestPage> {
             icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red),
             onPressed: () => setState(() => _quantity = _quantity > 1 ? _quantity - 1 : 1),
           ),
-          const SizedBox(width: 32),
-          Text(_quantity.toString(), style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900)),
-          const SizedBox(width: 32),
+          const SizedBox(width: 12),
+          Text(_quantity.toString(), style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900)),
+          const SizedBox(width: 12),
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.green),
             onPressed: () => setState(() => _quantity++),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildUnitDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: _selectedUnit,
+          items: _availableUnits.map((u) => DropdownMenuItem(value: u, child: Text(u, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)))).toList(),
+          onChanged: (val) => setState(() => _selectedUnit = val!),
+        ),
       ),
     );
   }

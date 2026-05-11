@@ -6,7 +6,10 @@ export interface WarehouseStock {
   id: string
   branch_id: string
   product_id: string
+  batch_no: string
+  expiry_date?: string
   quantity: number
+  reserved_quantity: number
   min_limit: number
   updated_at: string
   product?: {
@@ -26,7 +29,12 @@ export interface ProductTransfer {
   quantity: number
   total_weight: number
   status: 'REQUESTED' | 'APPROVED' | 'SHIPPED' | 'RECEIVED' | 'REJECTED'
+  batch_no: string
+  expiry_date?: string
   notes: string
+  target_shipment_date?: string
+  estimated_arrival?: string
+  initiated_by?: string
   created_at: string
   product?: {
     name: string
@@ -108,7 +116,7 @@ export const useWarehouseStore = defineStore('warehouse', {
       }
     },
 
-    async setStockLimit(data: { product_id: string, limit: number }) {
+    async setStockLimit(data: { product_id: string, batch_no?: string, limit: number }) {
       try {
         await warehouseApi.setStockLimit(data)
         await this.fetchInventory()
@@ -134,6 +142,14 @@ export const useWarehouseStore = defineStore('warehouse', {
         await this.fetchPendingShipments()
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to receive by DO'
+      }
+    },
+    async requestGoods(factoryId: string, data: any) {
+      try {
+        await warehouseApi.requestGoods(factoryId, data)
+        await this.fetchPendingShipments()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to request goods'
       }
     }
   }

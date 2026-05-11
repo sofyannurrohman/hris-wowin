@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -35,6 +36,7 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		factory.GET("/stock/inventory", h.GetAllInventory)
 		factory.GET("/stock/transfers", h.GetAllTransfers)
 		factory.GET("/stock/production", h.GetAllProductionHistory)
+		factory.GET("/demand", h.GetBackorderDemand)
 		factory.POST("/products", h.CreateProduct)
 		factory.PUT("/products/:id", h.UpdateProduct)
 		factory.DELETE("/products/:id", h.DeleteProduct)
@@ -51,8 +53,14 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		factory.POST("/transfer/:id/ship", h.ExecuteShipment)
 		factory.PUT("/transfer/:id/approve", h.ApproveTransfer)
 		factory.GET("/:id/transfer", h.GetTransferHistory)
+
+		factory.GET("/recipes", h.GetRecipes)
+		factory.GET("/recipes/:product_id", h.GetRecipeByProduct)
+		factory.POST("/recipes", h.CreateRecipe)
+		factory.DELETE("/recipes/:id", h.DeleteRecipe)
 	}
 }
+
 
 func (h *FactoryHandler) GetAllFactories(c *gin.Context) {
 	val, _ := c.Get("companyID")
@@ -230,18 +238,20 @@ func (h *FactoryHandler) GetInventoryLogs(c *gin.Context) {
 func (h *FactoryHandler) LogProduction(c *gin.Context) {
 	factoryID := uuid.MustParse(c.Param("id"))
 	var req struct {
-		ProductID       uuid.UUID `json:"product_id" binding:"required"`
-		EmployeeID      uuid.UUID `json:"employee_id" binding:"required"`
-		Quantity        int       `json:"quantity" binding:"required"`
-		CartonCount     int       `json:"carton_count"`
-		PiecesPerCarton int       `json:"pieces_per_carton"`
-		Notes           string    `json:"notes"`
+		ProductID       uuid.UUID  `json:"product_id" binding:"required"`
+		EmployeeID      uuid.UUID  `json:"employee_id" binding:"required"`
+		Quantity        int        `json:"quantity" binding:"required"`
+		CartonCount     int        `json:"carton_count"`
+		PiecesPerCarton int        `json:"pieces_per_carton"`
+		Notes           string     `json:"notes"`
+		BatchNo         string     `json:"batch_no"`
+		ExpiryDate      *time.Time `json:"expiry_date"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.LogProduction(factoryID, req.ProductID, req.EmployeeID, req.Quantity, req.CartonCount, req.PiecesPerCarton, req.Notes); err != nil {
+	if err := h.usecase.LogProduction(factoryID, req.ProductID, req.EmployeeID, req.Quantity, req.CartonCount, req.PiecesPerCarton, req.Notes, req.BatchNo, req.ExpiryDate); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -272,15 +282,23 @@ func (h *FactoryHandler) GetAllProductionHistory(c *gin.Context) {
 func (h *FactoryHandler) RequestShipment(c *gin.Context) {
 	factoryID := uuid.MustParse(c.Param("id"))
 	var req struct {
-		ToBranchID uuid.UUID                    `json:"to_branch_id" binding:"required"`
-		Items      []domain.ProductTransferItem `json:"items" binding:"required"`
-		Notes      string                       `json:"notes"`
+		ToBranchID         uuid.UUID                    `json:"to_branch_id" binding:"required"`
+		Items              []domain.ProductTransferItem `json:"items" binding:"required"`
+		Notes              string                       `json:"notes"`
+		EstimatedArrival   *time.Time                   `json:"estimated_arrival"`
+		TargetShipmentDate *time.Time                   `json:"target_shipment_date"`
+		InitiatedBy        string                       `json:"initiated_by"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.RequestShipment(factoryID, req.ToBranchID, req.Items, req.Notes); err != nil {
+	initiatedBy := req.InitiatedBy
+	if initiatedBy == "" {
+		initiatedBy = "FACTORY"
+	}
+
+	if err := h.usecase.RequestShipment(factoryID, req.ToBranchID, req.Items, req.Notes, req.TargetShipmentDate, req.EstimatedArrival, initiatedBy); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -339,12 +357,13 @@ func (h *FactoryHandler) AdjustStock(c *gin.Context) {
 		ProductID uuid.UUID `json:"product_id" binding:"required"`
 		Quantity  int       `json:"quantity" binding:"required"`
 		Reason    string    `json:"reason"`
+		BatchNo   string    `json:"batch_no"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.usecase.AdjustStock(factoryID, req.ProductID, req.Quantity, req.Reason); err != nil {
+	if err := h.usecase.AdjustStock(factoryID, req.ProductID, req.Quantity, req.Reason, req.BatchNo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -403,4 +422,61 @@ func (h *FactoryHandler) handleImageUpload(c *gin.Context) (string, error) {
 	}
 
 	return "/uploads/products/" + filename, nil
+}
+
+func (h *FactoryHandler) GetRecipes(c *gin.Context) {
+	val, _ := c.Get("companyID")
+	companyID := val.(uuid.UUID)
+	recipes, err := h.usecase.GetRecipes(companyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, recipes)
+}
+
+func (h *FactoryHandler) GetRecipeByProduct(c *gin.Context) {
+	productID := uuid.MustParse(c.Param("product_id"))
+	recipe, err := h.usecase.GetRecipeByProduct(productID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if recipe == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipe not found"})
+		return
+	}
+	c.JSON(http.StatusOK, recipe)
+}
+
+func (h *FactoryHandler) CreateRecipe(c *gin.Context) {
+	var recipe domain.ProductionRecipe
+	if err := c.ShouldBindJSON(&recipe); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.usecase.CreateRecipe(&recipe); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, recipe)
+}
+
+func (h *FactoryHandler) DeleteRecipe(c *gin.Context) {
+	id := uuid.MustParse(c.Param("id"))
+	if err := h.usecase.DeleteRecipe(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Recipe deleted"})
+}
+
+func (h *FactoryHandler) GetBackorderDemand(c *gin.Context) {
+	companyID, _ := uuid.Parse(c.Query("company_id"))
+	demand, err := h.usecase.GetBackorderDemand(companyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": demand})
 }

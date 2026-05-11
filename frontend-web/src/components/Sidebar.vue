@@ -34,7 +34,10 @@ import {
   Warehouse,
   Boxes,
   ArrowLeftRight,
-  LogOut 
+  RotateCcw,
+  ShoppingCart,
+  LogOut,
+  ClipboardCheck 
 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
@@ -90,15 +93,15 @@ const hrisGroups = [
 
 const salesGroups = [
   {
-    title: 'Sales & Marketing',
+    title: 'Operasional Sales',
     items: [
       { to: '/sales', name: 'Dashboard Sales', icon: LayoutDashboard },
-      { to: '/sales/salesman', name: 'Data Salesman', icon: Users },
-      { to: '/sales/stores', name: 'Toko Customer', icon: Store },
-      { to: '/sales/penjualan', name: 'Penjualan & Nota', icon: Banknote },
-      { to: '/sales/delivery', name: 'Manajemen Pengiriman', icon: Truck },
-      { to: '/sales/spanduk', name: 'Pemasangan Spanduk', icon: Megaphone },
-      { to: '/sales/verification', name: 'Verifikasi Kasir', icon: Banknote },
+      { to: '/sales/pesanan', name: 'Pesanan (SO)', icon: ShoppingCart },
+      { to: '/sales/delivery-batch', name: 'Pengiriman (Logistik)', icon: Truck },
+      { to: '/sales/bukti-terima', name: 'Bukti Terima (POD)', icon: ClipboardCheck },
+      { to: '/sales/retur', name: 'Retur Penjualan', icon: RotateCcw },
+      { to: '/sales/penjualan', name: 'Faktur Penjualan', icon: Banknote },
+      { to: '/sales/customers', name: 'Manajemen Toko', icon: Store },
     ]
   },
   {
@@ -116,6 +119,7 @@ const factoryGroups = [
     items: [
       { to: '/factory', name: 'Dashboard Pabrik', icon: LayoutDashboard },
       { to: '/factory/stock', name: 'Manajemen Stok', icon: Factory },
+      { to: '/factory/recipes', name: 'Resep Produksi', icon: ClipboardList },
       { to: '/factory/transfers', name: 'Manajemen Pengiriman', icon: Truck },
     ]
   },
@@ -134,13 +138,15 @@ const warehouseGroups = [
     title: 'Gudang Cabang',
     items: [
       { to: '/warehouse', name: 'Dashboard Gudang', icon: LayoutDashboard },
-      { to: '/warehouse/stock', name: 'Stok & Penerimaan', icon: Boxes },
-      { to: '/warehouse/sales-transfers', name: 'Perpindahan Barang', icon: ArrowLeftRight },
+      { to: '/warehouse/incoming-orders', name: 'Pesanan Masuk (SO)', icon: ClipboardList },
+      { to: '/warehouse/sales-transfers', name: 'Pindah Barang', icon: Boxes },
+      { to: '/warehouse/stock', name: 'Persediaan', icon: Warehouse },
       { to: '/warehouse/logs', name: 'Log Mutasi', icon: History },
       { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
     ]
   }
 ]
+
 
 const menuGroups = computed(() => {
   if (layoutStore.currentModule === 'sales') {

@@ -33,4 +33,6 @@ export const factoryApi = {
   getAllTransfers: () => apiClient.get('/factory/stock/transfers'),
   shipTransfer: (id: string) => apiClient.post(`/factory/transfer/${id}/ship`),
   approveTransfer: (id: string) => apiClient.put(`/factory/transfer/${id}/approve`),
+  getBackorderDemand: (companyId: string) => apiClient.get(`/factory/demand?company_id=${companyId}`),
 }
+

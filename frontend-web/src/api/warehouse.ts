@@ -11,4 +11,5 @@ export const warehouseApi = {
   adjustStock: (data: any) => apiClient.post('/warehouse/adjust', data),
   getByDO: (doNo: string) => apiClient.get(`/warehouse/transfers/do/${doNo}`),
   receiveByDO: (doNo: string) => apiClient.post(`/warehouse/transfers/do/${doNo}/receive`),
+  requestGoods: (factoryId: string, data: any) => apiClient.post(`/factory/${factoryId}/transfer/request`, data),
 }
