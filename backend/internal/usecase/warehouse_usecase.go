@@ -14,14 +14,17 @@ import (
 type WarehouseUsecase interface {
 	GetInventory(branchID uuid.UUID) ([]domain.WarehouseStock, error)
 	GetPendingShipments(branchID uuid.UUID) ([]domain.ProductTransfer, error)
-	ReceiveShipment(transferID uuid.UUID) error
+	ReceiveShipment(transferID uuid.UUID, actualQty, damagedQty int) error
 	GetTransferByDO(doNo string) (*domain.ProductTransfer, error)
-	ReceiveShipmentByDO(doNo string) error
+	ReceiveShipmentByDO(doNo string, actualQty, damagedQty int) error
 	GetWarehouseLogs(branchID uuid.UUID) ([]domain.WarehouseLog, error)
+	GetAllTransfers(branchID uuid.UUID) ([]domain.ProductTransfer, error)
 	AdjustStock(branchID, productID uuid.UUID, quantity int, reason string, batchNo string) error
 	
 	ApproveTransfer(transferID uuid.UUID) error
-	RejectTransfer(transferID uuid.UUID) error
+	RejectTransfer(transferID uuid.UUID, reason string) error
+	ConfirmArrival(transferID uuid.UUID) error
+	ConfirmShipment(transferID uuid.UUID) error
 
 	// Executor Workflow
 	DispatchByInvoice(receiptNo string, branchID uuid.UUID) error
@@ -55,7 +58,7 @@ func (u *warehouseUsecase) GetPendingShipments(branchID uuid.UUID) ([]domain.Pro
 	return u.repo.GetPendingTransfers(branchID)
 }
 
-func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID) error {
+func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID, actualQty, damagedQty int) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewWarehouseRepository(tx)
 
@@ -63,41 +66,89 @@ func (u *warehouseUsecase) ReceiveShipment(transferID uuid.UUID) error {
 		if err != nil {
 			return err
 		}
-		if transfer.Status != "SHIPPED" {
-			return errors.New("shipment is not in SHIPPED status")
+		if transfer.Status != "SHIPPED" && transfer.Status != "ARRIVED" {
+			return errors.New("shipment is not in SHIPPED or ARRIVED status")
 		}
 
-		stock, err := repo.GetStock(transfer.ToBranchID, transfer.ProductID, "GOOD", transfer.BatchNo)
-		if err != nil {
-			return err
+		// If both are 0, assume full receive (legacy or quick scan support)
+		if actualQty == 0 && damagedQty == 0 {
+			actualQty = transfer.Quantity
 		}
-		stock.Quantity += transfer.Quantity
-		stock.ExpiryDate = transfer.ExpiryDate
-		if err := repo.UpdateStock(stock); err != nil {
-			return err
+
+		batchNo := transfer.BatchNo
+		if batchNo == "" {
+			batchNo = "DEFAULT"
+		}
+
+		// Update GOOD stock with actual received quantity
+		if actualQty > 0 {
+			// Convert to total pieces for stock update
+			totalPieces := actualQty * transfer.PcsPerUnit
+			stock, err := repo.GetStock(transfer.ToBranchID, transfer.ProductID, "GOOD", batchNo)
+			if err != nil {
+				return err
+			}
+			stock.Quantity += totalPieces
+			stock.ExpiryDate = transfer.ExpiryDate
+			if err := repo.UpdateStock(stock); err != nil {
+				return err
+			}
+
+			// Log GOOD movement
+			log := &domain.WarehouseLog{
+				BranchID:  transfer.ToBranchID,
+				ProductID: transfer.ProductID,
+				Type:      "IN",
+				Source:    "FACTORY_TRANSFER (GOOD)",
+				Quantity:  actualQty * transfer.PcsPerUnit,
+			}
+			if err := repo.CreateLog(log); err != nil {
+				return err
+			}
+		}
+
+		// Update QUARANTINE stock with damaged quantity
+		if damagedQty > 0 {
+			// Convert to total pieces for damaged stock update
+			totalDamagedPieces := damagedQty * transfer.PcsPerUnit
+			damagedStock, err := repo.GetStock(transfer.ToBranchID, transfer.ProductID, "QUARANTINE", batchNo)
+			if err != nil {
+				return err
+			}
+			damagedStock.Quantity += totalDamagedPieces
+			damagedStock.ExpiryDate = transfer.ExpiryDate
+			if err := repo.UpdateStock(damagedStock); err != nil {
+				return err
+			}
+
+			// Log DAMAGED movement
+			log := &domain.WarehouseLog{
+				BranchID:  transfer.ToBranchID,
+				ProductID: transfer.ProductID,
+				Type:      "IN",
+				Source:    "FACTORY_TRANSFER (DAMAGED)",
+				Quantity:  damagedQty * transfer.PcsPerUnit,
+			}
+			if err := repo.CreateLog(log); err != nil {
+				return err
+			}
 		}
 
 		transfer.Status = "RECEIVED"
 		now := time.Now()
 		transfer.ReceivedAt = &now
+		transfer.ActualReceivedQuantity = actualQty
+		transfer.DamagedQuantity = damagedQty
 		
 		if err := repo.UpdateTransfer(transfer); err != nil {
 			return err
 		}
 
-		log := &domain.WarehouseLog{
-			BranchID:  transfer.ToBranchID,
-			ProductID: transfer.ProductID,
-			Type:      "IN",
-			Source:    "FACTORY_TRANSFER",
-			Quantity:  transfer.Quantity,
+		// Trigger Auto-Fulfillment only for GOOD stock
+		if actualQty > 0 {
+			return u.internalRunAutoFulfillment(tx, transfer.ToBranchID, transfer.ProductID)
 		}
-		if err := repo.CreateLog(log); err != nil {
-			return err
-		}
-
-		// Trigger Auto-Fulfillment
-		return u.internalRunAutoFulfillment(tx, transfer.ToBranchID, transfer.ProductID)
+		return nil
 	})
 }
 
@@ -203,7 +254,7 @@ func (u *warehouseUsecase) GetTransferByDO(doNo string) (*domain.ProductTransfer
 	return u.repo.GetTransferByDO(doNo)
 }
 
-func (u *warehouseUsecase) ReceiveShipmentByDO(doNo string) error {
+func (u *warehouseUsecase) ReceiveShipmentByDO(doNo string, actualQty, damagedQty int) error {
 	transfer, err := u.repo.GetTransferByDO(doNo)
 	if err != nil {
 		return err
@@ -211,11 +262,15 @@ func (u *warehouseUsecase) ReceiveShipmentByDO(doNo string) error {
 	if transfer == nil {
 		return errors.New("surat jalan tidak ditemukan")
 	}
-	return u.ReceiveShipment(transfer.ID)
+	return u.ReceiveShipment(transfer.ID, actualQty, damagedQty)
 }
 
 func (u *warehouseUsecase) GetWarehouseLogs(branchID uuid.UUID) ([]domain.WarehouseLog, error) {
 	return u.repo.GetLogsByBranchID(branchID)
+}
+
+func (u *warehouseUsecase) GetAllTransfers(branchID uuid.UUID) ([]domain.ProductTransfer, error) {
+	return u.repo.GetTransfersByBranch(branchID)
 }
 
 func (u *warehouseUsecase) AdjustStock(branchID, productID uuid.UUID, quantity int, reason string, batchNo string) error {
@@ -290,13 +345,79 @@ func (u *warehouseUsecase) ApproveTransfer(transferID uuid.UUID) error {
 	return u.repo.UpdateTransfer(transfer)
 }
 
-func (u *warehouseUsecase) RejectTransfer(transferID uuid.UUID) error {
+func (u *warehouseUsecase) RejectTransfer(transferID uuid.UUID, reason string) error {
 	transfer, err := u.repo.GetTransferByID(transferID)
 	if err != nil {
 		return err
 	}
 	transfer.Status = "REJECTED"
+	transfer.RejectionReason = reason
 	return u.repo.UpdateTransfer(transfer)
+}
+
+func (u *warehouseUsecase) ConfirmArrival(transferID uuid.UUID) error {
+	transfer, err := u.repo.GetTransferByID(transferID)
+	if err != nil {
+		return err
+	}
+	if transfer.Status != "SHIPPED" {
+		return errors.New("hanya pengiriman berstatus SHIPPED yang bisa dikonfirmasi kedatangannya")
+	}
+	transfer.Status = "ARRIVED"
+	return u.repo.UpdateTransfer(transfer)
+}
+
+func (u *warehouseUsecase) ConfirmShipment(transferID uuid.UUID) error {
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewFactoryRepository(tx)
+
+		// 1. Get Transfer
+		transfer, err := repo.GetTransferByID(transferID)
+		if err != nil {
+			return err
+		}
+		if transfer.Status != "APPROVED" {
+			return errors.New("hanya pengiriman berstatus APPROVED yang bisa dikonfirmasi pengirimannya")
+		}
+
+		// 2. Check Factory Stock (Convert to total pieces)
+		totalPieces := transfer.Quantity * transfer.PcsPerUnit
+		if transfer.BatchNo == "" {
+			transfer.BatchNo = "DEFAULT"
+		}
+		stock, err := repo.GetStock(transfer.FromFactoryID, transfer.ProductID, transfer.BatchNo)
+		if err != nil {
+			return err
+		}
+		if stock.Quantity < totalPieces {
+			return fmt.Errorf("stok di pabrik tidak mencukupi untuk pengiriman ini (Butuh: %d, Ada: %d)", totalPieces, stock.Quantity)
+		}
+
+		// 3. Reduce Factory Stock
+		stock.Quantity -= totalPieces
+		if err := repo.UpdateStock(stock); err != nil {
+			return err
+		}
+
+		// 4. Update Status to SHIPPED
+		now := time.Now()
+		transfer.Status = "SHIPPED"
+		transfer.ShippedAt = &now
+
+		if err := repo.UpdateTransfer(transfer); err != nil {
+			return err
+		}
+
+		// 5. Create Inventory Log for Factory
+		inventoryLog := &domain.FactoryInventoryLog{
+			FactoryID: transfer.FromFactoryID,
+			ProductID: transfer.ProductID,
+			Type:      "OUT",
+			Source:    "TRANSFER TO BRANCH (CONFIRMED BY WAREHOUSE)",
+			Quantity:  totalPieces,
+		}
+		return repo.CreateInventoryLog(inventoryLog)
+	})
 }
 
 func (u *warehouseUsecase) triggerLowStockNotification(stock *domain.WarehouseStock) {

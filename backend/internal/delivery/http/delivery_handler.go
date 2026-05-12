@@ -31,6 +31,7 @@ func (h *DeliveryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		delivery.PUT("/batches/:id", h.UpdateBatch)
 		delivery.DELETE("/batches/:id", h.DeleteBatch)
 		delivery.GET("/tasks", h.GetTasks)
+		delivery.GET("/history", h.GetHistory)
 		delivery.GET("/batch/:id", h.GetDetail)
 		delivery.POST("/batch/:id/start", h.StartDelivery)
 		delivery.POST("/batch/:id/cash", h.UpdateCash)
@@ -204,6 +205,30 @@ func (h *DeliveryHandler) GetTasks(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tasks)
+}
+
+func (h *DeliveryHandler) GetHistory(c *gin.Context) {
+	// Resolve employee_id from userID
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "driver identity not found"})
+		return
+	}
+	userID := userIDStr.(uuid.UUID)
+	employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+	if err != nil || employee == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver identity not found"})
+		return
+	}
+	driverID := employee.ID
+
+	history, err := h.usecase.GetDriverHistory(driverID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, history)
 }
 
 func (h *DeliveryHandler) GetDetail(c *gin.Context) {

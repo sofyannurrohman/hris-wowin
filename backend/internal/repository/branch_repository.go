@@ -9,6 +9,7 @@ import (
 type BranchRepository interface {
 	Create(branch *domain.Branch) error
 	FindAll() ([]domain.Branch, error)
+	FindByCompanyID(companyID uuid.UUID) ([]domain.Branch, error)
 	FindByID(id uuid.UUID) (*domain.Branch, error)
 	Update(branch *domain.Branch) error
 	Delete(id uuid.UUID) error
@@ -29,6 +30,14 @@ func (r *branchRepository) Create(branch *domain.Branch) error {
 func (r *branchRepository) FindAll() ([]domain.Branch, error) {
 	var branches []domain.Branch
 	if err := r.db.Preload("Company").Find(&branches).Error; err != nil {
+		return nil, err
+	}
+	return branches, nil
+}
+
+func (r *branchRepository) FindByCompanyID(companyID uuid.UUID) ([]domain.Branch, error) {
+	var branches []domain.Branch
+	if err := r.db.Preload("Company").Where("company_id = ?", companyID).Find(&branches).Error; err != nil {
 		return nil, err
 	}
 	return branches, nil

@@ -26,6 +26,7 @@ type Product struct {
 	Name        string    `gorm:"type:varchar(255);not null" json:"name" form:"name"`
 	SKU         string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"sku" form:"sku"`
 	Unit        string    `gorm:"type:varchar(20);not null" json:"unit" form:"unit"` // e.g., PCS, BOX, KG
+	PcsPerUnit  int       `gorm:"type:int;default:1" json:"pcs_per_unit" form:"pcs_per_unit"`
 	Category     string    `gorm:"type:varchar(100)" json:"category" form:"category"`
 	Brand        string    `gorm:"type:varchar(100)" json:"brand" form:"brand"`
 	Weight       float64   `gorm:"type:decimal(10,2);default:0" json:"weight" form:"weight"`
@@ -78,28 +79,39 @@ type ProductTransfer struct {
 	ToBranchID    uuid.UUID `gorm:"type:uuid;not null" json:"to_branch_id"`
 	ProductID     uuid.UUID `gorm:"type:uuid;not null" json:"product_id"`
 	BatchNo       string    `gorm:"type:varchar(50);not null;default:'DEFAULT'" json:"batch_no"`
-	ExpiryDate    *time.Time `json:"expiry_date"`
-	Quantity      int       `gorm:"type:int;not null" json:"quantity"`
-	TotalWeight   float64   `gorm:"type:decimal(10,2)" json:"total_weight"`
-	Status          string    `gorm:"type:varchar(20);default:'REQUESTED'" json:"status"` // REQUESTED, APPROVED, SHIPPED, RECEIVED, REJECTED
-	DeliveryOrderNo string    `gorm:"type:varchar(100);uniqueIndex" json:"delivery_order_no"`
-	Notes           string    `gorm:"type:text" json:"notes"`
-	ShippedAt       *time.Time `json:"shipped_at,omitempty"`
-	ReceivedAt      *time.Time `json:"received_at,omitempty"`
-	EstimatedArrival *time.Time `json:"estimated_arrival,omitempty"`
+	ExpiryDate         *time.Time `json:"expiry_date"`
+	Quantity           int        `gorm:"type:int;not null" json:"quantity"`
+	TotalWeight        float64    `gorm:"type:decimal(10,2)" json:"total_weight"`
+	Status             string     `gorm:"type:varchar(20);default:'REQUESTED'" json:"status"` // REQUESTED, APPROVED, SHIPPED, ARRIVED, RECEIVED, REJECTED
+	DeliveryOrderNo    string     `gorm:"type:varchar(100)" json:"delivery_order_no"`
+	Notes              string     `gorm:"type:text" json:"notes"`
+	ShippedAt          *time.Time `json:"shipped_at,omitempty"`
+	ReceivedAt         *time.Time `json:"received_at,omitempty"`
+	EstimatedArrival   *time.Time `json:"estimated_arrival,omitempty"`
 	TargetShipmentDate *time.Time `json:"target_shipment_date,omitempty"`
-	InitiatedBy      string    `gorm:"type:varchar(20);default:'FACTORY'" json:"initiated_by"`
+	ActualReceivedQuantity int    `gorm:"type:int;default:0" json:"actual_received_quantity"`
+	DamagedQuantity        int    `gorm:"type:int;default:0" json:"damaged_quantity"`
+	InitiatedBy        string     `gorm:"type:varchar(20);default:'FACTORY'" json:"initiated_by"`
+	Unit               string     `gorm:"type:varchar(20);default:'PCS'" json:"unit"`
+	PcsPerUnit         int        `gorm:"type:int;default:1" json:"pcs_per_unit"`
+	RejectionReason    string     `gorm:"type:text" json:"rejection_reason"`
+	VehicleID       *uuid.UUID `gorm:"type:uuid" json:"vehicle_id"`
+	DriverID        *uuid.UUID `gorm:"type:uuid" json:"driver_id"`
 	CreatedAt       time.Time `gorm:"default:now()" json:"created_at"`
 	UpdatedAt       time.Time `gorm:"default:now()" json:"updated_at"`
 
-	FromFactory *Factory `gorm:"foreignKey:FromFactoryID" json:"from_factory,omitempty"`
-	ToBranch    *Branch  `gorm:"foreignKey:ToBranchID" json:"to_branch,omitempty"`
-	Product     *Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	FromFactory *Factory  `gorm:"foreignKey:FromFactoryID" json:"from_factory,omitempty"`
+	ToBranch    *Branch   `gorm:"foreignKey:ToBranchID" json:"to_branch,omitempty"`
+	Product     *Product  `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	Vehicle     *Vehicle  `gorm:"foreignKey:VehicleID" json:"vehicle,omitempty"`
+	Driver      *Employee `gorm:"foreignKey:DriverID" json:"driver,omitempty"`
 }
 
 type ProductTransferItem struct {
-	ProductID uuid.UUID `json:"product_id"`
-	Quantity  int       `json:"quantity"`
+	ProductID  uuid.UUID `json:"product_id"`
+	Quantity   int       `json:"quantity"`
+	Unit       string    `json:"unit"`
+	PcsPerUnit int       `json:"pcs_per_unit"`
 }
 
 type WarehouseStock struct {
@@ -166,6 +178,14 @@ type ProductionRecipeItem struct {
 	Quantity      float64   `gorm:"type:decimal(10,4);not null" json:"quantity"` // Jumlah bahan per 1 unit barang jadi
 
 	RawProduct *Product `gorm:"foreignKey:RawProductID" json:"raw_product,omitempty"`
+}
+
+type FactoryDashboardStats struct {
+	TotalFactories   int               `json:"total_factories"`
+	TotalProducts    int               `json:"total_products"`
+	PendingShipments int               `json:"pending_shipments"`
+	TodayProduction  int               `json:"today_production"`
+	RecentTransfers  []ProductTransfer `json:"recent_transfers"`
 }
 
 func (f *Factory) BeforeCreate(tx *gorm.DB) (err error) {

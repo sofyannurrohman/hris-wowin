@@ -28,12 +28,13 @@ export interface ProductTransfer {
   product_id: string
   quantity: number
   total_weight: number
-  status: 'REQUESTED' | 'APPROVED' | 'SHIPPED' | 'RECEIVED' | 'REJECTED'
+  status: 'REQUESTED' | 'APPROVED' | 'SHIPPED' | 'ARRIVED' | 'RECEIVED' | 'REJECTED'
   batch_no: string
   expiry_date?: string
   notes: string
   target_shipment_date?: string
   estimated_arrival?: string
+  rejection_reason?: string
   initiated_by?: string
   created_at: string
   product?: {
@@ -43,18 +44,40 @@ export interface ProductTransfer {
   from_factory?: {
     name: string
   }
+  to_branch?: {
+    name: string
+  }
+  delivery_order_no?: string
+  received_at?: string
+  vehicle?: {
+    name: string
+    plate_number: string
+  }
+  driver?: {
+    name: string
+  }
 }
 
 export const useWarehouseStore = defineStore('warehouse', {
   state: () => ({
     inventory: [] as WarehouseStock[],
     pendingShipments: [] as ProductTransfer[],
+    allTransfers: [] as ProductTransfer[],
     logs: [] as any[],
     loading: false,
     error: null as string | null,
   }),
 
   actions: {
+    async fetchAllTransfers() {
+      const masterDataStore = useMasterDataStore()
+      try {
+        const response = await warehouseApi.getAllTransfers(masterDataStore.selectedBranchId)
+        this.allTransfers = response.data
+      } catch (err: any) {
+        this.error = err.response?.data?.error || 'Failed to fetch all transfers'
+      }
+    },
     async fetchInventory() {
       const masterDataStore = useMasterDataStore()
       this.loading = true
@@ -88,13 +111,22 @@ export const useWarehouseStore = defineStore('warehouse', {
       }
     },
 
-    async receiveShipment(id: string) {
+    async receiveShipment(id: string, data: any) {
       try {
-        await warehouseApi.receiveShipment(id)
+        await warehouseApi.receiveShipment(id, data)
         await this.fetchInventory()
         await this.fetchPendingShipments()
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to receive shipment'
+      }
+    },
+
+    async arriveShipment(id: string) {
+      try {
+        await warehouseApi.arriveShipment(id)
+        await this.fetchPendingShipments()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to confirm arrival'
       }
     },
 
@@ -107,12 +139,20 @@ export const useWarehouseStore = defineStore('warehouse', {
       }
     },
 
-    async rejectShipment(id: string) {
+    async rejectShipment(id: string, reason: string) {
       try {
-        await warehouseApi.rejectShipment(id)
+        await warehouseApi.rejectShipment(id, reason)
         await this.fetchPendingShipments()
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to reject shipment'
+      }
+    },
+    async confirmSJ(id: string) {
+      try {
+        await warehouseApi.confirmShipment(id)
+        await this.fetchPendingShipments()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to confirm SJ'
       }
     },
 
@@ -135,9 +175,9 @@ export const useWarehouseStore = defineStore('warehouse', {
       }
     },
 
-    async receiveByDO(doNo: string) {
+    async receiveByDO(doNo: string, data: any) {
       try {
-        await warehouseApi.receiveByDO(doNo)
+        await warehouseApi.receiveByDO(doNo, data)
         await this.fetchInventory()
         await this.fetchPendingShipments()
       } catch (err: any) {

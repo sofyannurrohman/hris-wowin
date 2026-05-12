@@ -37,6 +37,7 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		factory.GET("/stock/transfers", h.GetAllTransfers)
 		factory.GET("/stock/production", h.GetAllProductionHistory)
 		factory.GET("/demand", h.GetBackorderDemand)
+		factory.GET("/dashboard/stats", h.GetDashboardStats)
 		factory.POST("/products", h.CreateProduct)
 		factory.PUT("/products/:id", h.UpdateProduct)
 		factory.DELETE("/products/:id", h.DeleteProduct)
@@ -52,6 +53,8 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		factory.POST("/:id/transfer/request", h.RequestShipment)
 		factory.POST("/transfer/:id/ship", h.ExecuteShipment)
 		factory.PUT("/transfer/:id/approve", h.ApproveTransfer)
+		factory.PUT("/transfer/:id", h.UpdateTransfer)
+		factory.DELETE("/transfer/:id", h.DeleteTransfer)
 		factory.GET("/:id/transfer", h.GetTransferHistory)
 
 		factory.GET("/recipes", h.GetRecipes)
@@ -288,6 +291,8 @@ func (h *FactoryHandler) RequestShipment(c *gin.Context) {
 		EstimatedArrival   *time.Time                   `json:"estimated_arrival"`
 		TargetShipmentDate *time.Time                   `json:"target_shipment_date"`
 		InitiatedBy        string                       `json:"initiated_by"`
+		VehicleID          *uuid.UUID                   `json:"vehicle_id"`
+		DriverID           *uuid.UUID                   `json:"driver_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -298,7 +303,7 @@ func (h *FactoryHandler) RequestShipment(c *gin.Context) {
 		initiatedBy = "FACTORY"
 	}
 
-	if err := h.usecase.RequestShipment(factoryID, req.ToBranchID, req.Items, req.Notes, req.TargetShipmentDate, req.EstimatedArrival, initiatedBy); err != nil {
+	if err := h.usecase.RequestShipment(factoryID, req.ToBranchID, req.Items, req.Notes, req.TargetShipmentDate, req.EstimatedArrival, initiatedBy, req.VehicleID, req.DriverID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -378,6 +383,29 @@ func (h *FactoryHandler) GetTransferHistory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, history)
+}
+
+func (h *FactoryHandler) UpdateTransfer(c *gin.Context) {
+	id := uuid.MustParse(c.Param("id"))
+	var data map[string]interface{}
+	if err := c.ShouldBindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.usecase.UpdateTransfer(id, data); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Transfer updated"})
+}
+
+func (h *FactoryHandler) DeleteTransfer(c *gin.Context) {
+	id := uuid.MustParse(c.Param("id"))
+	if err := h.usecase.DeleteTransfer(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Transfer deleted"})
 }
 
 func (h *FactoryHandler) GetAllTransfers(c *gin.Context) {
@@ -479,4 +507,16 @@ func (h *FactoryHandler) GetBackorderDemand(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": demand})
+}
+
+func (h *FactoryHandler) GetDashboardStats(c *gin.Context) {
+	val, _ := c.Get("companyID")
+	companyID := val.(uuid.UUID)
+	
+	stats, err := h.usecase.GetDashboardStats(companyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
 }

@@ -40,11 +40,13 @@ type FactoryUsecase interface {
 	AdjustStock(factoryID, productID uuid.UUID, quantity int, reason string, batchNo string) error
 
 	// Transfer & Logistics
-	RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string, targetShipmentDate, estimatedArrival *time.Time, initiatedBy string) error
+	RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string, targetShipmentDate, estimatedArrival *time.Time, initiatedBy string, vehicleID, driverID *uuid.UUID) error
 	ApproveTransfer(transferID uuid.UUID) error
 	ExecuteApprovedShipment(transferID uuid.UUID) error
 	GetTransferHistory(factoryID uuid.UUID) ([]domain.ProductTransfer, error)
 	GetAllTransfers(companyID uuid.UUID) ([]domain.ProductTransfer, error)
+	UpdateTransfer(id uuid.UUID, data map[string]interface{}) error
+	DeleteTransfer(id uuid.UUID) error
 
 	// Recipe
 	CreateRecipe(recipe *domain.ProductionRecipe) error
@@ -54,6 +56,7 @@ type FactoryUsecase interface {
 
 	// Dashboard Demand
 	GetBackorderDemand(companyID uuid.UUID) ([]BackorderDemand, error)
+	GetDashboardStats(companyID uuid.UUID) (*domain.FactoryDashboardStats, error)
 }
 
 type BackorderDemand struct {
@@ -111,6 +114,9 @@ func (u *factoryUsecase) DeleteProduct(id uuid.UUID) error {
 }
 
 func (u *factoryUsecase) LogProduction(factoryID, productID, employeeID uuid.UUID, quantity, cartonCount, piecesPerCarton int, notes string, batchNo string, expiryDate *time.Time) error {
+	if batchNo == "" {
+		batchNo = "DEFAULT"
+	}
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewFactoryRepository(tx)
 
@@ -300,6 +306,9 @@ func (u *factoryUsecase) GetInventoryLogs(factoryID uuid.UUID) ([]domain.Factory
 }
 
 func (u *factoryUsecase) AdjustStock(factoryID, productID uuid.UUID, quantity int, reason string, batchNo string) error {
+	if batchNo == "" {
+		batchNo = "DEFAULT"
+	}
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewFactoryRepository(tx)
 		stock, err := repo.GetStock(factoryID, productID, batchNo)
@@ -328,13 +337,42 @@ type ShipmentItem struct {
 	Quantity  int
 }
 
-func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string, targetShipmentDate, estimatedArrival *time.Time, initiatedBy string) error {
+func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID uuid.UUID, items []domain.ProductTransferItem, notes string, targetShipmentDate, estimatedArrival *time.Time, initiatedBy string, vehicleID, driverID *uuid.UUID) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repo := repository.NewFactoryRepository(tx)
 
-		// Generate a common DO number for this shipment
+		// 1. If Vehicle is assigned, check capacity
+		if vehicleID != nil {
+			var vehicle domain.Vehicle
+			if err := tx.First(&vehicle, "id = ?", *vehicleID).Error; err != nil {
+				return fmt.Errorf("kendaraan tidak ditemukan: %w", err)
+			}
+
+			totalRequestWeight := 0.0
+			for _, item := range items {
+				product, err := repo.GetProductByID(item.ProductID)
+				if err != nil {
+					return err
+				}
+				weight := float64(item.Quantity) * float64(item.PcsPerUnit) * product.Weight
+				unit := strings.ToUpper(product.WeightUnit)
+				if unit == "GR" || unit == "ML" {
+					weight /= 1000
+				} else if unit == "TON" {
+					weight *= 1000
+				}
+				totalRequestWeight += weight
+			}
+
+			if totalRequestWeight > vehicle.Capacity && vehicle.Capacity > 0 {
+				return fmt.Errorf("tonase pengiriman (%.2f KG) melebihi kapasitas armada %s (%.2f KG)", totalRequestWeight, vehicle.Name, vehicle.Capacity)
+			}
+		}
+
+		// 2. Generate a common DO number for this shipment
 		doNo := fmt.Sprintf("SJ/%s/%s", time.Now().Format("20060102"), strings.ToUpper(uuid.New().String()[:6]))
 
+		fmt.Printf("DEBUG: Processing Shipment Request with %d items\n", len(items))
 		for _, item := range items {
 			// Get Product for weight calculation
 			product, err := repo.GetProductByID(item.ProductID)
@@ -342,20 +380,32 @@ func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID uuid.UUID, it
 				return err
 			}
 
-			totalWeight := float64(item.Quantity) * product.Weight
+			totalWeight := float64(item.Quantity) * float64(item.PcsPerUnit) * product.Weight
+			unit := strings.ToUpper(product.WeightUnit)
+			if unit == "GR" || unit == "ML" {
+				totalWeight /= 1000
+			} else if unit == "TON" {
+				totalWeight *= 1000
+			}
+
+			status := "REQUESTED"
 
 			transfer := &domain.ProductTransfer{
 				FromFactoryID:      fromFactoryID,
 				ToBranchID:         toBranchID,
 				ProductID:          item.ProductID,
 				Quantity:           item.Quantity,
+				PcsPerUnit:         item.PcsPerUnit,
 				TotalWeight:        totalWeight,
-				Status:             "REQUESTED",
+				Status:             status,
 				DeliveryOrderNo:    doNo,
 				Notes:              notes,
 				TargetShipmentDate: targetShipmentDate,
 				EstimatedArrival:   estimatedArrival,
 				InitiatedBy:        initiatedBy,
+				Unit:               item.Unit,
+				VehicleID:          vehicleID,
+				DriverID:           driverID,
 			}
 			if err := repo.CreateTransfer(transfer); err != nil {
 				return err
@@ -382,17 +432,21 @@ func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 			return errors.New("only APPROVED transfers can be shipped")
 		}
 
-		// 2. Check Factory Stock
+		// 2. Check Factory Stock (Convert to total pieces)
+		totalPieces := transfer.Quantity * transfer.PcsPerUnit
+		if transfer.BatchNo == "" {
+			transfer.BatchNo = "DEFAULT"
+		}
 		stock, err := repo.GetStock(transfer.FromFactoryID, transfer.ProductID, transfer.BatchNo)
 		if err != nil {
 			return err
 		}
-		if stock.Quantity < transfer.Quantity {
+		if stock.Quantity < totalPieces {
 			return errors.New("insufficient stock in factory for this shipment")
 		}
 
 		// 3. Reduce Factory Stock
-		stock.Quantity -= transfer.Quantity
+		stock.Quantity -= totalPieces
 		if err := repo.UpdateStock(stock); err != nil {
 			return err
 		}
@@ -414,7 +468,7 @@ func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 			ProductID: transfer.ProductID,
 			Type:      "OUT",
 			Source:    "TRANSFER TO BRANCH",
-			Quantity:  transfer.Quantity,
+			Quantity:  totalPieces,
 		}
 		return repo.CreateInventoryLog(inventoryLog)
 	})
@@ -426,6 +480,52 @@ func (u *factoryUsecase) GetTransferHistory(factoryID uuid.UUID) ([]domain.Produ
 
 func (u *factoryUsecase) GetAllTransfers(companyID uuid.UUID) ([]domain.ProductTransfer, error) {
 	return u.repo.GetAllTransfersByCompanyID(companyID)
+}
+
+func (u *factoryUsecase) UpdateTransfer(id uuid.UUID, data map[string]interface{}) error {
+	transfer, err := u.repo.GetTransferByID(id)
+	if err != nil {
+		return err
+	}
+	if transfer.Status != "REQUESTED" && transfer.Status != "APPROVED" && transfer.Status != "REJECTED" {
+		return errors.New("pengiriman yang sudah diproses tidak dapat diubah")
+	}
+
+	// Update only allowed fields
+	if err := u.db.Model(transfer).Updates(data).Error; err != nil {
+		return err
+	}
+
+	// If quantity or pcs_per_unit changed, recalculate total_weight
+	if _, ok := data["quantity"]; ok || data["pcs_per_unit"] != nil {
+		// Re-fetch to get latest values
+		updated, _ := u.repo.GetTransferByID(id)
+		product, _ := u.repo.GetProductByID(updated.ProductID)
+		
+		totalWeight := float64(updated.Quantity) * float64(updated.PcsPerUnit) * product.Weight
+		unit := strings.ToUpper(product.WeightUnit)
+		if unit == "GR" || unit == "ML" {
+			totalWeight /= 1000
+		} else if unit == "TON" {
+			totalWeight *= 1000
+		}
+		updated.TotalWeight = totalWeight
+		return u.repo.UpdateTransfer(updated)
+	}
+	
+	return nil
+}
+
+func (u *factoryUsecase) DeleteTransfer(id uuid.UUID) error {
+	transfer, err := u.repo.GetTransferByID(id)
+	if err != nil {
+		return err
+	}
+	if transfer.Status != "REQUESTED" && transfer.Status != "APPROVED" && transfer.Status != "REJECTED" {
+		return errors.New("pengiriman yang sudah diproses tidak dapat dihapus")
+	}
+
+	return u.repo.DeleteTransfer(id)
 }
 
 func (u *factoryUsecase) GetBackorderDemand(companyID uuid.UUID) ([]BackorderDemand, error) {
@@ -440,5 +540,9 @@ func (u *factoryUsecase) GetBackorderDemand(companyID uuid.UUID) ([]BackorderDem
 		Order("total_qty DESC").
 		Scan(&results).Error
 	return results, err
+}
+
+func (u *factoryUsecase) GetDashboardStats(companyID uuid.UUID) (*domain.FactoryDashboardStats, error) {
+	return u.repo.GetDashboardStats(companyID)
 }
 

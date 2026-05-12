@@ -92,18 +92,17 @@ const hrisGroups = [
 ]
 
 const salesGroups = [
-  {
-    title: 'Operasional Sales',
-    items: [
-      { to: '/sales', name: 'Dashboard Sales', icon: LayoutDashboard },
-      { to: '/sales/pesanan', name: 'Pesanan (SO)', icon: ShoppingCart },
-      { to: '/sales/delivery-batch', name: 'Pengiriman (Logistik)', icon: Truck },
-      { to: '/sales/bukti-terima', name: 'Bukti Terima (POD)', icon: ClipboardCheck },
-      { to: '/sales/retur', name: 'Retur Penjualan', icon: RotateCcw },
-      { to: '/sales/penjualan', name: 'Faktur Penjualan', icon: Banknote },
-      { to: '/sales/customers', name: 'Manajemen Toko', icon: Store },
-    ]
-  },
+      {
+        title: 'Operasional Sales',
+        items: [
+          { to: '/sales', name: 'Dashboard Sales', icon: LayoutDashboard },
+          { to: '/sales/pesanan', name: 'Pesanan (SO)', icon: ShoppingCart },
+          { to: '/sales/delivery', name: 'Manajemen Pengiriman', icon: Truck },
+          { to: '/sales/retur', name: 'Retur Penjualan', icon: RotateCcw },
+          { to: '/sales/penjualan', name: 'Faktur Penjualan', icon: Banknote },
+          { to: '/sales/customers', name: 'Manajemen Toko', icon: Store },
+        ]
+      },
   {
     title: 'Reporting',
     items: [

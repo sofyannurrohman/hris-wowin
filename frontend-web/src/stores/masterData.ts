@@ -41,8 +41,12 @@ export const useMasterDataStore = defineStore('masterData', () => {
       const res = await apiClient.get('/branches')
       branches.value = res.data.data || []
       
-      // If no branch is selected and we have branches, select the first one
-      if (!selectedBranchId.value && branches.value.length > 0) {
+      // If no branch is selected or selected branch doesn't belong to this company,
+      // reset to the first available branch
+      const currentId = selectedBranchId.value
+      const isValidBranch = currentId && branches.value.some(b => b.id === currentId)
+      
+      if (!isValidBranch && branches.value.length > 0) {
         setSelectedBranchId(branches.value[0].id)
       }
     } finally {

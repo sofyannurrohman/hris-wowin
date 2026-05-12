@@ -158,17 +158,7 @@
                 <label class="text-sm font-bold text-slate-700 ml-1 text-blue-700">Satuan Stok</label>
                 <div class="flex gap-2">
                   <select v-if="!customStockUnit" v-model="form.unit" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none appearance-none cursor-pointer">
-                    <option value="PCS">PCS (Pieces)</option>
-                    <option value="BOX">BOX (Kardus)</option>
-                    <option value="BAL">BAL (Ball)</option>
-                    <option value="KG">KG (Kilogram)</option>
-                    <option value="LITER">LITER</option>
-                    <option value="SACHET">SACHET</option>
-                    <option value="JERIGEN">JERIGEN</option>
-                    <option value="PAIL">PAIL</option>
-                    <option value="DRUM">DRUM</option>
-                    <option value="BOTOL">BOTOL</option>
-                    <option value="DUS">DUS</option>
+                    <option v-for="u in UNIT_OPTIONS" :key="u" :value="u">{{ u }}</option>
                   </select>
                   <input v-else v-model="form.unit" type="text" placeholder="Ketik satuan..." class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium outline-none" />
                   <Button variant="ghost" size="icon" @click="customStockUnit = !customStockUnit" class="h-12 w-12 shrink-0 rounded-2xl border border-slate-50 bg-slate-50 hover:bg-white hover:shadow-sm">
@@ -269,6 +259,7 @@ const customWeightUnit = ref(false)
 const imageFile = ref<File | null>(null)
 const imagePreview = ref<string>('')
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const UNIT_OPTIONS = ['KARTON', 'DUS', 'BOX', 'KRAT', 'PCS', 'BAL', 'PACK', 'KG', 'GRAM', 'SACHET', 'JERIGEN', 'BOTOL']
 
 const form = reactive({
   sku: '',

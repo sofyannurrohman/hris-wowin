@@ -30,7 +30,7 @@ const form = ref({
   items: [{ product_id: '', ordered_quantity: 1, unit: 'PCS', pieces_per_unit: 1, price: 0 }] as any[]
 })
 
-const UNIT_OPTIONS = ['PCS', 'KARTON', 'KRAT', 'BOX', 'BAL', 'PACK', 'KG', 'GR']
+const UNIT_OPTIONS = ['KARTON', 'DUS', 'BOX', 'KRAT', 'PCS', 'BAL', 'PACK', 'KG', 'GRAM', 'SACHET', 'JERIGEN', 'BOTOL']
 
 const statusOptions = ['ALL', 'DRAFT', 'CONFIRMED', 'CONVERTED', 'CANCELLED', 'REJECTED']
 

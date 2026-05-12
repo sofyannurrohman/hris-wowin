@@ -11,7 +11,14 @@ import 'package:hris_app/core/utils/constants.dart';
 import 'package:hris_app/injection.dart' as di;
 
 class DeliveryTrackingPage extends StatefulWidget {
-  const DeliveryTrackingPage({super.key});
+  final bool initialScan;
+  final bool autoShowMap;
+
+  const DeliveryTrackingPage({
+    super.key, 
+    this.initialScan = false, 
+    this.autoShowMap = false,
+  });
 
   @override
   State<DeliveryTrackingPage> createState() => _DeliveryTrackingPageState();
@@ -29,7 +36,12 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
   @override
   void initState() {
     super.initState();
-    _fetchTasks();
+    if (widget.initialScan) {
+      _isScanning = true;
+      _showTasks = false;
+    } else {
+      _fetchTasks();
+    }
   }
 
   Future<void> _fetchTasks() async {
@@ -67,6 +79,15 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       setState(() {
         _batchData = response.data;
       });
+
+      if (widget.autoShowMap && mounted) {
+        final items = _batchData!['items'] as List;
+        final stores = items.map((i) => StoreModel.fromJson(i['sales_transaction']['store'])).toList();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => OptimalRouteMapPage(stores: stores)),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal mengambil data SJ: $e'), backgroundColor: Colors.red),

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -79,29 +80,45 @@ func (r *warehouseRepository) GetStocksByBranchID(branchID uuid.UUID) ([]domain.
 
 func (r *warehouseRepository) GetTransfersByBranch(branchID uuid.UUID) ([]domain.ProductTransfer, error) {
 	var transfers []domain.ProductTransfer
-	err := r.db.Preload("Product").Preload("FromFactory").
+	err := r.db.Preload("Product").Preload("FromFactory").Preload("Vehicle").Preload("Driver").
 		Where("to_branch_id = ?", branchID).
 		Order("created_at desc").Find(&transfers).Error
 	return transfers, err
 }
 
 func (r *warehouseRepository) GetPendingTransfers(branchID uuid.UUID) ([]domain.ProductTransfer, error) {
+	fmt.Printf("DEBUG: [Warehouse] Fetching Pending for Branch: %s\n", branchID.String())
 	var transfers []domain.ProductTransfer
-	err := r.db.Preload("Product").Preload("FromFactory").
-		Where("to_branch_id = ? AND status IN ?", branchID, []string{"REQUESTED", "SHIPPED"}).
+	
+	// Check count first
+	var count int64
+	var total int64
+	r.db.Model(&domain.ProductTransfer{}).Count(&total)
+	fmt.Printf("DEBUG: [Warehouse] Total Records in DB: %d\n", total)
+	
+	r.db.Model(&domain.ProductTransfer{}).Where("to_branch_id = ? AND status IN ?", branchID, []string{"REQUESTED", "APPROVED", "SHIPPED", "ARRIVED"}).Count(&count)
+	fmt.Printf("DEBUG: [Warehouse] Rows found for Branch %s: %d\n", branchID.String(), count)
+
+	err := r.db.Preload("Product").Preload("FromFactory").Preload("Vehicle").Preload("Driver").
+		Where("to_branch_id = ? AND status IN ?", branchID, []string{"REQUESTED", "APPROVED", "SHIPPED", "ARRIVED"}).
 		Order("created_at desc").Find(&transfers).Error
+		
+	if err != nil {
+		fmt.Printf("DEBUG: [Warehouse] Query Error: %v\n", err)
+	}
+	
 	return transfers, err
 }
 
 func (r *warehouseRepository) GetTransferByID(id uuid.UUID) (*domain.ProductTransfer, error) {
 	var transfer domain.ProductTransfer
-	err := r.db.First(&transfer, "id = ?", id).Error
+	err := r.db.Preload("Product").Preload("FromFactory").Preload("Vehicle").Preload("Driver").First(&transfer, "id = ?", id).Error
 	return &transfer, err
 }
 
 func (r *warehouseRepository) GetTransferByDO(doNo string) (*domain.ProductTransfer, error) {
 	var transfer domain.ProductTransfer
-	err := r.db.Preload("Product").Preload("FromFactory").Where("delivery_order_no = ?", doNo).First(&transfer).Error
+	err := r.db.Preload("Product").Preload("FromFactory").Preload("Vehicle").Preload("Driver").Where("delivery_order_no = ?", doNo).First(&transfer).Error
 	if err != nil {
 		return nil, err
 	}

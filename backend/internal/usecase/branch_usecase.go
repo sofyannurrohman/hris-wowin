@@ -11,6 +11,7 @@ import (
 type BranchUseCase interface {
 	CreateBranch(req *CreateBranchRequest) error
 	GetBranches() ([]domain.Branch, error)
+	GetBranchesByCompany(companyID uuid.UUID) ([]domain.Branch, error)
 	GetBranchByID(id uuid.UUID) (*domain.Branch, error)
 	UpdateBranch(id uuid.UUID, req *UpdateBranchRequest) error
 	DeleteBranch(id uuid.UUID) error
@@ -69,6 +70,10 @@ func (u *branchUseCase) CreateBranch(req *CreateBranchRequest) error {
 
 func (u *branchUseCase) GetBranches() ([]domain.Branch, error) {
 	return u.repo.FindAll()
+}
+
+func (u *branchUseCase) GetBranchesByCompany(companyID uuid.UUID) ([]domain.Branch, error) {
+	return u.repo.FindByCompanyID(companyID)
 }
 
 func (u *branchUseCase) GetBranchByID(id uuid.UUID) (*domain.Branch, error) {

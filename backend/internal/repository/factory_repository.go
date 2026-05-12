@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"time"
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -45,12 +46,15 @@ type FactoryRepository interface {
 	GetTransferByID(id uuid.UUID) (*domain.ProductTransfer, error)
 	UpdateTransfer(transfer *domain.ProductTransfer) error
 	UpdateTransferStatus(id uuid.UUID, status string) error
+	DeleteTransfer(id uuid.UUID) error
+	GetTransfersByDO(doNo string) ([]domain.ProductTransfer, error)
 	
 	// Recipe
 	CreateRecipe(recipe *domain.ProductionRecipe) error
 	GetRecipeByFinishedProduct(productID uuid.UUID) (*domain.ProductionRecipe, error)
 	GetRecipesByCompany(companyID uuid.UUID) ([]domain.ProductionRecipe, error)
 	DeleteRecipe(id uuid.UUID) error
+	GetDashboardStats(companyID uuid.UUID) (*domain.FactoryDashboardStats, error)
 }
 
 
@@ -198,13 +202,13 @@ func (r *factoryRepository) CreateTransfer(transfer *domain.ProductTransfer) err
 
 func (r *factoryRepository) GetTransfersByFactoryID(factoryID uuid.UUID) ([]domain.ProductTransfer, error) {
 	var transfers []domain.ProductTransfer
-	err := r.db.Preload("Product").Preload("ToBranch").Where("from_factory_id = ?", factoryID).Order("created_at desc").Find(&transfers).Error
+	err := r.db.Preload("Product").Preload("ToBranch").Preload("Vehicle").Preload("Driver").Where("from_factory_id = ?", factoryID).Order("created_at desc").Find(&transfers).Error
 	return transfers, err
 }
 
 func (r *factoryRepository) GetAllTransfersByCompanyID(companyID uuid.UUID) ([]domain.ProductTransfer, error) {
 	var transfers []domain.ProductTransfer
-	err := r.db.Preload("Product").Preload("ToBranch").Preload("FromFactory").
+	err := r.db.Preload("Product").Preload("ToBranch").Preload("FromFactory").Preload("Vehicle").Preload("Driver").
 		Joins("JOIN factories ON factories.id = product_transfers.from_factory_id").
 		Where("factories.company_id = ?", companyID).
 		Order("created_at desc").Find(&transfers).Error
@@ -223,6 +227,16 @@ func (r *factoryRepository) UpdateTransfer(transfer *domain.ProductTransfer) err
 
 func (r *factoryRepository) UpdateTransferStatus(id uuid.UUID, status string) error {
 	return r.db.Model(&domain.ProductTransfer{}).Where("id = ?", id).Update("status", status).Error
+}
+
+func (r *factoryRepository) DeleteTransfer(id uuid.UUID) error {
+	return r.db.Delete(&domain.ProductTransfer{}, "id = ?", id).Error
+}
+
+func (r *factoryRepository) GetTransfersByDO(doNo string) ([]domain.ProductTransfer, error) {
+	var transfers []domain.ProductTransfer
+	err := r.db.Preload("Product").Preload("ToBranch").Preload("Vehicle").Preload("Driver").Where("delivery_order_no = ?", doNo).Find(&transfers).Error
+	return transfers, err
 }
 
 func (r *factoryRepository) CreateRecipe(recipe *domain.ProductionRecipe) error {
@@ -254,5 +268,44 @@ func (r *factoryRepository) DeleteRecipe(id uuid.UUID) error {
 		}
 		return tx.Delete(&domain.ProductionRecipe{}, "id = ?", id).Error
 	})
+}
+
+func (r *factoryRepository) GetDashboardStats(companyID uuid.UUID) (*domain.FactoryDashboardStats, error) {
+	stats := &domain.FactoryDashboardStats{}
+
+	// 1. Total Factories
+	var factoryCount int64
+	r.db.Model(&domain.Factory{}).Where("company_id = ?", companyID).Count(&factoryCount)
+	stats.TotalFactories = int(factoryCount)
+
+	// 2. Total Products
+	var productCount int64
+	r.db.Model(&domain.Product{}).Where("company_id = ?", companyID).Count(&productCount)
+	stats.TotalProducts = int(productCount)
+
+	// 3. Pending Shipments (REQUESTED or APPROVED)
+	var pendingCount int64
+	r.db.Model(&domain.ProductTransfer{}).
+		Joins("JOIN factories ON factories.id = product_transfers.from_factory_id").
+		Where("factories.company_id = ? AND product_transfers.status IN ?", companyID, []string{"REQUESTED", "APPROVED"}).
+		Count(&pendingCount)
+	stats.PendingShipments = int(pendingCount)
+
+	// 4. Today Production
+	var todayProduction int64
+	today := time.Now().Truncate(24 * time.Hour)
+	r.db.Model(&domain.ProductionLog{}).
+		Joins("JOIN factories ON factories.id = production_logs.factory_id").
+		Where("factories.company_id = ? AND production_logs.production_date >= ?", companyID, today).
+		Select("COALESCE(SUM(quantity), 0)").Scan(&todayProduction)
+	stats.TodayProduction = int(todayProduction)
+
+	// 5. Recent Transfers (Last 5 APPROVED, SHIPPED, ARRIVED, or RECEIVED)
+	r.db.Preload("Product").Preload("ToBranch").Preload("FromFactory").
+		Joins("JOIN factories ON factories.id = product_transfers.from_factory_id").
+		Where("factories.company_id = ? AND product_transfers.status IN ?", companyID, []string{"APPROVED", "SHIPPED", "ARRIVED", "RECEIVED"}).
+		Order("product_transfers.created_at desc").Limit(5).Find(&stats.RecentTransfers)
+
+	return stats, nil
 }
 

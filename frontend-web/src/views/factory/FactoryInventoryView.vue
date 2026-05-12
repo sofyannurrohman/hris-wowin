@@ -378,10 +378,16 @@ const handleProductionSubmit = async () => {
   submitting.value = true
   try {
     if (isEditingProduction.value) {
-      await factoryStore.updateProductionLog(factoryId, currentProductionId.value, productionForm)
+      await factoryStore.updateProductionLog(factoryId, currentProductionId.value, {
+        ...productionForm,
+        expiry_date: productionForm.expiry_date || null
+      })
       toast.success('Log produksi berhasil diperbarui')
     } else {
-      await factoryStore.logProduction(factoryId, productionForm)
+      await factoryStore.logProduction(factoryId, {
+        ...productionForm,
+        expiry_date: productionForm.expiry_date || null
+      })
       toast.success('Log produksi berhasil dicatat')
     }
     showLogProduction.value = false

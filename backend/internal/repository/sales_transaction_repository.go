@@ -22,6 +22,7 @@ type SalesTransactionRepository interface {
 	FindDeliveryPending(companyID uuid.UUID) ([]domain.SalesTransaction, error)
 	CountByCompany(companyID uuid.UUID) (int64, error)
 	CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error)
+	GetProductSalesDistribution(productID uuid.UUID, companyID uuid.UUID) ([]map[string]interface{}, error)
 }
 
 type salesTransactionRepository struct {
@@ -166,4 +167,21 @@ func (r *salesTransactionRepository) CountByCompanyAndDate(companyID uuid.UUID, 
 		Where("company_id = ? AND transaction_date >= ? AND transaction_date < ?", companyID, startOfDay, endOfDay).
 		Count(&count).Error
 	return count, err
+}
+
+func (r *salesTransactionRepository) GetProductSalesDistribution(productID uuid.UUID, companyID uuid.UUID) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+	
+	query := r.db.Table("sales_items si").
+		Select("s.id as store_id, s.name as store_name, s.latitude, s.longitude, SUM(si.quantity) as total_quantity").
+		Joins("JOIN sales_transactions st ON si.sales_transaction_id = st.id").
+		Joins("JOIN stores s ON st.store_id = s.id").
+		Where("si.product_id = ? AND st.status = ?", productID, "VERIFIED")
+
+	if companyID != uuid.Nil {
+		query = query.Where("st.company_id = ?", companyID)
+	}
+
+	err := query.Group("s.id, s.name, s.latitude, s.longitude").Scan(&results).Error
+	return results, err
 }

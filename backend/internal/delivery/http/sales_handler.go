@@ -39,6 +39,7 @@ func (h *SalesHandler) RegisterRoutes(router *gin.RouterGroup) {
 		sales.GET("/reports/excel", h.ExportExcel)
 		sales.GET("/reports/summary", h.GetSummary)
 		sales.GET("/reports/performance", h.GetPerformance)
+		sales.GET("/reports/product-distribution", h.GetProductDistribution)
 		sales.POST("/upload", h.UploadPhoto)
 	}
 }
@@ -641,4 +642,34 @@ func (h *SalesHandler) HandleMidtransNotification(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Notification handled successfully"})
+}
+
+func (h *SalesHandler) GetProductDistribution(c *gin.Context) {
+	productIDStr := c.Query("product_id")
+	if productIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "product_id is required"})
+		return
+	}
+	productID, err := uuid.Parse(productIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product_id"})
+		return
+	}
+
+	companyIDStr := c.Query("company_id")
+	companyID := uuid.Nil
+	if companyIDStr != "" {
+		companyID, _ = uuid.Parse(companyIDStr)
+	}
+
+	distribution, err := h.salesUsecase.GetProductSalesDistribution(productID, companyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success retrieving product sales distribution",
+		"data":    distribution,
+	})
 }

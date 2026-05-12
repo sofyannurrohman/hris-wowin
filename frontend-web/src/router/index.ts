@@ -161,9 +161,9 @@ const router = createRouter({
               component: () => import('@/views/sales/SalesReturnView.vue'),
             },
             {
-              path: 'delivery-batch',
-              name: 'deliveryBatch',
-              component: () => import('@/views/sales/DeliveryBatchView.vue'),
+              path: 'delivery',
+              name: 'deliveryManagement',
+              component: () => import('@/views/sales/LogisticsDashboard.vue'),
             },
             {
               path: 'penjualan',
@@ -172,7 +172,7 @@ const router = createRouter({
             },
             {
               path: 'pindah-barang',
-              alias: 'retur',
+              alias: 'retur_pindah',
               name: 'salesTransfers',
               component: () => import('@/views/warehouse/SalesTransferView.vue'),
             },
@@ -195,16 +195,6 @@ const router = createRouter({
               path: 'customers',
               name: 'customers',
               component: () => import('@/views/sales/StoreView.vue'),
-            },
-            {
-              path: 'bukti-terima',
-              name: 'salesPOD',
-              component: () => import('@/views/warehouse/DeliveryControlView.vue'),
-            },
-            {
-              path: 'delivery-tracking',
-              name: 'deliveryManagement',
-              component: () => import('@/views/sales/DeliveryManagement.vue'),
             },
             {
               path: 'verification',

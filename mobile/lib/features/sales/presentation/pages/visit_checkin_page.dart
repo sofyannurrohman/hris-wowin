@@ -15,6 +15,7 @@ import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:drift/drift.dart' hide Column;
 import 'package:path_provider/path_provider.dart';
+import 'package:geocoding/geocoding.dart';
 
 class VisitCheckinPage extends StatefulWidget {
   final StoreModel store;
@@ -67,11 +68,22 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
         perm = await Geolocator.requestPermission();
       }
       final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
+      String readableAddress = 'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (placemarks.isNotEmpty) {
+          Placemark place = placemarks[0];
+          readableAddress = '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}';
+        }
+      } catch (e) {
+        debugPrint('Reverse geocoding error: $e');
+      }
+
       setState(() {
         _lat = pos.latitude;
         _lng = pos.longitude;
-        // Simple display - production: use geocoding package for reverse geocode
-        _address = 'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
+        _address = readableAddress;
       });
     } catch (_) {
       setState(() => _address = 'Lokasi tidak tersedia');

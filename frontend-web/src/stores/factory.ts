@@ -19,6 +19,7 @@ export interface Product {
   name: string
   sku: string
   unit: string
+  pcs_per_unit: number
   weight: number
   weight_unit: string
   cost_price: number
@@ -79,6 +80,19 @@ export interface ProductTransfer {
   to_branch?: {
     name: string
   }
+  unit?: string
+  vehicle_id?: string
+  driver_id?: string
+  vehicle?: {
+    name: string
+    license_plate: string
+    capacity: number
+  }
+  driver?: {
+    first_name: string
+    last_name: string
+  }
+  pcs_per_unit?: number
 }
 
 export const useFactoryStore = defineStore('factory', {
@@ -94,6 +108,13 @@ export const useFactoryStore = defineStore('factory', {
     transferHistory: [] as ProductTransfer[],
     allTransfers: [] as ProductTransfer[],
     backorderDemand: [] as any[],
+    dashboardStats: {
+      total_factories: 0,
+      total_products: 0,
+      pending_shipments: 0,
+      today_production: 0,
+      recent_transfers: [] as ProductTransfer[]
+    },
     loading: false,
     error: null as string | null,
   }),
@@ -105,6 +126,14 @@ export const useFactoryStore = defineStore('factory', {
         this.backorderDemand = response.data.data
       } catch (err: any) {
         console.error('Failed to fetch backorder demand:', err)
+      }
+    },
+    async fetchDashboardStats() {
+      try {
+        const response = await factoryApi.getDashboardStats()
+        this.dashboardStats = response.data
+      } catch (err: any) {
+        console.error('Failed to fetch dashboard stats:', err)
       }
     },
     async fetchFactories() {
@@ -321,6 +350,24 @@ export const useFactoryStore = defineStore('factory', {
         await this.fetchAllTransfers()
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to approve transfer'
+      }
+    },
+
+    async updateTransfer(id: string, data: any) {
+      try {
+        await factoryApi.updateTransfer(id, data)
+        await this.fetchAllTransfers()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to update transfer'
+      }
+    },
+
+    async deleteTransfer(id: string) {
+      try {
+        await factoryApi.deleteTransfer(id)
+        await this.fetchAllTransfers()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to delete transfer'
       }
     }
   }

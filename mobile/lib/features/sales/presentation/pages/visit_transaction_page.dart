@@ -21,6 +21,30 @@ class VisitTransactionPage extends StatefulWidget {
 
 class _VisitTransactionPageState extends State<VisitTransactionPage> {
   bool _isLoading = false;
+  String _jobPositionTitle = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final authRepo = di.sl<AuthRepository>();
+      final result = await authRepo.getProfile();
+      result.fold(
+        (_) => null,
+        (profile) {
+          if (mounted) {
+            setState(() {
+              _jobPositionTitle = profile['job_position']?['title'] ?? '';
+            });
+          }
+        },
+      );
+    } catch (_) {}
+  }
 
   void _navigateToSelection(String jobPosition) {
     Navigator.push(
@@ -174,6 +198,7 @@ class _VisitTransactionPageState extends State<VisitTransactionPage> {
         selfieBytes: widget.selfieBytes,
         receiptPath: null,
         notes: reason,
+        jobPositionTitle: _jobPositionTitle,
       )),
     );
   }

@@ -13,6 +13,7 @@ type DeliveryRepository interface {
 	UpdateBatch(batch *domain.DeliveryBatch) error
 	UpdateItem(item *domain.DeliveryItem) error
 	GetBatchesByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
+	GetBatchesHistoryByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
 	ListBatches() ([]domain.DeliveryBatch, error)
 	GetItemByReceiptNo(receiptNo string) (*domain.DeliveryItem, error)
 	DeleteBatch(id uuid.UUID) error
@@ -70,6 +71,15 @@ func (r *deliveryRepository) GetBatchesByDriver(driverID uuid.UUID) ([]domain.De
 	err := r.db.Preload("Items.SalesTransaction.Store").
 		Where("driver_id = ? AND status != ?", driverID, domain.DeliveryBatchCompleted).
 		Order("created_at DESC").Find(&batches).Error
+	return batches, err
+}
+
+func (r *deliveryRepository) GetBatchesHistoryByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {
+	var batches []domain.DeliveryBatch
+	err := r.db.Preload("Items.SalesTransaction.Store").
+		Preload("Items.SalesTransaction.Items.Product").
+		Where("driver_id = ? AND status = ?", driverID, domain.DeliveryBatchCompleted).
+		Order("finished_at DESC").Find(&batches).Error
 	return batches, err
 }
 

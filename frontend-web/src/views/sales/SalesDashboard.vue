@@ -32,6 +32,10 @@ const isLoading = ref(true)
 const mapContainer = ref<HTMLElement | null>(null)
 let map: L.Map | null = null
 const stores = ref<any[]>([])
+const products = ref<any[]>([])
+const mapMode = ref<'STORES' | 'PRODUCTS'>('STORES')
+const selectedProductId = ref('')
+const productSalesData = ref<any[]>([])
 
 // --- Chart Options ---
 const omzetChartOption = ref({
@@ -179,10 +183,33 @@ const fetchDashboardData = async () => {
     const storeRes = await apiClient.get(`/stores?company_id=${companyId}`)
     if (storeRes.data?.data) {
       stores.value = storeRes.data.data
-      updateMarkers()
+      if (mapMode.value === 'STORES') updateMarkers()
+    }
+
+    // 6. Fetch Products for tracking
+    const prodRes = await apiClient.get('/factory/products')
+    if (prodRes.data?.data) {
+      products.value = prodRes.data.data
     }
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const fetchProductDistribution = async () => {
+  if (!selectedProductId.value) return
+  isLoading.value = true
+  try {
+    const companyId = masterDataStore.selectedBranchCompanyId || ''
+    const res = await apiClient.get(`/admin/sales/reports/product-distribution?product_id=${selectedProductId.value}&company_id=${companyId}`)
+    if (res.data?.data) {
+      productSalesData.value = res.data.data
+      updateMarkers()
+    }
+  } catch (error) {
+    console.error('Failed to fetch product distribution:', error)
   } finally {
     isLoading.value = false
   }
@@ -208,26 +235,91 @@ const updateMarkers = () => {
     markerGroup.clearLayers()
   }
 
-  const validStores = stores.value.filter(s => s.latitude && s.longitude)
-  
-  validStores.forEach(store => {
-    const marker = L.marker([store.latitude, store.longitude])
-    marker.bindPopup(`
-      <div class="p-2 min-w-[150px]">
-        <h4 class="font-black text-slate-900">${store.name}</h4>
-        <p class="text-[10px] text-slate-500 mt-1 uppercase font-bold">${store.address || 'Tanpa Alamat'}</p>
-        <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
-           <span class="w-2 h-2 rounded-full ${store.is_active ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-           <span class="text-[10px] font-black">${store.is_active ? 'AKTIF' : 'NON-AKTIF'}</span>
+  if (mapMode.value === 'STORES') {
+    const validStores = stores.value.filter(s => s.latitude && s.longitude)
+    validStores.forEach(store => {
+      const marker = L.marker([store.latitude, store.longitude])
+      marker.bindPopup(`
+        <div class="p-2 min-w-[150px]">
+          <h4 class="font-black text-slate-900">${store.name}</h4>
+          <p class="text-[10px] text-slate-500 mt-1 uppercase font-bold">${store.address || 'Tanpa Alamat'}</p>
+          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+             <span class="w-2 h-2 rounded-full ${store.is_active ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+             <span class="text-[10px] font-black">${store.is_active ? 'AKTIF' : 'NON-AKTIF'}</span>
+          </div>
         </div>
-      </div>
-    `)
-    marker.addTo(markerGroup!)
-  })
+      `)
+      marker.addTo(markerGroup!)
+    })
 
-  if (validStores.length > 0 && map) {
-    const bounds = L.latLngBounds(validStores.map(s => [s.latitude, s.longitude]))
-    map.fitBounds(bounds, { padding: [50, 50] })
+    if (validStores.length > 0 && map) {
+      const bounds = L.latLngBounds(validStores.map(s => [s.latitude, s.longitude]))
+      map.fitBounds(bounds, { padding: [50, 50] })
+    }
+  } else {
+    // Product Distribution Mode
+    const validData = productSalesData.value.filter(d => d.latitude && d.longitude)
+    const maxQty = Math.max(...validData.map(d => d.total_quantity), 1)
+    
+    // Find the selected product image
+    const selectedProduct = products.value.find(p => p.id === selectedProductId.value)
+    const productImage = selectedProduct?.image_url || 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
+
+    validData.forEach(data => {
+      // Calculate size based on volume (min 30px, max 80px)
+      const size = 30 + (Math.sqrt(data.total_quantity / maxQty) * 50)
+      
+      const icon = L.divIcon({
+        html: `
+          <div class="relative group transition-all duration-300 transform hover:scale-110">
+            <div class="w-full h-full rounded-full border-4 border-white shadow-xl overflow-hidden bg-white ring-2 ring-primary/20">
+              <img src="${productImage}" class="w-full h-full object-cover" />
+            </div>
+            <div class="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg shadow-lg">
+              ${data.total_quantity}
+            </div>
+          </div>
+        `,
+        className: 'custom-product-marker',
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
+      })
+
+      const marker = L.marker([data.latitude, data.longitude], { icon })
+      
+      marker.bindPopup(`
+        <div class="p-3 min-w-[180px]">
+          <div class="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+             <img src="${productImage}" class="w-10 h-10 rounded-lg object-cover bg-slate-50" />
+             <div>
+                <h4 class="font-black text-slate-900 leading-tight">${data.store_name}</h4>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Wilayah Distribusi</p>
+             </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+               <span class="text-[10px] font-bold text-slate-400 uppercase">Total Penjualan</span>
+               <span class="text-sm font-black text-primary">${data.total_quantity} PCS</span>
+            </div>
+            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+               <div class="h-full bg-primary" style="width: ${(data.total_quantity/maxQty)*100}%"></div>
+            </div>
+          </div>
+        </div>
+      `)
+      
+      // Add hover effect
+      marker.on('mouseover', function(e) {
+        e.target.openPopup()
+      })
+      
+      marker.addTo(markerGroup!)
+    })
+
+    if (validData.length > 0 && map) {
+      const bounds = L.latLngBounds(validData.map(d => [d.latitude, d.longitude]))
+      map.fitBounds(bounds, { padding: [100, 100] })
+    }
   }
 }
 
@@ -237,6 +329,20 @@ onMounted(() => {
 
 watch(() => masterDataStore.selectedBranchId, () => {
   fetchDashboardData()
+})
+
+watch(mapMode, (newMode) => {
+  if (newMode === 'STORES') {
+    updateMarkers()
+  } else if (selectedProductId.value) {
+    fetchProductDistribution()
+  }
+})
+
+watch(selectedProductId, () => {
+  if (mapMode.value === 'PRODUCTS') {
+    fetchProductDistribution()
+  }
 })
 
 const formatCurrency = (val: number) => {
@@ -330,9 +436,41 @@ const formatCurrency = (val: number) => {
           </h3>
           <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total {{ stores.length }} titik distribusi aktif</p>
         </div>
-        <button @click="updateMarkers" class="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-primary rounded-xl transition-all shadow-sm">
-          <Maximize2 class="w-4 h-4" />
-        </button>
+        <div class="flex items-center gap-4">
+          <div class="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+            <button 
+              @click="mapMode = 'STORES'"
+              :class="[
+                'px-4 py-1.5 rounded-lg text-xs font-black transition-all',
+                mapMode === 'STORES' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-slate-600'
+              ]"
+            >
+              TOKO
+            </button>
+            <button 
+              @click="mapMode = 'PRODUCTS'"
+              :class="[
+                'px-4 py-1.5 rounded-lg text-xs font-black transition-all',
+                mapMode === 'PRODUCTS' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-slate-600'
+              ]"
+            >
+              PRODUK
+            </button>
+          </div>
+
+          <select 
+            v-if="mapMode === 'PRODUCTS'"
+            v-model="selectedProductId"
+            class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm min-w-[200px]"
+          >
+            <option value="" disabled>Pilih Produk Tracking...</option>
+            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
+          </select>
+
+          <button @click="updateMarkers" class="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-primary rounded-xl transition-all shadow-sm">
+            <Maximize2 class="w-4 h-4" />
+          </button>
+        </div>
       </div>
       <div ref="mapContainer" class="h-[450px] w-full z-0"></div>
     </div>

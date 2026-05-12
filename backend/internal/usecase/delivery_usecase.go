@@ -19,6 +19,7 @@ type DeliveryUsecase interface {
 	StartDelivery(doNo string) error
 	ConfirmItemDelivery(itemID uuid.UUID, status domain.DeliveryItemStatus, notes string) error
 	GetDriverTasks(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
+	GetDriverHistory(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
 	GetBatchDetail(doNo string) (*domain.DeliveryBatch, error)
 	GetBatchByID(id uuid.UUID) (*domain.DeliveryBatch, error)
 	UpdateBatchItems(batchID uuid.UUID, req CreateBatchRequest) error
@@ -195,6 +196,10 @@ func (u *deliveryUsecase) UpdateBatchCash(batchID uuid.UUID, amount float64) err
 
 func (u *deliveryUsecase) GetDriverTasks(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {
 	return u.repo.GetBatchesByDriver(driverID)
+}
+
+func (u *deliveryUsecase) GetDriverHistory(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {
+	return u.repo.GetBatchesHistoryByDriver(driverID)
 }
 
 func (u *deliveryUsecase) GetBatchDetail(doNo string) (*domain.DeliveryBatch, error) {

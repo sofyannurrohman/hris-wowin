@@ -24,7 +24,7 @@
         </div>
         <CardContent class="p-6">
           <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Pabrik</p>
-          <h3 class="text-3xl font-bold text-slate-900 mt-2">{{ factoryStore.factories.length }}</h3>
+          <h3 class="text-3xl font-bold text-slate-900 mt-2">{{ factoryStore.dashboardStats.total_factories }}</h3>
           <div class="flex items-center mt-4 text-emerald-600 text-sm font-medium">
             <span class="bg-emerald-50 px-2 py-0.5 rounded-full">Operasional Aktif</span>
           </div>
@@ -37,7 +37,7 @@
         </div>
         <CardContent class="p-6">
           <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Produk</p>
-          <h3 class="text-3xl font-bold text-slate-900 mt-2">{{ factoryStore.products.length }}</h3>
+          <h3 class="text-3xl font-bold text-slate-900 mt-2">{{ factoryStore.dashboardStats.total_products }}</h3>
           <div class="flex items-center mt-4 text-slate-500 text-sm">
             <span>Master data produk aktif</span>
           </div>
@@ -50,7 +50,7 @@
         </div>
         <CardContent class="p-6">
           <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Pengiriman Pending</p>
-          <h3 class="text-3xl font-bold text-slate-900 mt-2">12</h3>
+          <h3 class="text-3xl font-bold text-slate-900 mt-2">{{ factoryStore.dashboardStats.pending_shipments }}</h3>
           <div class="flex items-center mt-4 text-orange-600 text-sm font-medium">
             <AlertCircle class="mr-1 h-3.5 w-3.5" />
             <span>Butuh konfirmasi gudang</span>
@@ -64,7 +64,7 @@
         </div>
         <CardContent class="p-6">
           <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Produksi Hari Ini</p>
-          <h3 class="text-3xl font-bold text-slate-900 mt-2">1,240 <span class="text-sm font-normal text-slate-400">pcs</span></h3>
+          <h3 class="text-3xl font-bold text-slate-900 mt-2">{{ factoryStore.dashboardStats.today_production }} <span class="text-sm font-normal text-slate-400">pcs</span></h3>
           <div class="flex items-center mt-4 text-emerald-600 text-sm font-medium">
             <TrendingUp class="mr-1 h-3.5 w-3.5" />
             <span>8% vs kemarin</span>
@@ -183,21 +183,26 @@
         
         <Card class="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
           <CardContent class="p-0">
-            <div class="divide-y divide-slate-50">
-              <div v-for="i in 5" :key="i" class="p-5 hover:bg-slate-50/50 transition-colors">
+            <div v-if="factoryStore.dashboardStats.recent_transfers.length === 0" class="p-8 text-center text-slate-400 italic text-sm">
+              Belum ada riwayat pengiriman terbaru.
+            </div>
+            <div v-else class="divide-y divide-slate-50">
+              <div v-for="transfer in factoryStore.dashboardStats.recent_transfers" :key="transfer.id" class="p-5 hover:bg-slate-50/50 transition-colors">
                 <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center" :class="transfer.status === 'RECEIVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'">
                     <Truck class="h-5 w-5" />
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex justify-between items-start">
-                      <p class="text-sm font-bold text-slate-900 truncate">SJ-2024-00{{i}}</p>
-                      <span class="text-[10px] text-slate-400">2j yang lalu</span>
+                      <p class="text-sm font-bold text-slate-900 truncate">{{ transfer.delivery_order_no }}</p>
+                      <span class="text-[10px] text-slate-400">{{ formatRelativeTime(transfer.created_at) }}</span>
                     </div>
-                    <p class="text-xs text-slate-500 mt-0.5">Pabrik A &rarr; Cabang Surabaya</p>
+                    <p class="text-xs text-slate-500 mt-0.5">{{ transfer.from_factory?.name }} &rarr; {{ transfer.to_branch?.name }}</p>
                     <div class="mt-2 flex items-center justify-between">
-                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 uppercase">Dalam Perjalanan</span>
-                      <span class="text-[10px] font-medium text-slate-400">120 KG</span>
+                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase" :class="getStatusClass(transfer.status)">
+                        {{ formatStatus(transfer.status) }}
+                      </span>
+                      <span class="text-[10px] font-medium text-slate-400">{{ transfer.total_weight.toFixed(2) }} KG</span>
                     </div>
                   </div>
                 </div>
@@ -331,11 +336,48 @@ const newFactoryForm = reactive({
 })
 
 onMounted(() => {
+  factoryStore.fetchDashboardStats()
   factoryStore.fetchFactories()
   factoryStore.fetchProducts()
   factoryStore.fetchBackorderDemand(masterDataStore.selectedBranchCompanyId || '')
   masterDataStore.fetchBranches()
 })
+
+const formatRelativeTime = (dateStr: string) => {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffInMs = now.getTime() - date.getTime()
+  const diffInMins = Math.floor(diffInMs / (1000 * 60))
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+
+  if (diffInMins < 1) return 'Baru saja'
+  if (diffInMins < 60) return `${diffInMins}m yang lalu`
+  if (diffInHours < 24) return `${diffInHours}j yang lalu`
+  return `${diffInDays}h yang lalu`
+}
+
+const formatStatus = (status: string) => {
+  switch (status) {
+    case 'REQUESTED': return 'Menunggu Approval'
+    case 'APPROVED': return 'DI ACC GUDANG'
+    case 'SHIPPED': return 'Dalam Pengiriman'
+    case 'ARRIVED': return 'Sampai di Tujuan'
+    case 'RECEIVED': return 'Telah Diterima'
+    default: return status
+  }
+}
+
+const getStatusClass = (status: string) => {
+  switch (status) {
+    case 'RECEIVED': return 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
+    case 'SHIPPED': return 'bg-blue-50 text-blue-600 border border-blue-100'
+    case 'ARRIVED': return 'bg-cyan-50 text-cyan-600 border border-cyan-100'
+    case 'REQUESTED': return 'bg-orange-50 text-orange-600 border border-orange-100'
+    case 'APPROVED': return 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-black'
+    default: return 'bg-slate-50 text-slate-600 border border-slate-100'
+  }
+}
 
 
 const goToFactory = (id: string) => {

@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
 import './digital_receipt_page.dart';
+import './visit_success_page.dart';
 
 class VisitCheckoutPage extends StatefulWidget {
   final StoreModel store;
@@ -24,6 +25,7 @@ class VisitCheckoutPage extends StatefulWidget {
   final List<Map<String, dynamic>>? items;
   final double? totalAmount;
   final String? notes;
+  final String jobPositionTitle;
 
   const VisitCheckoutPage({
     super.key, 
@@ -36,6 +38,7 @@ class VisitCheckoutPage extends StatefulWidget {
     this.items,
     this.totalAmount,
     this.notes,
+    required this.jobPositionTitle,
   });
 
   @override
@@ -54,7 +57,18 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
     'QRIS': {'label': 'QRIS / E-Wallet', 'icon': Icons.qr_code_2_rounded, 'color': Colors.blueAccent},
     'VA': {'label': 'Virtual Account', 'icon': Icons.account_balance_rounded, 'color': Colors.indigo},
     'TEMPO': {'label': 'Tempo / Kredit', 'icon': Icons.history_rounded, 'color': Colors.orange},
+    'SALES_ORDER': {'label': 'Sales Order (Tagih saat Kirim)', 'icon': Icons.description_rounded, 'color': Colors.blueGrey},
   };
+
+  bool get _isTaskOrder => widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO');
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isTaskOrder) {
+      _selectedPaymentMethod = 'SALES_ORDER';
+    }
+  }
 
   final List<Map<String, String>> _bankOptions = [
     {'id': 'bca', 'name': 'BCA Virtual Account'},
@@ -124,17 +138,24 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
       // 4. Trigger Sync in background
       di.sl<SyncBloc>().add(SyncDataRequested());
 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ));
+      
+      final String successMsg = _isTaskOrder 
+          ? '✓ Sales Order berhasil disimpan!' 
+          : '✓ Kunjungan & Order ${_selectedPaymentMethod} tersimpan!';
+
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => DigitalReceiptPage(
+            builder: (_) => VisitSuccessPage(
               transaction: transaction,
               localId: localId,
             ),
           ),
         );
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✓ Kunjungan & Order ${_selectedPaymentMethod} tersimpan!', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+          content: Text(successMsg, style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -204,15 +225,15 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
               const SizedBox(height: 24),
 
               const SizedBox(height: 24),
-              // Payment Method selection (Only if there are items)
-              if (widget.items != null && widget.items!.isNotEmpty)
+              // Payment Method selection (Only if there are items and NOT a Task Order)
+              if (widget.items != null && widget.items!.isNotEmpty && !_isTaskOrder)
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))]),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('METODE PEMBAYARAN', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
                     const SizedBox(height: 16),
-                    ..._paymentOptions.entries.map((e) {
+                    ..._paymentOptions.entries.where((e) => e.key != 'SALES_ORDER').map((e) {
                       final isSelected = _selectedPaymentMethod == e.key;
                       return GestureDetector(
                         onTap: () => setState(() {
@@ -292,6 +313,28 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
                       ),
                     ],
                   ]),
+                )
+              else if (_isTaskOrder && widget.items != null && widget.items!.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))]),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('STATUS PESANAN', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5)),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.blueAccent, width: 2)),
+                      child: Row(children: [
+                        const Icon(Icons.description_rounded, color: Colors.blueAccent, size: 24),
+                        const SizedBox(width: 16),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('SALES ORDER (SO)', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: const Color(0xFF1E293B))),
+                          Text('Akan diverifikasi admin nota untuk pembuatan invoice.', style: GoogleFonts.outfit(fontSize: 11, color: Colors.blueGrey)),
+                        ])),
+                        const Icon(Icons.check_circle_rounded, color: Colors.blueAccent, size: 20),
+                      ]),
+                    ),
+                  ]),
                 ),
 
               const SizedBox(height: 24),
@@ -317,15 +360,22 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
                           Text(
                             widget.items == null 
                                 ? 'SELESAI KUNJUNGAN' 
-                                : _selectedPaymentMethod == 'QRIS' 
-                                    ? 'BAYAR VIA QRIS' 
-                                    : _selectedPaymentMethod == 'VA' 
-                                        ? 'GENERATE VA' 
-                                        : 'SELESAI & CHECKOUT', 
+                                : _isTaskOrder
+                                    ? 'SIMPAN SALES ORDER'
+                                    : _selectedPaymentMethod == 'QRIS' 
+                                        ? 'BAYAR VIA QRIS' 
+                                        : _selectedPaymentMethod == 'VA' 
+                                            ? 'GENERATE VA' 
+                                            : 'SELESAI & CHECKOUT', 
                             style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)
                           ),
                           if (widget.items != null)
-                            Text('Metode: ${_paymentOptions[_selectedPaymentMethod]!['label']}', style: GoogleFonts.outfit(fontSize: 11, color: Colors.white70)),
+                            Text(
+                              _isTaskOrder 
+                                  ? 'Sales Task Order (Non-Tunai)' 
+                                  : 'Metode: ${_paymentOptions[_selectedPaymentMethod]!['label']}', 
+                              style: GoogleFonts.outfit(fontSize: 11, color: Colors.white70)
+                            ),
                         ]),
                 ),
               ),

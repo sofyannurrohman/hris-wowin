@@ -42,6 +42,7 @@ type SalesUsecase interface {
 	RejectTransaction(id uuid.UUID, notes string) error
 	CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error)
 	HandleMidtransNotification(notificationPayload map[string]interface{}) error
+	GetProductSalesDistribution(productID uuid.UUID, companyID uuid.UUID) ([]map[string]interface{}, error)
 }
 
 type VisitPlanItem struct {
@@ -799,5 +800,9 @@ func (u *salesUsecase) HandleMidtransNotification(payload map[string]interface{}
 	}
 
 	return u.salesRepo.Update(trx)
+}
+
+func (u *salesUsecase) GetProductSalesDistribution(productID uuid.UUID, companyID uuid.UUID) ([]map[string]interface{}, error) {
+	return u.salesRepo.GetProductSalesDistribution(productID, companyID)
 }
 

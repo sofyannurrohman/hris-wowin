@@ -50,6 +50,10 @@ func main() {
 		&domain.ProductionRecipe{},
 		&domain.ProductionRecipeItem{},
 	)
+	
+	// Force drop unique constraint if it still exists and replace with non-unique index
+	db.Exec("DROP INDEX IF EXISTS idx_product_transfers_delivery_order_no CASCADE")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_product_transfers_delivery_order_no ON product_transfers(delivery_order_no)")
 
 
 	// Setup Repositories
@@ -195,6 +199,7 @@ func main() {
 			departmentHandler.SetupRoutes(protected)
 			companyHandler.SetupRoutes(protected)
 			branchHandler.SetupRoutes(protected)
+			branchHandler.SetupProtectedPublicRoutes(protected)
 			employeeShiftHandler.SetupRoutes(protected)
 			reimbursementHandler.SetupRoutes(protected)
 			performanceHandler.SetupRoutes(protected)

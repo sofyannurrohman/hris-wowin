@@ -33,6 +33,9 @@ export const factoryApi = {
   getAllTransfers: () => apiClient.get('/factory/stock/transfers'),
   shipTransfer: (id: string) => apiClient.post(`/factory/transfer/${id}/ship`),
   approveTransfer: (id: string) => apiClient.put(`/factory/transfer/${id}/approve`),
+  updateTransfer: (id: string, data: any) => apiClient.put(`/factory/transfer/${id}`, data),
+  deleteTransfer: (id: string) => apiClient.delete(`/factory/transfer/${id}`),
   getBackorderDemand: (companyId: string) => apiClient.get(`/factory/demand?company_id=${companyId}`),
+  getDashboardStats: () => apiClient.get('/factory/dashboard/stats'),
 }
 

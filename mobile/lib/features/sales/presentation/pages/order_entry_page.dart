@@ -610,6 +610,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
           items: items,
           totalAmount: _totalAmount,
           receiptPath: null,
+          jobPositionTitle: widget.jobPositionTitle,
         ),
       ),
     );

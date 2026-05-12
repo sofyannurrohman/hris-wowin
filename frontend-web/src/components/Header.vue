@@ -39,6 +39,11 @@ const handleModuleClick = (mod: any) => {
   }
   layoutStore.setModule(mod.id)
 }
+
+const handleModuleChange = (moduleId: string) => {
+  const mod = modules.find(m => m.id === moduleId)
+  if (mod) handleModuleClick(mod)
+}
 </script>
 
 <template>
@@ -78,10 +83,26 @@ const handleModuleClick = (mod: any) => {
 
       <!-- Module Switcher (Mobile) -->
       <div class="flex md:hidden">
-        <button class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm active:scale-95 transition-transform">
-          <span>{{ currentModuleName }}</span>
-          <ChevronDown class="h-4 w-4 text-primary" />
-        </button>
+        <Select :model-value="layoutStore.currentModule" @update:model-value="(val) => handleModuleChange(val as string)">
+          <SelectTrigger class="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm active:scale-95 transition-transform">
+            <div class="flex items-center gap-2">
+              <SelectValue :placeholder="currentModuleName" />
+            </div>
+          </SelectTrigger>
+          <SelectContent class="rounded-xl border-slate-200 shadow-xl">
+            <SelectItem 
+              v-for="mod in modules" 
+              :key="mod.id" 
+              :value="mod.id"
+              class="rounded-lg m-1"
+            >
+              <div class="flex items-center gap-2">
+                <component :is="mod.icon" class="h-4 w-4" :class="mod.color" />
+                {{ mod.name }}
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
 

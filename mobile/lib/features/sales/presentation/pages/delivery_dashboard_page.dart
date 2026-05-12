@@ -4,6 +4,7 @@ import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:intl/intl.dart';
 import './delivery_tracking_page.dart';
+import './delivery_history_page.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -306,16 +307,16 @@ class _DeliveryDashboardPageState extends State<DeliveryDashboardPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildActionItem(context, Icons.qr_code_scanner_rounded, 'Scan SJ', const Color(0xFF6366F1), () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage()));
+               Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage(initialScan: true)));
             }),
             _buildActionItem(context, Icons.map_rounded, 'Rute Optimal', const Color(0xFFF43F5E), () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage()));
+               Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage(initialScan: true, autoShowMap: true)));
             }),
             _buildActionItem(context, Icons.local_shipping_rounded, 'Tugas Saya', const Color(0xFF0EA5E9), () {
                Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage()));
             }),
             _buildActionItem(context, Icons.history_rounded, 'Riwayat', const Color(0xFF64748B), () {
-               // Future: Delivery History
+               Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryHistoryPage()));
             }),
           ],
         ),

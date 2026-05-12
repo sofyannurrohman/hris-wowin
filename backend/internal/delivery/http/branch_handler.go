@@ -27,6 +27,10 @@ func (h *BranchHandler) SetupRoutes(r *gin.RouterGroup) {
 }
 
 func (h *BranchHandler) SetupPublicRoutes(r *gin.RouterGroup) {
+	// Keep for backward compat but routes also added under protected
+}
+
+func (h *BranchHandler) SetupProtectedPublicRoutes(r *gin.RouterGroup) {
 	r.GET("/branches", h.GetAll)
 }
 
@@ -46,7 +50,25 @@ func (h *BranchHandler) Create(c *gin.Context) {
 }
 
 func (h *BranchHandler) GetAll(c *gin.Context) {
-	branches, err := h.useCase.GetBranches()
+	// Try to filter by company_id from JWT context first, then from query param
+	var companyID uuid.UUID
+	if val, ok := c.Get("company_id"); ok && val != "" {
+		if id, err := uuid.Parse(val.(string)); err == nil {
+			companyID = id
+		}
+	} else if cid := c.Query("company_id"); cid != "" {
+		if id, err := uuid.Parse(cid); err == nil {
+			companyID = id
+		}
+	}
+
+	var branches interface{}
+	var err error
+	if companyID != uuid.Nil {
+		branches, err = h.useCase.GetBranchesByCompany(companyID)
+	} else {
+		branches, err = h.useCase.GetBranches()
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
