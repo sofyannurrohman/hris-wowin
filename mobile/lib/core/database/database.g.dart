@@ -46,9 +46,32 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
   late final GeneratedColumn<String> category = GeneratedColumn<String>(
       'category', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _warehouseStockMeta =
+      const VerificationMeta('warehouseStock');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, companyId, name, sku, sellingPrice, unit, category];
+  late final GeneratedColumn<int> warehouseStock = GeneratedColumn<int>(
+      'warehouse_stock', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _imageUrlMeta =
+      const VerificationMeta('imageUrl');
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+      'image_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        companyId,
+        name,
+        sku,
+        sellingPrice,
+        unit,
+        category,
+        warehouseStock,
+        imageUrl
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -96,6 +119,16 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
       context.handle(_categoryMeta,
           category.isAcceptableOrUnknown(data['category']!, _categoryMeta));
     }
+    if (data.containsKey('warehouse_stock')) {
+      context.handle(
+          _warehouseStockMeta,
+          warehouseStock.isAcceptableOrUnknown(
+              data['warehouse_stock']!, _warehouseStockMeta));
+    }
+    if (data.containsKey('image_url')) {
+      context.handle(_imageUrlMeta,
+          imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta));
+    }
     return context;
   }
 
@@ -119,6 +152,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
           .read(DriftSqlType.string, data['${effectivePrefix}unit']),
       category: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}category']),
+      warehouseStock: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}warehouse_stock'])!,
+      imageUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}image_url']),
     );
   }
 
@@ -136,6 +173,8 @@ class Product extends DataClass implements Insertable<Product> {
   final double sellingPrice;
   final String? unit;
   final String? category;
+  final int warehouseStock;
+  final String? imageUrl;
   const Product(
       {required this.id,
       required this.companyId,
@@ -143,7 +182,9 @@ class Product extends DataClass implements Insertable<Product> {
       this.sku,
       required this.sellingPrice,
       this.unit,
-      this.category});
+      this.category,
+      required this.warehouseStock,
+      this.imageUrl});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -160,6 +201,10 @@ class Product extends DataClass implements Insertable<Product> {
     if (!nullToAbsent || category != null) {
       map['category'] = Variable<String>(category);
     }
+    map['warehouse_stock'] = Variable<int>(warehouseStock);
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
     return map;
   }
 
@@ -174,6 +219,10 @@ class Product extends DataClass implements Insertable<Product> {
       category: category == null && nullToAbsent
           ? const Value.absent()
           : Value(category),
+      warehouseStock: Value(warehouseStock),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
     );
   }
 
@@ -188,6 +237,8 @@ class Product extends DataClass implements Insertable<Product> {
       sellingPrice: serializer.fromJson<double>(json['sellingPrice']),
       unit: serializer.fromJson<String?>(json['unit']),
       category: serializer.fromJson<String?>(json['category']),
+      warehouseStock: serializer.fromJson<int>(json['warehouseStock']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
     );
   }
   @override
@@ -201,6 +252,8 @@ class Product extends DataClass implements Insertable<Product> {
       'sellingPrice': serializer.toJson<double>(sellingPrice),
       'unit': serializer.toJson<String?>(unit),
       'category': serializer.toJson<String?>(category),
+      'warehouseStock': serializer.toJson<int>(warehouseStock),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
     };
   }
 
@@ -211,7 +264,9 @@ class Product extends DataClass implements Insertable<Product> {
           Value<String?> sku = const Value.absent(),
           double? sellingPrice,
           Value<String?> unit = const Value.absent(),
-          Value<String?> category = const Value.absent()}) =>
+          Value<String?> category = const Value.absent(),
+          int? warehouseStock,
+          Value<String?> imageUrl = const Value.absent()}) =>
       Product(
         id: id ?? this.id,
         companyId: companyId ?? this.companyId,
@@ -220,6 +275,8 @@ class Product extends DataClass implements Insertable<Product> {
         sellingPrice: sellingPrice ?? this.sellingPrice,
         unit: unit.present ? unit.value : this.unit,
         category: category.present ? category.value : this.category,
+        warehouseStock: warehouseStock ?? this.warehouseStock,
+        imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
       );
   Product copyWithCompanion(ProductsCompanion data) {
     return Product(
@@ -232,6 +289,10 @@ class Product extends DataClass implements Insertable<Product> {
           : this.sellingPrice,
       unit: data.unit.present ? data.unit.value : this.unit,
       category: data.category.present ? data.category.value : this.category,
+      warehouseStock: data.warehouseStock.present
+          ? data.warehouseStock.value
+          : this.warehouseStock,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
     );
   }
 
@@ -244,14 +305,16 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('sku: $sku, ')
           ..write('sellingPrice: $sellingPrice, ')
           ..write('unit: $unit, ')
-          ..write('category: $category')
+          ..write('category: $category, ')
+          ..write('warehouseStock: $warehouseStock, ')
+          ..write('imageUrl: $imageUrl')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, companyId, name, sku, sellingPrice, unit, category);
+  int get hashCode => Object.hash(id, companyId, name, sku, sellingPrice, unit,
+      category, warehouseStock, imageUrl);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -262,7 +325,9 @@ class Product extends DataClass implements Insertable<Product> {
           other.sku == this.sku &&
           other.sellingPrice == this.sellingPrice &&
           other.unit == this.unit &&
-          other.category == this.category);
+          other.category == this.category &&
+          other.warehouseStock == this.warehouseStock &&
+          other.imageUrl == this.imageUrl);
 }
 
 class ProductsCompanion extends UpdateCompanion<Product> {
@@ -273,6 +338,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<double> sellingPrice;
   final Value<String?> unit;
   final Value<String?> category;
+  final Value<int> warehouseStock;
+  final Value<String?> imageUrl;
   final Value<int> rowid;
   const ProductsCompanion({
     this.id = const Value.absent(),
@@ -282,6 +349,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.sellingPrice = const Value.absent(),
     this.unit = const Value.absent(),
     this.category = const Value.absent(),
+    this.warehouseStock = const Value.absent(),
+    this.imageUrl = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProductsCompanion.insert({
@@ -292,6 +361,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     required double sellingPrice,
     this.unit = const Value.absent(),
     this.category = const Value.absent(),
+    this.warehouseStock = const Value.absent(),
+    this.imageUrl = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         companyId = Value(companyId),
@@ -305,6 +376,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<double>? sellingPrice,
     Expression<String>? unit,
     Expression<String>? category,
+    Expression<int>? warehouseStock,
+    Expression<String>? imageUrl,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -315,6 +388,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (sellingPrice != null) 'selling_price': sellingPrice,
       if (unit != null) 'unit': unit,
       if (category != null) 'category': category,
+      if (warehouseStock != null) 'warehouse_stock': warehouseStock,
+      if (imageUrl != null) 'image_url': imageUrl,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -327,6 +402,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       Value<double>? sellingPrice,
       Value<String?>? unit,
       Value<String?>? category,
+      Value<int>? warehouseStock,
+      Value<String?>? imageUrl,
       Value<int>? rowid}) {
     return ProductsCompanion(
       id: id ?? this.id,
@@ -336,6 +413,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       sellingPrice: sellingPrice ?? this.sellingPrice,
       unit: unit ?? this.unit,
       category: category ?? this.category,
+      warehouseStock: warehouseStock ?? this.warehouseStock,
+      imageUrl: imageUrl ?? this.imageUrl,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -364,6 +443,12 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (category.present) {
       map['category'] = Variable<String>(category.value);
     }
+    if (warehouseStock.present) {
+      map['warehouse_stock'] = Variable<int>(warehouseStock.value);
+    }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -380,6 +465,8 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('sellingPrice: $sellingPrice, ')
           ..write('unit: $unit, ')
           ..write('category: $category, ')
+          ..write('warehouseStock: $warehouseStock, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2626,6 +2713,8 @@ typedef $$ProductsTableCreateCompanionBuilder = ProductsCompanion Function({
   required double sellingPrice,
   Value<String?> unit,
   Value<String?> category,
+  Value<int> warehouseStock,
+  Value<String?> imageUrl,
   Value<int> rowid,
 });
 typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
@@ -2636,6 +2725,8 @@ typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
   Value<double> sellingPrice,
   Value<String?> unit,
   Value<String?> category,
+  Value<int> warehouseStock,
+  Value<String?> imageUrl,
   Value<int> rowid,
 });
 
@@ -2668,6 +2759,13 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<String> get category => $composableBuilder(
       column: $table.category, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get warehouseStock => $composableBuilder(
+      column: $table.warehouseStock,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+      column: $table.imageUrl, builder: (column) => ColumnFilters(column));
 }
 
 class $$ProductsTableOrderingComposer
@@ -2700,6 +2798,13 @@ class $$ProductsTableOrderingComposer
 
   ColumnOrderings<String> get category => $composableBuilder(
       column: $table.category, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get warehouseStock => $composableBuilder(
+      column: $table.warehouseStock,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+      column: $table.imageUrl, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ProductsTableAnnotationComposer
@@ -2731,6 +2836,12 @@ class $$ProductsTableAnnotationComposer
 
   GeneratedColumn<String> get category =>
       $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<int> get warehouseStock => $composableBuilder(
+      column: $table.warehouseStock, builder: (column) => column);
+
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
 }
 
 class $$ProductsTableTableManager extends RootTableManager<
@@ -2763,6 +2874,8 @@ class $$ProductsTableTableManager extends RootTableManager<
             Value<double> sellingPrice = const Value.absent(),
             Value<String?> unit = const Value.absent(),
             Value<String?> category = const Value.absent(),
+            Value<int> warehouseStock = const Value.absent(),
+            Value<String?> imageUrl = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               ProductsCompanion(
@@ -2773,6 +2886,8 @@ class $$ProductsTableTableManager extends RootTableManager<
             sellingPrice: sellingPrice,
             unit: unit,
             category: category,
+            warehouseStock: warehouseStock,
+            imageUrl: imageUrl,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2783,6 +2898,8 @@ class $$ProductsTableTableManager extends RootTableManager<
             required double sellingPrice,
             Value<String?> unit = const Value.absent(),
             Value<String?> category = const Value.absent(),
+            Value<int> warehouseStock = const Value.absent(),
+            Value<String?> imageUrl = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               ProductsCompanion.insert(
@@ -2793,6 +2910,8 @@ class $$ProductsTableTableManager extends RootTableManager<
             sellingPrice: sellingPrice,
             unit: unit,
             category: category,
+            warehouseStock: warehouseStock,
+            imageUrl: imageUrl,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

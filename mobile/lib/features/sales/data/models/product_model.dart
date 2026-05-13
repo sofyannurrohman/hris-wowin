@@ -10,6 +10,7 @@ class ProductModel {
   final double sellingPrice;
   final String description;
   final String imageUrl;
+  final int warehouseStock;
 
   ProductModel({
     required this.id,
@@ -21,6 +22,7 @@ class ProductModel {
     required this.sellingPrice,
     required this.description,
     required this.imageUrl,
+    this.warehouseStock = 0,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,7 @@ class ProductModel {
           : (json['selling_price'] as num?)?.toDouble() ?? 0.0,
       description: json['description'] ?? '',
       imageUrl: fullImageUrl,
+      warehouseStock: json['warehouse_stock'] ?? 0,
     );
   }
 }

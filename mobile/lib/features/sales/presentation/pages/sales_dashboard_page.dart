@@ -18,6 +18,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_state.dart';
+import 'package:hris_app/features/profile/presentation/bloc/profile_event.dart';
+import 'package:hris_app/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:hris_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:hris_app/core/database/database.dart';
 import './digital_receipt_page.dart';
 
@@ -41,6 +44,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   @override
   void initState() {
     super.initState();
+    context.read<ProfileBloc>().add(LoadProfileRequested());
     _fetchData();
   }
 
@@ -94,7 +98,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     super.dispose();
   }
 
-  Widget _buildSwipeableHeader() {
+  Widget _buildSwipeableHeader(String jobPosition) {
     return Column(
       children: [
         SizedBox(
@@ -107,7 +111,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: _buildTargetCard(),
+                child: _buildTargetCard(jobPosition),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -242,17 +246,39 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       backgroundColor: const Color(0xFFF8FAF9), // Clean Light Mint
       appBar: AppBar(
         title: BlocBuilder<ProfileBloc, ProfileState>(
-          builder: (context, state) {
+          builder: (context, profileState) {
             String companyName = 'WOWIN PT';
-            if (state is ProfileLoaded) {
-              companyName = state.profile['company']?['name'] ?? 'WOWIN PT';
+            String title = 'SALES PERFORMANCE';
+            
+            Map<String, dynamic>? profile;
+            if (profileState is ProfileLoaded) {
+              profile = profileState.profile;
+            } else {
+              final authState = context.read<AuthBloc>().state;
+              if (authState is Authenticated) {
+                profile = authState.userProfile;
+              }
             }
+
+            if (profile != null) {
+              companyName = profile['company']?['name'] ?? 'WOWIN PT';
+              final String position = (profile['job_position']?['title'] ?? '').toString().toLowerCase();
+              
+              if (position.contains('booster')) {
+                title = 'SALES BOOSTER';
+              } else if (position.contains('task order') || position.contains('to')) {
+                title = 'TASK ORDER SALES';
+              } else {
+                title = 'SALES MOTORIS';
+              }
+            }
+            
             return Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'SALES PERFORMANCE',
+                  title,
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 14, letterSpacing: 1),
                 ),
                 Text(
@@ -290,12 +316,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             builder: (context, state) {
               return IconButton(
                 onPressed: state is SyncInProgress ? null : () {
-                  context.read<SyncBloc>().add(SyncMasterDataRequested());
+                  context.read<SyncBloc>().add(SyncDataRequested());
                 },
                 icon: state is SyncInProgress 
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.sync_rounded, color: Colors.white),
-                tooltip: 'Sinkronisasi Data Master',
+                tooltip: 'Sinkronisasi Data (Upload & Download)',
               );
             },
           ),
@@ -326,16 +352,19 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 10),
-                      _buildSwipeableHeader(),
-                      const SizedBox(height: 24),
-                      const SizedBox(height: 24),
                       BlocBuilder<ProfileBloc, ProfileState>(
                         builder: (context, state) {
                           String position = '';
                           if (state is ProfileLoaded) {
                             position = state.profile['job_position']?['title'] ?? '';
                           }
-                          return _buildQuickAccess(position);
+                          return Column(
+                            children: [
+                              _buildSwipeableHeader(position),
+                              const SizedBox(height: 24),
+                              _buildQuickAccess(position),
+                            ],
+                          );
                         },
                       ),
                       if (_pendingTransactions.isNotEmpty) ...[
@@ -352,13 +381,45 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   }
 
 
-  Widget _buildTargetCard() {
-    final targetOmzet = _kpiData?['items']?[0]?['score'] ?? 0.0;
-    final achievedOmzet = _kpiData?['items']?[1]?['score'] ?? 0.0;
-    final achievementPercentage = _kpiData?['achievement_percentage'] ?? 0.0;
-    final sisa = targetOmzet - achievedOmzet;
+  Widget _buildTargetCard(String jobPosition) {
+    final List<dynamic> items = _kpiData?['items'] ?? [];
+    if (items.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
-    final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+    final bool isBooster = jobPosition.toLowerCase().contains('booster');
+    final bool isTO = jobPosition.contains('Task Order') || jobPosition.contains('Sales TO');
+
+    // Title & Icon based on role
+    String cardTitle = 'PERFORMA OMZET';
+    IconData cardIcon = Icons.auto_graph_rounded;
+    Color themeColor = const Color(0xFF059669);
+
+    if (isBooster) {
+      cardTitle = 'PERFORMA BOOSTER';
+      cardIcon = Icons.rocket_launch_rounded;
+      themeColor = const Color(0xFF8B5CF6); // Purple for booster
+    } else if (isTO) {
+      cardTitle = 'PERFORMA DISTRIBUSI';
+      cardIcon = Icons.local_shipping_rounded;
+      themeColor = const Color(0xFF0369A1); // Blue for TO
+    }
+
+    // Determine Metrics from Items
+    final String primaryLabel = items[0]['label'] ?? 'Target';
+    final double targetValue = (items[0]['score'] as num?)?.toDouble() ?? 0.0;
+    final double actualValue = items.length > 1 ? ((items[1]['score'] as num?)?.toDouble() ?? 0.0) : 0.0;
+    final double achievement = _kpiData?['achievement_percentage'] ?? (targetValue > 0 ? (actualValue / targetValue * 100) : 0.0);
+    final double remaining = targetValue - actualValue;
+
+    final bool isCurrency = primaryLabel.toLowerCase().contains('omzet') || primaryLabel.toLowerCase().contains('rupiah');
+    final currencyFormatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+    final numberFormatter = NumberFormat.decimalPattern('id');
+
+    String formatValue(double val) => isCurrency ? currencyFormatter.format(val) : numberFormatter.format(val);
 
     return Container(
       width: double.infinity,
@@ -366,20 +427,16 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF065F46).withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+          BoxShadow(color: themeColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10)),
         ],
-        border: Border.all(color: const Color(0xFF059669).withOpacity(0.1), width: 1.5),
+        border: Border.all(color: themeColor.withOpacity(0.1), width: 1.5),
       ),
       child: Stack(
         children: [
           Positioned(
             right: -10,
             top: -10,
-            child: Icon(Icons.trending_up_rounded, size: 100, color: Colors.blueAccent.withOpacity(0.03)),
+            child: Icon(cardIcon, size: 100, color: themeColor.withOpacity(0.03)),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -390,13 +447,13 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.auto_graph_rounded, color: Color(0xFF059669), size: 20),
+                      decoration: BoxDecoration(color: themeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(cardIcon, color: themeColor, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'PERFORMA OMZET',
-                      style: GoogleFonts.outfit(color: const Color(0xFF065F46), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5),
+                      cardTitle,
+                      style: GoogleFonts.outfit(color: themeColor, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5),
                     ),
                   ],
                 ),
@@ -404,33 +461,33 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    formatter.format(targetOmzet),
+                    formatValue(targetValue),
                     style: GoogleFonts.outfit(color: const Color(0xFF0F172A), fontWeight: FontWeight.w800, fontSize: 20),
                   ),
                 ),
                 Text(
-                  'Target ditugaskan atasan',
+                  primaryLabel,
                   style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(child: _buildStatItem('Realisasi', formatter.format(achievedOmzet), const Color(0xFF059669))),
+                    Expanded(child: _buildStatItem('Realisasi', formatValue(actualValue), themeColor)),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildStatItem('Sisa', formatter.format(sisa < 0 ? 0 : sisa), const Color(0xFFB91C1C))),
+                    Expanded(child: _buildStatItem('Sisa', formatValue(remaining < 0 ? 0 : remaining), const Color(0xFFB91C1C))),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildStatItem('Pencapaian', '${achievementPercentage.toStringAsFixed(1)}%', const Color(0xFF047857))),
+                    Expanded(child: _buildStatItem('Pencapaian', '${achievement.toStringAsFixed(1)}%', themeColor)),
                   ],
                 ),
                 const SizedBox(height: 16),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: LinearProgressIndicator(
-                    value: targetOmzet > 0 ? (achievedOmzet / targetOmzet).clamp(0.0, 1.0) : 0,
+                    value: targetValue > 0 ? (actualValue / targetValue).clamp(0.0, 1.0) : 0,
                     minHeight: 8,
-                    backgroundColor: const Color(0xFFECFDF5),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                    backgroundColor: themeColor.withOpacity(0.05),
+                    valueColor: AlwaysStoppedAnimation<Color>(themeColor),
                   ),
                 ),
               ],
@@ -461,25 +518,35 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'AKSES OPERASIONAL',
-          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blueGrey, letterSpacing: 1.5),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'AKSES OPERASIONAL',
+              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF64748B), letterSpacing: 1.5),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
+              child: Text('Shortcut', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF94A3B8))),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 4,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.8,
+          crossAxisCount: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.1,
           children: [
-            _buildActionItem(Icons.storefront_rounded, 'Kunjungan', const Color(0xFF059669)),
-            _buildActionItem(Icons.view_list_rounded, 'Toko & Spanduk', const Color(0xFF047857)),
-            _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFF0D9488)),
-            _buildActionItem(Icons.history_edu_rounded, 'Riwayat Nota', const Color(0xFFCA8A04)),
+            _buildActionItem(Icons.storefront_rounded, 'Kunjungan', const Color(0xFF0D9488), 'Jadwal Visit'),
+            _buildActionItem(Icons.view_list_rounded, 'Toko', const Color(0xFF0891B2), 'Kelola Outlet'),
+            _buildActionItem(Icons.menu_book_rounded, 'Katalog', const Color(0xFF4F46E5), 'Produk & Stok'),
+            _buildActionItem(Icons.history_edu_rounded, 'Riwayat', const Color(0xFFB45309), 'Nota & Order'),
             if (!isSalesTO)
-              _buildActionItem(Icons.move_to_inbox_rounded, 'Ambil Barang', const Color(0xFF15803D)),
+              _buildActionItem(Icons.move_to_inbox_rounded, 'Stok', const Color(0xFF15803D), 'Ambil Barang'),
           ],
         ),
       ],
@@ -560,56 +627,64 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     );
   }
 
-  Widget _buildActionItem(IconData icon, String label, Color color) {
-    return InkWell(
-      onTap: () {
-        if (label == 'Kunjungan') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage()));
-        } else if (label == 'Toko & Spanduk') {
-          _showStoreManagementOptions(context);
-        } else if (label == 'Katalog') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProductCatalogPage()));
-        } else if (label == 'Riwayat Nota') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryPage()));
-        } else if (label == 'Ambil Barang') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesStockRequestPage()));
-        }
-      },
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF334155),
+  Widget _buildActionItem(IconData icon, String label, Color color, String subLabel) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            if (label == 'Kunjungan') {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VisitSchedulePage()));
+            } else if (label == 'Toko') {
+              _showStoreManagementOptions(context);
+            } else if (label == 'Katalog') {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProductCatalogPage()));
+            } else if (label == 'Riwayat') {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryPage()));
+            } else if (label == 'Stok') {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesStockRequestPage()));
+            }
+          },
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
-              ),
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B)),
+                ),
+                Text(
+                  subLabel,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8)),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -618,6 +693,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
 
   Widget _buildPendingTransactionsList() {
     final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+    final int localCount = _pendingTransactions.where((t) => t['is_local'] == true).length;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -625,14 +702,23 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'TRANSAKSI PENDING (BELUM SYNC)',
-              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.orange.shade800, letterSpacing: 1.5),
+              'ANTRIAN & STATUS TRANSAKSI',
+              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF64748B), letterSpacing: 1.5),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(8)),
-              child: Text('${_pendingTransactions.length}', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.orange.shade900)),
-            ),
+            if (localCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Text('$localCount OFFLINE', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.orange.shade900)),
+              )
+            else
+              Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 12),
+                  const SizedBox(width: 4),
+                  Text('TER-SYNC', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF10B981))),
+                ],
+              ),
           ],
         ),
         const SizedBox(height: 12),
@@ -642,36 +728,59 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
           itemCount: _pendingTransactions.length > 3 ? 3 : _pendingTransactions.length,
           itemBuilder: (context, index) {
             final txn = _pendingTransactions[index];
+            final bool isLocal = txn['is_local'] == true;
+            
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.orange.shade100),
+                border: Border.all(color: isLocal ? Colors.orange.shade100 : const Color(0xFFE2E8F0)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                    child: Icon(Icons.cloud_off_rounded, color: Colors.orange.shade400, size: 20),
+                    decoration: BoxDecoration(
+                      color: isLocal ? Colors.orange.shade50 : const Color(0xFFF1F5F9), 
+                      shape: BoxShape.circle
+                    ),
+                    child: Icon(
+                      isLocal ? Icons.cloud_off_rounded : Icons.cloud_done_rounded, 
+                      color: isLocal ? Colors.orange.shade400 : const Color(0xFF64748B), 
+                      size: 20
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(txn['store']?['name'] ?? 'Toko', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14)),
+                        Row(
+                          children: [
+                            Text(txn['store']?['name'] ?? 'Toko', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14)),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isLocal ? Colors.orange.shade100 : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isLocal ? 'OFFLINE' : 'DI SERVER',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 8, 
+                                  fontWeight: FontWeight.w900, 
+                                  color: isLocal ? Colors.orange.shade900 : const Color(0xFF64748B)
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         Text(formatter.format(txn['total_amount'] ?? 0), style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
                       ],
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => DigitalReceiptPage(transaction: txn, localId: txn['is_local'] == true ? txn['id'] : null)));
-                    },
-                    child: Text('LIHAT NOTA', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.blueAccent)),
                   ),
                 ],
               ),

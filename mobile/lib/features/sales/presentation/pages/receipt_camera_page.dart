@@ -11,8 +11,14 @@ import 'package:hris_app/features/sales/presentation/pages/visit_checkout_page.d
 class ReceiptCameraPage extends StatefulWidget {
   final StoreModel store;
   final String selfiePath;
+  final String jobPositionTitle;
 
-  const ReceiptCameraPage({super.key, required this.store, required this.selfiePath});
+  const ReceiptCameraPage({
+    super.key, 
+    required this.store, 
+    required this.selfiePath,
+    required this.jobPositionTitle,
+  });
 
   @override
   State<ReceiptCameraPage> createState() => _ReceiptCameraPageState();
@@ -241,7 +247,12 @@ class _ReceiptCameraPageState extends State<ReceiptCameraPage> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () => Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => VisitCheckoutPage(store: widget.store, selfiePath: widget.selfiePath, receiptPath: _capturedPath),
+                        builder: (_) => VisitCheckoutPage(
+                          store: widget.store, 
+                          selfiePath: widget.selfiePath, 
+                          receiptPath: _capturedPath,
+                          jobPositionTitle: widget.jobPositionTitle,
+                        ),
                       )),
                       icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
                       label: Text('LANJUT', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),

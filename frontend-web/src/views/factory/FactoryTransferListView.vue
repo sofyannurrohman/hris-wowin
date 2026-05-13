@@ -704,6 +704,7 @@ const masterDataStore = useMasterDataStore()
 const vehicleStore = useVehicleStore()
 const searchQuery = ref('')
 const showProcessModal = ref(false)
+const showManualModal = ref(false)
 const processing = ref(false)
 const selectedRequest = ref<any>(null)
 

@@ -16,6 +16,7 @@ import 'package:hris_app/injection.dart' as di;
 import 'package:drift/drift.dart' hide Column;
 import 'package:path_provider/path_provider.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:dio/dio.dart';
 
 class VisitCheckinPage extends StatefulWidget {
   final StoreModel store;
@@ -71,13 +72,86 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
       
       String readableAddress = 'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
       try {
-        List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (placemarks.isNotEmpty) {
+        // Set locale to ensure consistent results
+        try {
+          await setLocaleIdentifier("id_ID");
+        } catch (_) {}
+
+        // Small delay to ensure GPS provider is ready for geocoding
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        List<Placemark>? placemarks;
+        int retries = 0;
+        while (retries < 2 && (placemarks == null || placemarks.isEmpty)) {
+          try {
+            placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude)
+                .timeout(const Duration(seconds: 5));
+          } catch (e) {
+            debugPrint('Geocoding retry $retries error: $e');
+          }
+          if (placemarks == null || placemarks.isEmpty) {
+            retries++;
+            await Future.delayed(const Duration(seconds: 1));
+          }
+        }
+
+        if (placemarks != null && placemarks.isNotEmpty) {
           Placemark place = placemarks[0];
-          readableAddress = '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}';
+          List<String> components = [
+            place.street ?? '',
+            place.subLocality ?? '',
+            place.locality ?? '',
+            place.subAdministrativeArea ?? '',
+          ].where((s) => s.isNotEmpty && !s.contains('null')).toList();
+          
+          if (components.isNotEmpty) {
+            readableAddress = '${components.join(', ')} (GPS: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)})';
+          }
+        } else {
+          // SYSTEM GEOCODING FAILED -> FALLBACK TO NOMINATIM (OSM)
+          debugPrint('System geocoding failed, trying Nominatim fallback...');
+          try {
+            final dio = Dio();
+            // Use a custom User-Agent as required by Nominatim Policy
+            final response = await dio.get(
+              'https://nominatim.openstreetmap.org/reverse',
+              queryParameters: {
+                'lat': pos.latitude,
+                'lon': pos.longitude,
+                'format': 'json',
+                'addressdetails': 1,
+              },
+              options: Options(headers: {'User-Agent': 'HRISWowinMobileApp/1.0'}),
+            ).timeout(const Duration(seconds: 5));
+
+            if (response.statusCode == 200 && response.data != null) {
+              final addr = response.data['address'];
+              if (addr != null) {
+                // Prioritize specific components for a detailed address
+                final List<String> osmComponents = [
+                  addr['house_number'] ?? addr['house_name'] ?? addr['building'] ?? '',
+                  addr['road'] ?? addr['amenity'] ?? addr['industrial'] ?? '',
+                  addr['neighbourhood'] ?? addr['suburb'] ?? addr['city_block'] ?? addr['quarter'] ?? '',
+                  addr['village'] ?? addr['hamlet'] ?? addr['town'] ?? addr['city_district'] ?? addr['city'] ?? addr['municipality'] ?? '',
+                  addr['county'] ?? '',
+                  addr['postcode'] ?? '',
+                ].where((s) => s != null && s.toString().isNotEmpty).map((s) => s.toString()).toList();
+                
+                if (osmComponents.isNotEmpty) {
+                  readableAddress = '${osmComponents.join(', ')} (GPS: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)})';
+                  debugPrint('Nominatim detailed success: $readableAddress');
+                } else if (response.data['display_name'] != null) {
+                  // Final fallback to the pre-formatted display_name from OSM
+                  readableAddress = '${response.data['display_name']} (GPS: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)})';
+                }
+              }
+            }
+          } catch (osmError) {
+            debugPrint('Nominatim fallback error: $osmError');
+          }
         }
       } catch (e) {
-        debugPrint('Reverse geocoding error: $e');
+        debugPrint('Reverse geocoding ultimate error: $e');
       }
 
       setState(() {
@@ -156,8 +230,8 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
 
     final topY = srcImg.height - barHeight + 30;
     drawText(widget.store.name.toUpperCase(), topY, srcImg.width * 0.04, color: Colors.white, weight: FontWeight.bold);
-    drawText(widget.store.address, topY + srcImg.width * 0.05, srcImg.width * 0.03, color: Colors.white70);
-    drawText(_address, topY + srcImg.width * 0.09, srcImg.width * 0.027, color: Colors.greenAccent.shade100);
+    drawText(_address, topY + srcImg.width * 0.05, srcImg.width * 0.03, color: Colors.white70);
+    drawText('Store Ref: ${widget.store.address}', topY + srcImg.width * 0.09, srcImg.width * 0.025, color: Colors.white.withOpacity(0.5));
     drawText(_timestamp, topY + srcImg.width * 0.13, srcImg.width * 0.03, color: Colors.yellowAccent);
 
     final picture = recorder.endRecording();
@@ -215,8 +289,7 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
             child: Column(
               children: [
                 Text(widget.store.name.toUpperCase(), style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
-                Text(widget.store.address, style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(_address, style: GoogleFonts.outfit(color: Colors.greenAccent, fontSize: 11)),
+                Text(_address, style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11), maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
                 Text(_timestamp, style: GoogleFonts.outfit(color: Colors.yellowAccent, fontSize: 11)),
               ],
             ),

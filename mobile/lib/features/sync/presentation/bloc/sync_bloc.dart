@@ -31,7 +31,11 @@ class SyncBloc extends Bloc<SyncEvent, SyncState> {
   Future<void> _onSyncDataRequested(SyncDataRequested event, Emitter<SyncState> emit) async {
     emit(SyncInProgress());
     try {
+      // 1. Push local data to server
       await syncRepository.syncAll();
+      // 2. Pull fresh data from server
+      await syncRepository.pullMasterData();
+      
       emit(SyncSuccess());
     } catch (e) {
       emit(SyncFailure(e.toString()));

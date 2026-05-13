@@ -11,9 +11,18 @@ class SyncRepository {
 
   Future<void> syncAll() async {
     print('DEBUG SYNC: syncAll() started');
-    // Run both in parallel so one doesn't block the other
-    syncCheckins().catchError((e) => print('DEBUG SYNC: syncCheckins error: $e'));
-    syncTransactions().catchError((e) => print('DEBUG SYNC: syncTransactions error: $e'));
+    // Run sequentially to avoid database lock issues and ensure clean state
+    try {
+      await syncCheckins();
+    } catch (e) {
+      print('DEBUG SYNC: syncCheckins fatal error: $e');
+    }
+    
+    try {
+      await syncTransactions();
+    } catch (e) {
+      print('DEBUG SYNC: syncTransactions fatal error: $e');
+    }
   }
 
   Future<void> syncCheckins() async {
@@ -177,6 +186,7 @@ class SyncRepository {
                 sku: Value(p['sku'] ?? p['SKU']),
                 unit: Value(p['unit'] ?? p['Unit']),
                 category: Value(p['category'] ?? p['Category']),
+                imageUrl: Value(p['image_url'] ?? p['imageUrl']),
               )), mode: InsertMode.insertOrReplace);
             });
             print('DEBUG: Successfully inserted ${products.length} products for company ${company.name}');
@@ -210,6 +220,7 @@ class SyncRepository {
             sku: Value(p['sku'] ?? p['SKU']),
             unit: Value(p['unit'] ?? p['Unit']),
             category: Value(p['category'] ?? p['Category']),
+            imageUrl: Value(p['image_url'] ?? p['imageUrl']),
           )), mode: InsertMode.insertOrReplace);
         });
         print('DEBUG: Synced ${productsFallback!.length} fallback products');
@@ -240,6 +251,8 @@ class SyncRepository {
                 sku: Value(p['sku'] ?? p['SKU']),
                 unit: Value(p['unit'] ?? p['Unit']),
                 category: Value(p['category'] ?? p['Category']),
+                warehouseStock: Value((item['quantity'] ?? item['Quantity'] ?? 0 as num).toInt()),
+                imageUrl: Value(p['image_url'] ?? p['imageUrl']),
               ), mode: InsertMode.insertOrReplace);
             }
           });

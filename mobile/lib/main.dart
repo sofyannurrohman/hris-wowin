@@ -15,6 +15,7 @@ import 'package:hris_app/core/network/api_client.dart';
 import 'package:hris_app/core/services/notification_service.dart';
 import 'package:hris_app/features/announcement/presentation/bloc/announcement_bloc.dart';
 import 'package:hris_app/features/notification/presentation/bloc/notification_bloc.dart';
+import 'package:hris_app/features/schedule/presentation/bloc/shift_bloc.dart';
 import 'package:hris_app/features/sync/presentation/bloc/sync_bloc.dart';
 import 'package:hris_app/features/sales/presentation/pages/sales_dashboard_page.dart';
 import 'package:hris_app/features/sales/presentation/pages/delivery_dashboard_page.dart';
@@ -65,6 +66,12 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (_) => di.sl<NotificationBloc>()..add(FetchNotificationsRequested()),
+        ),
+        BlocProvider(
+          create: (_) => di.sl<ShiftBloc>()..add(FetchSchedulesRequested(
+            month: DateTime.now().month,
+            year: DateTime.now().year,
+          )),
         ),
         BlocProvider(
           create: (_) => di.sl<SyncBloc>(),

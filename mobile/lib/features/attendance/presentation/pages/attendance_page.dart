@@ -196,9 +196,9 @@ class _AttendancePageState extends State<AttendancePage> {
               ),
               const SizedBox(height: 8),
               Text(
-                isClockedIn ? duration : (isCompleted ? 'Shift Selesai' : 'Belum Absen'),
+                isClockedIn ? duration : (isCompleted ? 'Sesi Terakhir Selesai' : 'Belum Absen'),
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 32,
+                  fontSize: 28,
                   fontWeight: FontWeight.w900,
                   color: isClockedIn ? const Color(0xFF10B981) : AppColors.textPrimary,
                 ),
@@ -211,26 +211,17 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Widget _buildMainActionButton(bool isClockedIn, bool isCompleted) {
-    final color = isCompleted 
-        ? Colors.grey.shade400 
-        : (isClockedIn ? AppColors.primaryRed : const Color(0xFF10B981));
+    // If completed (already clocked out once today), we allow another Clock In for a new session
+    final color = isClockedIn ? AppColors.primaryRed : const Color(0xFF10B981);
 
     return Center(
       child: InkWell(
         onTap: () {
-          if (isCompleted) {
-            DialogUtils.showError(
-              context: context, 
-              title: 'Shift Selesai', 
-              message: 'Anda sudah melakukan absen masuk dan keluar hari ini',
-            );
-          } else {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => FaceVerificationPage(isClockIn: !isClockedIn),
-              ),
-            );
-          }
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => FaceVerificationPage(isClockIn: !isClockedIn),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(100),
         child: Container(
@@ -252,13 +243,13 @@ class _AttendancePageState extends State<AttendancePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                isCompleted ? Icons.check_circle_rounded : (isClockedIn ? Icons.logout_rounded : Icons.login_rounded),
+                isClockedIn ? Icons.logout_rounded : Icons.login_rounded,
                 size: 48,
                 color: color,
               ),
               const SizedBox(height: 12),
               Text(
-                isCompleted ? 'SELESAI' : (isClockedIn ? 'CLOCK OUT' : 'CLOCK IN'),
+                isClockedIn ? 'CLOCK OUT' : (isCompleted ? 'NEW CLOCK IN' : 'CLOCK IN'),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,

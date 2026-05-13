@@ -138,9 +138,6 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
       // 4. Trigger Sync in background
       di.sl<SyncBloc>().add(SyncDataRequested());
 
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ));
-      
       final String successMsg = _isTaskOrder 
           ? '✓ Sales Order berhasil disimpan!' 
           : '✓ Kunjungan & Order ${_selectedPaymentMethod} tersimpan!';

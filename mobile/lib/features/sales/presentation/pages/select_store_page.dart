@@ -8,6 +8,7 @@ import 'package:hris_app/features/sales/presentation/pages/receipt_camera_page.d
 import 'package:hris_app/features/sales/data/services/store_api_service.dart';
 import 'package:hris_app/injection.dart' as di;
 import 'package:hris_app/core/network/api_client.dart';
+import 'package:hris_app/features/auth/domain/repositories/auth_repository.dart';
 
 class SelectStorePage extends StatefulWidget {
   final bool isQuickOrder;
@@ -21,11 +22,30 @@ class _SelectStorePageState extends State<SelectStorePage> {
   final _apiService = StoreApiService(apiClient: di.sl<ApiClient>());
   bool _isLoading = true;
   List<StoreModel> _stores = [];
+  String _jobPositionTitle = '';
 
   @override
   void initState() {
     super.initState();
     _fetchStores();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final authRepo = di.sl<AuthRepository>();
+      final result = await authRepo.getProfile();
+      result.fold(
+        (_) => null,
+        (profile) {
+          if (mounted) {
+            setState(() {
+              _jobPositionTitle = profile['job_position']?['title'] ?? '';
+            });
+          }
+        },
+      );
+    } catch (_) {}
   }
 
   Future<void> _fetchStores() async {
@@ -145,7 +165,11 @@ class _SelectStorePageState extends State<SelectStorePage> {
         ),
         onTap: () {
           if (widget.isQuickOrder) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => ReceiptCameraPage(store: store, selfiePath: "")));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ReceiptCameraPage(
+              store: store, 
+              selfiePath: "",
+              jobPositionTitle: _jobPositionTitle,
+            )));
           } else {
             Navigator.push(context, MaterialPageRoute(builder: (_) => VisitCheckinPage(store: store)));
           }

@@ -330,6 +330,10 @@ class DashboardTab extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: () async {
             context.read<AttendanceBloc>().add(FetchHomeDataRequested());
+            context.read<ShiftBloc>().add(FetchSchedulesRequested(
+              month: DateTime.now().month,
+              year: DateTime.now().year,
+            ));
           },
           child: CustomScrollView(
             slivers: [

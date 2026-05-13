@@ -47,6 +47,7 @@ type FactoryUsecase interface {
 	GetAllTransfers(companyID uuid.UUID) ([]domain.ProductTransfer, error)
 	UpdateTransfer(id uuid.UUID, data map[string]interface{}) error
 	DeleteTransfer(id uuid.UUID) error
+	CreateTransfer(transfer *domain.ProductTransfer) error
 
 	// Recipe
 	CreateRecipe(recipe *domain.ProductionRecipe) error
@@ -526,6 +527,10 @@ func (u *factoryUsecase) DeleteTransfer(id uuid.UUID) error {
 	}
 
 	return u.repo.DeleteTransfer(id)
+}
+
+func (u *factoryUsecase) CreateTransfer(transfer *domain.ProductTransfer) error {
+	return u.repo.CreateTransfer(transfer)
 }
 
 func (u *factoryUsecase) GetBackorderDemand(companyID uuid.UUID) ([]BackorderDemand, error) {

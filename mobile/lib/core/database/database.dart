@@ -14,6 +14,8 @@ class Products extends Table {
   RealColumn get sellingPrice => real()();
   TextColumn get unit => text().nullable()();
   TextColumn get category => text().nullable()();
+  IntColumn get warehouseStock => integer().withDefault(const Constant(0))();
+  TextColumn get imageUrl => text().nullable()();
   
   @override
   Set<Column> get primaryKey => {id};
@@ -88,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(constructDb());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -104,6 +106,10 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(localTransactions, localTransactions.midtransBank);
         await m.addColumn(localTransactions, localTransactions.midtransBillKey);
         await m.addColumn(localTransactions, localTransactions.midtransBillerCode);
+      }
+      if (from < 3) {
+        await m.addColumn(products, products.warehouseStock);
+        await m.addColumn(products, products.imageUrl);
       }
     },
   );

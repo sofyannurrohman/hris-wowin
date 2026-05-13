@@ -369,6 +369,15 @@ export const useFactoryStore = defineStore('factory', {
       } catch (err: any) {
         throw err.response?.data?.error || 'Failed to delete transfer'
       }
+    },
+    
+    async createTransfer(data: any) {
+      try {
+        await factoryApi.createTransfer(data)
+        await this.fetchAllTransfers()
+      } catch (err: any) {
+        throw err.response?.data?.error || 'Failed to create transfer'
+      }
     }
   }
 })

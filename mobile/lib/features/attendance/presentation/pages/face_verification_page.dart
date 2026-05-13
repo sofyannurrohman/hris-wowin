@@ -37,7 +37,8 @@ class FaceVerificationResult {
 class _FaceProcessingParams {
   final String path;
   final Rect boundingBox;
-  _FaceProcessingParams(this.path, this.boundingBox);
+  final bool mirror;
+  _FaceProcessingParams(this.path, this.boundingBox, {this.mirror = false});
 }
 
 Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params) async {
@@ -48,6 +49,11 @@ Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params)
 
     // Bake orientation logic
     capturedImage = imglib.bakeOrientation(capturedImage);
+
+    // If it's from the front camera, we usually want to un-mirror it
+    if (params.mirror) {
+      capturedImage = imglib.flip(capturedImage, direction: imglib.FlipDirection.horizontal);
+    }
 
     return imglib.copyCrop(
       capturedImage,
@@ -510,7 +516,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       // OFF-LOAD HEAVY DECODING AND CROPPING TO ISOLATE
       final imglib.Image? faceCrop = await compute(
         _decodeAndCropFaceBackground, 
-        _FaceProcessingParams(photo.path, face.boundingBox)
+        _FaceProcessingParams(photo.path, face.boundingBox, mirror: true)
       );
       
       if (faceCrop == null) {

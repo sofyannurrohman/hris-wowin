@@ -21,7 +21,8 @@ import 'package:hris_app/features/attendance/presentation/bloc/attendance_event.
 class _FaceProcessingParams {
   final String path;
   final Rect boundingBox;
-  _FaceProcessingParams(this.path, this.boundingBox);
+  final bool mirror;
+  _FaceProcessingParams(this.path, this.boundingBox, {this.mirror = false});
 }
 
 Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params) async {
@@ -32,6 +33,11 @@ Future<imglib.Image?> _decodeAndCropFaceBackground(_FaceProcessingParams params)
 
     // Bake orientation to ensure the image is upright before we use coordinates from MLKit
     capturedImage = imglib.bakeOrientation(capturedImage);
+
+    // If it's from the front camera, we usually want to un-mirror it
+    if (params.mirror) {
+      capturedImage = imglib.flip(capturedImage, direction: imglib.FlipDirection.horizontal);
+    }
 
     return imglib.copyCrop(
       capturedImage,
@@ -189,7 +195,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       
       final imglib.Image? faceCrop = await compute(
         _decodeAndCropFaceBackground, 
-        _FaceProcessingParams(xFile.path, face.boundingBox)
+        _FaceProcessingParams(xFile.path, face.boundingBox, mirror: true)
       );
       
       if (faceCrop == null) {

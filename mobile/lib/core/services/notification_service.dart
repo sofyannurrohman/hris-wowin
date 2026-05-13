@@ -56,26 +56,38 @@ class NotificationService {
       if (schedule.isOffDay || schedule.startTime == '-' || schedule.endTime == '-') continue;
 
       try {
-        // Schedule Clock-In Alert (15 min before)
+        // Schedule Clock-In Alert (10 min before)
         final startDateTime = _parseShiftTime(schedule.date, schedule.startTime);
-        final clockInAlertTime = startDateTime.subtract(const Duration(minutes: 15));
+        final clockInAlertTime = startDateTime.subtract(const Duration(minutes: 10));
 
         if (clockInAlertTime.isAfter(now)) {
           await _scheduleNotification(
             id: schedule.date.day * 100 + 1, // Unique ID per day for clock-in
-            title: 'Persiapan Absensi Masuk',
-            body: 'Selamat pagi! 15 menit lagi waktu absen masuk Anda (${schedule.startTime}). Jangan lupa melakukan presensi.',
+            title: 'Persiapan Presensi Masuk',
+            body: 'Selamat pagi! 10 menit lagi waktu absen masuk Anda (${schedule.startTime}). Yuk bersiap melakukan presensi.',
             scheduledDate: clockInAlertTime,
           );
         }
 
-        // Schedule Clock-Out Alert (exactly at endTime)
+        // Schedule Clock-Out Reminder (10 min before)
         final endDateTime = _parseShiftTime(schedule.date, schedule.endTime);
+        final clockOutAlertTime = endDateTime.subtract(const Duration(minutes: 10));
+
+        if (clockOutAlertTime.isAfter(now)) {
+          await _scheduleNotification(
+            id: schedule.date.day * 100 + 2, // Unique ID per day for clock-out warning
+            title: 'Sesi Kerja Hampir Berakhir',
+            body: '10 menit lagi waktu kerja Anda berakhir (${schedule.endTime}). Selesaikan tugas Anda dan jangan lupa absen keluar.',
+            scheduledDate: clockOutAlertTime,
+          );
+        }
+
+        // Schedule Clock-Out Final Alert (exactly at endTime)
         if (endDateTime.isAfter(now)) {
           await _scheduleNotification(
-            id: schedule.date.day * 100 + 2, // Unique ID per day for clock-out
-            title: 'Waktu Kerja Berakhir',
-            body: 'Waktu kerja Anda telah berakhir (${schedule.endTime}). Terima kasih atas dedikasi Anda hari ini. Jangan lupa absen keluar!',
+            id: schedule.date.day * 100 + 3, // Unique ID per day for clock-out final
+            title: 'Waktu Kerja Selesai',
+            body: 'Waktu kerja Anda telah berakhir (${schedule.endTime}). Terima kasih atas dedikasi Anda hari ini. Silakan absen keluar.',
             scheduledDate: endDateTime,
           );
         }
@@ -114,12 +126,19 @@ class NotificationService {
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'shift_alerts',
-          'Shift Alerts',
-          channelDescription: 'Notifications for shift clock-in and clock-out',
-          importance: Importance.high,
+          'Pengingat Jadwal Kerja',
+          channelDescription: 'Notifikasi untuk membantu Anda presensi tepat waktu',
+          importance: Importance.max,
           priority: Priority.high,
+          showWhen: true,
+          enableVibration: true,
+          playSound: true,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.dateAndTime,

@@ -55,6 +55,7 @@ func (h *FactoryHandler) RegisterRoutes(r *gin.RouterGroup) {
 		factory.PUT("/transfer/:id/approve", h.ApproveTransfer)
 		factory.PUT("/transfer/:id", h.UpdateTransfer)
 		factory.DELETE("/transfer/:id", h.DeleteTransfer)
+		factory.POST("/transfer", h.CreateTransfer)
 		factory.GET("/:id/transfer", h.GetTransferHistory)
 
 		factory.GET("/recipes", h.GetRecipes)
@@ -406,6 +407,19 @@ func (h *FactoryHandler) DeleteTransfer(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Transfer deleted"})
+}
+
+func (h *FactoryHandler) CreateTransfer(c *gin.Context) {
+	var transfer domain.ProductTransfer
+	if err := c.ShouldBindJSON(&transfer); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.usecase.CreateTransfer(&transfer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, transfer)
 }
 
 func (h *FactoryHandler) GetAllTransfers(c *gin.Context) {
