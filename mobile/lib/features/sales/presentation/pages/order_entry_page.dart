@@ -43,7 +43,15 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   List<String> _categories = ['Semua'];
   String _selectedCategory = 'Semua';
   
-  final Map<String, int> _cart = {}; // productId -> quantity
+  final Map<String, int> _cart = {};
+  final Map<String, TextEditingController> _bulkQtyControllers = {};
+  final Map<String, TextEditingController> _looseQtyControllers = {};
+  final Map<String, TextEditingController> _bulkUnitNameControllers = {};
+  final Map<String, TextEditingController> _baseUnitNameControllers = {};
+  final Map<String, TextEditingController> _multiplierControllers = {};
+  
+  List<String> _unitOptions = [];
+  
   bool _isLoading = false;
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
@@ -51,40 +59,40 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
   @override
   void initState() {
     super.initState();
+    _unitOptions = ['PCS', 'KRT', 'KARDUS', 'BAL', 'KRAT', 'PACK', 'LUSIN', 'BOX', 'BTL', 'SCH', 'CRT'];
+    _bulkQtyControllers.clear();
+    _looseQtyControllers.clear();
+    _bulkUnitNameControllers.clear();
+    _baseUnitNameControllers.clear();
+    _multiplierControllers.clear();
     _fetchProducts();
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    for (var ctrl in _bulkQtyControllers.values) ctrl.dispose();
+    for (var ctrl in _looseQtyControllers.values) ctrl.dispose();
+    for (var ctrl in _bulkUnitNameControllers.values) ctrl.dispose();
+    for (var ctrl in _baseUnitNameControllers.values) ctrl.dispose();
+    for (var ctrl in _multiplierControllers.values) ctrl.dispose();
     super.dispose();
   }
 
   Future<void> _fetchProducts() async {
     setState(() => _isLoading = true);
     try {
-      print('DEBUG: Starting _fetchProducts in OrderEntryPage');
-      print('DEBUG: Filtering for Company ID: ${widget.companyId}');
-
-      // 0. Trigger background sync and WAIT for it to ensure data is fresh
       try {
-        print('DEBUG: Waiting for pullMasterData to finish...');
         await di.sl<SyncRepository>().pullMasterData();
-        print('DEBUG: Background sync from OrderEntryPage finished');
       } catch (e) {
         print('DEBUG: pullMasterData failed or offline: $e');
       }
 
-      // 1. Fetch products for this company
       var companyProducts = await (db.select(db.products)
           ..where((t) => t.companyId.equals(widget.companyId))).get();
-      print('DEBUG: Found ${companyProducts.length} products for company ${widget.companyId}');
       
-      // 2. Fetch sales stock (bronjong)
       final stocks = await db.select(db.salesStock).get();
-      print('DEBUG: Found ${stocks.length} items in sales_stock table');
 
-      // 2a. Fetch Pending Quantities to subtract (Real-time stock adjustment)
       final pendingTrxs = await (db.select(db.localTransactions)
           ..where((t) => t.syncStatus.equals('pending'))).get();
       final pendingLocalIds = pendingTrxs.map((t) => t.localId).toList();
@@ -100,13 +108,10 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
 
       final stockProductIds = stocks.map((s) => s.productId).toList();
       
-      // 3. Fetch products from stock and merge
       var products = List<Product>.from(companyProducts);
       if (stockProductIds.isNotEmpty) {
-        print('DEBUG: Fetching details for ${stockProductIds.length} stock products');
         var stockProducts = await (db.select(db.products)
             ..where((t) => t.id.isIn(stockProductIds))).get();
-        print('DEBUG: Found ${stockProducts.length} matching products in local DB for stock IDs');
             
         final Map<String, Product> productMap = {for (var p in products) p.id: p};
         for (var p in stockProducts) {
@@ -115,14 +120,10 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
         products = productMap.values.toList();
       }
 
-      // Fallback: If empty for this company and no stock, show ALL products in DB
       if (products.isEmpty) {
-        print('DEBUG: No products found for company or stock. Falling back to all products in DB.');
         products = await db.select(db.products).get();
-        print('DEBUG: Global fallback found ${products.length} products');
       }
       
-      // Determine stockMap (with adjustment)
       final Map<String, int> stockMap = {
         for (var s in stocks) 
           s.productId: (s.quantity - (pendingReduction[s.productId] ?? 0)).clamp(0, 999999)
@@ -139,16 +140,15 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
             'selling_price': p.sellingPrice,
             'sku': p.sku,
             'unit': p.unit,
+            'pcs_per_unit': p.pcsPerUnit,
             'category': p.category ?? 'Uncategorized',
-            'stock': stockMap[p.id] ?? 0, // Add stock info
+            'stock': stockMap[p.id] ?? 0,
           }).toList();
           _categories = ['Semua', ...cats];
           _applyFilters();
         });
-        print('DEBUG: UI updated with ${_allProducts.length} products');
       }
     } catch (e) {
-      print('ERROR fetching products in OrderEntryPage: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat produk: $e')));
       }
@@ -185,7 +185,22 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
           setState(() {
             _cart.clear();
             for (final item in items) {
-              _cart[item.productId] = item.quantity;
+              final id = item.productId;
+              final qty = item.quantity;
+              _cart[id] = qty;
+              
+              if (_bulkQtyControllers.containsKey(id)) {
+                _bulkQtyControllers[id]!.text = (qty ~/ item.piecesPerUnit).toString();
+              }
+              if (_looseQtyControllers.containsKey(id)) {
+                _looseQtyControllers[id]!.text = (qty % item.piecesPerUnit).toString();
+              }
+              if (_bulkUnitNameControllers.containsKey(id)) {
+                _bulkUnitNameControllers[id]!.text = item.unit;
+              }
+              if (_multiplierControllers.containsKey(id)) {
+                _multiplierControllers[id]!.text = item.piecesPerUnit.toString();
+              }
             }
           });
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -395,46 +410,7 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
             const Icon(Icons.search_off_rounded, size: 64, color: Color(0xFFE2E8F0)),
             const SizedBox(height: 16),
             Text('Produk tidak ditemukan', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
-            const SizedBox(height: 8),
-            Text('Perusahaan: ${widget.companyName}', style: GoogleFonts.outfit(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-            Text('ID Perusahaan: ${widget.companyId}', style: GoogleFonts.outfit(color: Colors.grey, fontSize: 10)),
-            FutureBuilder<Map<String, dynamic>>(
-              future: di.sl<ApiClient>().client.get('employees/profile').then((res) => res.data['data'] as Map<String, dynamic>),
-              builder: (context, profileSnap) {
-                if (profileSnap.hasData) {
-                  return Text('ID Employee: ${profileSnap.data!['id']}', style: GoogleFonts.outfit(color: Colors.grey, fontSize: 10));
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            FutureBuilder<int>(
-              future: db.select(db.products).get().then((list) => list.length),
-              builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
-                return Column(
-                  children: [
-                    Text('Total Produk di HP: $count', style: GoogleFonts.outfit(color: count == 0 ? Colors.red : Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
-                    FutureBuilder<int>(
-                      future: db.select(db.salesStock).get().then((list) => list.length),
-                      builder: (context, stockSnap) => Text('Data Stok Sales di HP: ${stockSnap.data ?? 0}', style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 10)),
-                    ),
-                    if (count > 0) ...[
-                      const SizedBox(height: 4),
-                      Text('Ada data, tapi mungkin ID Perusahaan tidak cocok.', style: GoogleFonts.outfit(color: Colors.orange, fontSize: 10)),
-                      FutureBuilder<List<Product>>(
-                        future: db.select(db.products).get(),
-                        builder: (context, prodSnap) {
-                          if (prodSnap.hasData && prodSnap.data!.isNotEmpty) {
-                            return Text('ID Co. di DB: ${prodSnap.data![0].companyId}', style: GoogleFonts.outfit(color: Colors.purple, fontSize: 9));
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),          ],
+          ],
         ),
       );
     }
@@ -448,92 +424,195 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
         final qty = _cart[id] ?? 0;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white, 
-            borderRadius: BorderRadius.circular(20), 
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]
+            borderRadius: BorderRadius.circular(24), 
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))]
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 48, height: 48,
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p['name'] ?? 'Unknown Product', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF1E293B))),
-                    Text('SKU: ${p['sku'] ?? '-'} • ${p['category']}', style: GoogleFonts.outfit(fontSize: 11, color: Colors.blueGrey)),
-                    const SizedBox(height: 4),
-                    Row(
+              Row(
+                children: [
+                  Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
+                    child: const Icon(Icons.inventory_2_rounded, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_currency.format(p['selling_price'] ?? 0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 14)),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (p['stock'] as int) > 0 ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            (widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO'))
-                                ? 'Taking Order (Katalog)'
-                                : ((p['stock'] as int) > 0 ? 'Tersedia di Bronjong (${p['stock']})' : 'Taking Order (Katalog)'), 
-                            style: GoogleFonts.outfit(
-                              fontSize: 10, 
-                              fontWeight: FontWeight.w800, 
-                              color: (widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO'))
-                                  ? Colors.orange.shade800
-                                  : ((p['stock'] as int) > 0 ? Colors.green : Colors.orange.shade800)
-                            )
-                          ),
-                        ),
+                        Text(p['name'] ?? 'Unknown Product', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B))),
+                        Text('SKU: ${p['sku'] ?? '-'} • ${p['category']}', style: GoogleFonts.outfit(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_currency.format(p['selling_price'] ?? 0), style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.blueAccent, fontSize: 16)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: (p['stock'] as int) > 0 ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                        child: Text(
+                          (p['stock'] as int) > 0 ? 'Stok: ${p['stock']}' : 'Katalog',
+                          style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: (p['stock'] as int) > 0 ? Colors.green : Colors.orange.shade800)
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              Container(
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: qty > 0 ? () => setState(() => _cart[id] = qty - 1) : null,
-                      icon: Icon(Icons.remove_circle_outline_rounded, color: qty > 0 ? Colors.redAccent : Colors.grey, size: 20),
-                    ),
-                    Text('$qty', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B))),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        final currentQty = _cart[id] ?? 0;
-                        setState(() => _cart[id] = currentQty + 1);
-                        
-                        if (!(widget.jobPositionTitle.contains('Task Order') || widget.jobPositionTitle.contains('Sales TO')) && currentQty >= (p['stock'] as int)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('⚠️ Pesanan melebihi stok bronjong. Sisanya akan menjadi Taking Order (Inden).'),
-                              backgroundColor: Colors.orange.shade800,
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            )
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.add_circle_rounded, color: Colors.green, size: 20),
-                    ),
-                  ],
-                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+              ),
+              _buildDualInputRow(
+                productId: id,
+                qty: qty,
+                p: p,
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDualInputRow({
+    required String productId,
+    required int qty,
+    required Map<String, dynamic> p,
+  }) {
+    final multiplier = int.tryParse(_multiplierControllers[productId]?.text ?? '1') ?? 1;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  _buildMiniBtn(Icons.remove, () => _updateDualQty(productId, -1, true, multiplier)),
+                  Expanded(
+                    child: TextField(
+                      controller: _getBulkQtyCtrl(productId, qty, multiplier),
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      onChanged: (val) => _onQtyTyped(productId),
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B)),
+                      decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none),
+                    ),
+                  ),
+                  _buildMiniBtn(Icons.add, () => _updateDualQty(productId, 1, true, multiplier), isPlus: true),
+                  const SizedBox(width: 4),
+                  _buildSmallUnitDropdown(productId, _getBulkUnitNameCtrl(productId, p['unit'])),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('@', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  SizedBox(
+                    width: 25,
+                    child: TextField(
+                      controller: _getMultiplierCtrl(productId, p['pcs_per_unit']),
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      onChanged: (val) => _onQtyTyped(productId),
+                      style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.orange.shade800),
+                      decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const VerticalDivider(width: 1, indent: 8, endIndent: 8, color: Color(0xFFE2E8F0)),
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _getLooseQtyCtrl(productId, qty, multiplier),
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      onChanged: (val) => _onQtyTyped(productId),
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B)),
+                      decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none),
+                    ),
+                  ),
+                  Text('PCS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueGrey)),
+                  _buildMiniBtn(Icons.add, () => _updateDualQty(productId, 1, false, multiplier), isPlus: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateDualQty(String productId, int delta, bool isBulk, int multiplier) {
+    final currentTotal = _cart[productId] ?? 0;
+    int bulk = currentTotal ~/ (multiplier > 0 ? multiplier : 1);
+    int loose = currentTotal % (multiplier > 0 ? multiplier : 1);
+
+    if (isBulk) {
+      bulk = (bulk + delta).clamp(0, 9999);
+    } else {
+      loose = (loose + delta).clamp(0, 9999);
+    }
+
+    final newTotal = (bulk * multiplier) + loose;
+    setState(() {
+      _cart[productId] = newTotal;
+      _bulkQtyControllers[productId]?.text = bulk.toString();
+      _looseQtyControllers[productId]?.text = loose.toString();
+    });
+  }
+
+  Widget _buildSmallUnitDropdown(String productId, TextEditingController unitCtrl) {
+    final currentUnit = unitCtrl.text.toUpperCase();
+    final List<String> options = List.from(_unitOptions);
+    if (!options.contains(currentUnit)) options.add(currentUnit);
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: currentUnit,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 10, color: Colors.blueAccent),
+        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.blueAccent),
+        onChanged: (val) {
+          if (val != null) setState(() { unitCtrl.text = val; });
+        },
+        items: options.map((v) => DropdownMenuItem(value: v, child: Text(v, style: GoogleFonts.outfit(fontSize: 10)))).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMiniBtn(IconData icon, VoidCallback onTap, {bool isPlus = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 28, height: 28,
+        decoration: BoxDecoration(color: isPlus ? Colors.blueAccent.withOpacity(0.05) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, size: 12, color: isPlus ? Colors.blueAccent : const Color(0xFF64748B)),
+      ),
     );
   }
 
@@ -584,20 +663,84 @@ class _OrderEntryPageState extends State<OrderEntryPage> {
     );
   }
 
+  TextEditingController _getBulkQtyCtrl(String productId, int totalPcs, int multiplier) {
+    if (!_bulkQtyControllers.containsKey(productId)) {
+      final bulkQty = totalPcs ~/ (multiplier > 0 ? multiplier : 1);
+      _bulkQtyControllers[productId] = TextEditingController(text: bulkQty > 0 ? '$bulkQty' : '0');
+    }
+    return _bulkQtyControllers[productId]!;
+  }
+
+  TextEditingController _getLooseQtyCtrl(String productId, int totalPcs, int multiplier) {
+    if (!_looseQtyControllers.containsKey(productId)) {
+      final looseQty = totalPcs % (multiplier > 0 ? multiplier : 1);
+      _looseQtyControllers[productId] = TextEditingController(text: looseQty > 0 ? '$looseQty' : '0');
+    }
+    return _looseQtyControllers[productId]!;
+  }
+
+  TextEditingController _getBulkUnitNameCtrl(String productId, String? defaultUnit) {
+    if (!_bulkUnitNameControllers.containsKey(productId)) {
+      _bulkUnitNameControllers[productId] = TextEditingController(text: defaultUnit ?? 'KRT');
+    }
+    return _bulkUnitNameControllers[productId]!;
+  }
+
+  TextEditingController _getBaseUnitNameCtrl(String productId) {
+    if (!_baseUnitNameControllers.containsKey(productId)) {
+      _baseUnitNameControllers[productId] = TextEditingController(text: 'PCS');
+    }
+    return _baseUnitNameControllers[productId]!;
+  }
+
+  TextEditingController _getMultiplierCtrl(String productId, int defaultMultiplier) {
+    if (!_multiplierControllers.containsKey(productId)) {
+      _multiplierControllers[productId] = TextEditingController(text: '$defaultMultiplier');
+    }
+    return _multiplierControllers[productId]!;
+  }
+
+  void _onQtyTyped(String productId) {
+    final multiplier = int.tryParse(_multiplierControllers[productId]?.text ?? '1') ?? 1;
+    final bulkStr = _bulkQtyControllers[productId]?.text ?? '0';
+    final looseStr = _looseQtyControllers[productId]?.text ?? '0';
+    final bulk = int.tryParse(bulkStr) ?? 0;
+    final loose = int.tryParse(looseStr) ?? 0;
+    setState(() {
+      _cart[productId] = (bulk * multiplier) + loose;
+    });
+  }
+
   void _proceedToCheckout() {
     final List<Map<String, dynamic>> items = [];
     _cart.forEach((id, qty) {
       if (qty > 0) {
         final p = _allProducts.firstWhere((prod) => prod['id'] == id);
+        final bulkUnit = _bulkUnitNameControllers[id]?.text ?? 'KRT';
+        final baseUnit = _baseUnitNameControllers[id]?.text ?? 'PCS';
+        final multiplier = int.tryParse(_multiplierControllers[id]?.text ?? '1') ?? 1;
+        final bulkQty = qty ~/ (multiplier > 0 ? multiplier : 1);
+        final looseQty = qty % (multiplier > 0 ? multiplier : 1);
+        String displayUnit = baseUnit;
+        int orderedQty = qty;
+        if (multiplier > 1 && bulkQty > 0) {
+          displayUnit = bulkUnit;
+          orderedQty = bulkQty;
+        }
         items.add({
           'product_id': id,
           'quantity': qty,
+          'ordered_quantity': orderedQty,
+          'unit': displayUnit,
+          'pieces_per_unit': multiplier,
           'price': p['selling_price'],
           'product_name': p['name'],
+          'breakdown': multiplier > 1 
+              ? '$bulkQty $bulkUnit + $looseQty $baseUnit' 
+              : '$qty $baseUnit',
         });
       }
     });
-
     Navigator.push(
       context,
       MaterialPageRoute(

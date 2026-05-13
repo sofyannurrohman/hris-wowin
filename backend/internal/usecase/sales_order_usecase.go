@@ -17,20 +17,53 @@ type SalesOrderUsecase interface {
 	CreateSO(req CreateSORequest) (*domain.SalesOrder, error)
 	GetSOByEmployee(employeeID uuid.UUID) ([]domain.SalesOrder, error)
 
-	// Digunakan admin / gudang (web)
+	// *** ALUR BARU ***
+	// Digunakan Admin Nota (web) — verifikasi / tolak nota dari salesman
+	AdminConfirmSO(id uuid.UUID, adminID uuid.UUID) error
+	AdminRejectSO(id uuid.UUID, adminID uuid.UUID, notes string) error
+
+	// Digunakan Driver (mobile) — konfirmasi pengiriman & tagih pembayaran per nota
+	ConfirmDelivery(req ConfirmDeliveryRequest) error
+	CollectPayment(req CollectPaymentRequest) error
+
+	// Digunakan semua role (web)
 	GetSOByBranch(branchID uuid.UUID, status string) ([]domain.SalesOrder, error)
 	GetSOByID(id uuid.UUID) (*domain.SalesOrder, error)
+	CancelSO(id uuid.UUID) error
+	DeleteSO(id uuid.UUID) error
+
+	// Legacy methods — dipertahankan agar tidak break fitur lama
 	ConfirmSO(id uuid.UUID, confirmedByID uuid.UUID) error
 	RejectSO(id uuid.UUID, rejectedByID uuid.UUID, notes string) error
-	CancelSO(id uuid.UUID) error
-	ProcessByWarehouse(req ProcessByWarehouseRequest) error // Validasi fisik & terbitkan Surat Jalan
-	ConfirmPOD(req ConfirmPODRequest) error                 // Konfirmasi barang sampai (POD)
+	ProcessByWarehouse(req ProcessByWarehouseRequest) error
+	ConfirmPOD(req ConfirmPODRequest) error
 	ConvertToInvoice(id uuid.UUID, companyID uuid.UUID) (*domain.SalesTransaction, error)
-	DeleteSO(id uuid.UUID) error
-	OverrideBackorder(id uuid.UUID) error                   // Force WAITING_STOCK -> WAITING_WAREHOUSE
+	OverrideBackorder(id uuid.UUID) error
 }
 
+// --- Request DTOs (Baru - Mobile POS) ---
 
+type ConfirmDeliveryItem struct {
+	ProductID        uuid.UUID `json:"product_id" binding:"required"`
+	ReturnedQuantity int       `json:"returned_quantity"` // 0 if all delivered perfectly
+}
+
+type ConfirmDeliveryRequest struct {
+	SOID          uuid.UUID             `json:"so_id" binding:"required"`
+	ReceivedBy    string                `json:"received_by" binding:"required"`
+	PODImageURL   string                `json:"pod_image_url"`
+	Notes         string                `json:"notes"`
+	ReturnedItems []ConfirmDeliveryItem `json:"returned_items"` // List of items being returned instantly
+}
+
+type CollectPaymentRequest struct {
+	SOID          uuid.UUID `json:"so_id" binding:"required"`
+	Amount        float64   `json:"amount" binding:"required"`
+	PaymentMethod string    `json:"payment_method" binding:"required"` // CASH, MIDTRANS_QRIS, dll
+	CollectedBy   string    `json:"collected_by"`
+}
+
+// --- Request DTOs (Legacy) ---
 
 type ConfirmPODRequest struct {
 	SOID        uuid.UUID `json:"so_id" binding:"required"`
@@ -38,11 +71,10 @@ type ConfirmPODRequest struct {
 	PODImageURL string    `json:"pod_image_url"`
 }
 
-
 type ProcessByWarehouseRequest struct {
-	SOID      uuid.UUID           `json:"so_id" binding:"required"`
-	ProcessedByID uuid.UUID       `json:"processed_by_id"`
-	Items     []WarehouseItemQty  `json:"items" binding:"required,min=1"`
+	SOID          uuid.UUID          `json:"so_id" binding:"required"`
+	ProcessedByID uuid.UUID          `json:"processed_by_id"`
+	Items         []WarehouseItemQty `json:"items" binding:"required,min=1"`
 }
 
 type WarehouseItemQty struct {
@@ -394,8 +426,9 @@ func (u *salesOrderUsecase) ProcessByWarehouse(req ProcessByWarehouseRequest) er
 		}
 
 		so.Status = domain.SOStatusShipped
-		so.DeliveryOrderNo = doNo
+		so.DeliveryOrderNo = &doNo
 		so.ShippedAt = &now
+		// Gudang hanya konfirmasi stok keluar — pembuatan invoice dilakukan driver setelah barang sampai
 		return soRepo.Update(so)
 	})
 }
@@ -531,6 +564,143 @@ func (u *salesOrderUsecase) OverrideBackorder(id uuid.UUID) error {
 	}
 
 	so.Status = domain.SOStatusWaitingWarehouse
+	return u.soRepo.Update(so)
+}
+
+// =============================================================================
+// ALUR BARU: Admin Nota, Driver, & Pembayaran
+// =============================================================================
+
+// AdminConfirmSO digunakan Admin Nota untuk menyetujui nota pesanan dari salesman.
+// Status berubah DRAFT → CONFIRMED, sehingga nota siap dibatch oleh Supervisor.
+func (u *salesOrderUsecase) AdminConfirmSO(id uuid.UUID, adminID uuid.UUID) error {
+	so, err := u.soRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if so.Status != domain.SOStatusDraft {
+		return errors.New("hanya pesanan dengan status DRAFT yang bisa diverifikasi")
+	}
+
+	now := time.Now()
+	so.Status = domain.SOStatusConfirmed
+	so.AdminNotaConfirmedAt = &now
+	so.AdminNotaConfirmedByID = &adminID
+	return u.soRepo.Update(so)
+}
+
+// AdminRejectSO digunakan Admin Nota untuk menolak nota pesanan dari salesman.
+func (u *salesOrderUsecase) AdminRejectSO(id uuid.UUID, adminID uuid.UUID, notes string) error {
+	so, err := u.soRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if so.Status != domain.SOStatusDraft {
+		return errors.New("hanya pesanan dengan status DRAFT yang bisa ditolak oleh Admin Nota")
+	}
+
+	now := time.Now()
+	so.Status = domain.SOStatusRejected
+	so.RejectedAt = &now
+	so.RejectedByID = &adminID
+	so.AdminNotaRejectNotes = notes
+	return u.soRepo.Update(so)
+}
+
+// ConfirmDelivery digunakan Driver untuk mengkonfirmasi bahwa barang sudah diserahkan ke customer.
+// Status SO berubah IN_DELIVERY → DELIVERED.
+func (u *salesOrderUsecase) ConfirmDelivery(req ConfirmDeliveryRequest) error {
+	so, err := u.soRepo.FindByID(req.SOID)
+	if err != nil {
+		return err
+	}
+	if so.Status != domain.SOStatusInDelivery {
+		return fmt.Errorf("pesanan tidak dalam status pengiriman aktif (status saat ini: %s)", so.Status)
+	}
+
+	// 1. Process Instant Returns & Recalculate Total
+	returnedMap := make(map[uuid.UUID]int)
+	for _, ri := range req.ReturnedItems {
+		returnedMap[ri.ProductID] = ri.ReturnedQuantity
+	}
+
+	newTotalAmount := 0.0
+	for i := range so.Items {
+		item := &so.Items[i]
+		retQty := returnedMap[item.ProductID]
+		
+		// If returned, ActualQuantity is ordered - returned. Otherwise, ActualQuantity = ordered.
+		item.ActualQuantity = item.OrderedQuantity - retQty
+		if item.ActualQuantity < 0 {
+			item.ActualQuantity = 0
+		}
+		
+		// Recalculate subtotal
+		item.Subtotal = float64(item.ActualQuantity * item.PiecesPerUnit) * item.Price
+		newTotalAmount += item.Subtotal
+	}
+
+	so.TotalAmount = newTotalAmount
+
+	// 2. Update SO Status
+	now := time.Now()
+	so.Status = domain.SOStatusDelivered
+	so.ReceivedAt = &now
+	so.ReceivedBy = req.ReceivedBy
+	if req.PODImageURL != "" {
+		so.PODImageURL = &req.PODImageURL
+	}
+	if req.Notes != "" {
+		if so.Notes != "" {
+			so.Notes += "\n" + req.Notes
+		} else {
+			so.Notes = req.Notes
+		}
+	}
+
+	// 3. Save SO (this will save Items if GORM configured to save associations, or we do it explicitly)
+	// For safety, we update SO first, then loop items to save if needed, but since it's a pointer, Save(so) updates associations in GORM by default.
+	return u.soRepo.Update(so)
+}
+
+// CollectPayment digunakan Driver untuk mencatat tagihan pembayaran yang diterima dari customer.
+// Status SO berubah DELIVERED → PAID (jika full) atau tetap DELIVERED dengan PaymentStatus PARTIAL.
+func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) error {
+	so, err := u.soRepo.FindByID(req.SOID)
+	if err != nil {
+		return err
+	}
+	if so.Status != domain.SOStatusDelivered && so.Status != domain.SOStatusPaid {
+		return errors.New("pembayaran hanya bisa dicatat setelah barang dikonfirmasi diterima customer")
+	}
+
+	now := time.Now()
+
+	// 1. Record Partial/Full Payment Log
+	payment := domain.SalesPayment{
+		SalesOrderID:   &so.ID,
+		Amount:         req.Amount,
+		PaymentMethod:  req.PaymentMethod,
+		CollectedBy:    req.CollectedBy,
+		PaymentStatus:  "SUCCESS",
+	}
+	if err := u.soRepo.AddPayment(&payment); err != nil {
+		return err
+	}
+
+	// 2. Update SO Totals
+	so.PaymentCollectedAmount += req.Amount
+	so.PaymentCollectedAt = &now
+	so.PaymentMethod = req.PaymentMethod
+
+	// 3. Determine Status
+	if so.PaymentCollectedAmount >= so.TotalAmount {
+		so.PaymentStatus = "PAID"
+		so.Status = domain.SOStatusPaid
+	} else {
+		so.PaymentStatus = "PARTIAL"
+	}
+
 	return u.soRepo.Update(so)
 }
 

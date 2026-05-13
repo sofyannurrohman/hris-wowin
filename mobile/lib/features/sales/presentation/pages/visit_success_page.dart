@@ -151,6 +151,22 @@ class _VisitSuccessPageState extends State<VisitSuccessPage> with SingleTickerPr
                         children: [
                           _summaryRow('ID Transaksi', receiptNo),
                           const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                          
+                          // Item Details
+                          if (widget.transaction['items'] != null) ...[
+                            ...((widget.transaction['items'] as List).map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(child: Text('${item['product_name']}', style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+                                  Text('x${item['quantity']}', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w800)),
+                                ],
+                              ),
+                            ))),
+                            const Divider(height: 24),
+                          ],
+
                           _summaryRow('Total Nominal', currency.format(amount), isBold: true),
                         ],
                       ),

@@ -24,6 +24,16 @@ func (h *SalesOrderHandler) RegisterRoutes(router *gin.RouterGroup) {
 		so.GET("", h.GetByBranch)
 		so.GET("/:id", h.GetByID)
 		so.POST("/manual", h.CreateSOManual)
+
+		// *** ALUR BARU: Admin Nota ***
+		so.PATCH("/:id/admin-confirm", h.AdminConfirmSO)
+		so.PATCH("/:id/admin-reject", h.AdminRejectSO)
+
+		// Driver routes (dipanggil dari mobile)
+		so.PATCH("/:id/confirm-delivery", h.ConfirmDelivery)
+		so.PATCH("/:id/collect-payment", h.CollectPayment)
+
+		// Legacy routes
 		so.PATCH("/:id/confirm", h.ConfirmSO)
 		so.PATCH("/:id/reject", h.RejectSO)
 		so.PATCH("/:id/cancel", h.CancelSO)
@@ -328,4 +338,114 @@ func (h *SalesOrderHandler) OverrideBackorder(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Pesanan berhasil di-override ke antrean kirim"})
+}
+
+// =============================================================================
+// ALUR BARU: Admin Nota
+// =============================================================================
+
+func (h *SalesOrderHandler) AdminConfirmSO(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+
+	// Resolve admin employee ID dari token
+	adminID, err := h.resolveEmployeeID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Identitas admin tidak ditemukan"})
+		return
+	}
+
+	if err := h.soUsecase.AdminConfirmSO(id, adminID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Nota berhasil diverifikasi oleh Admin Nota"})
+}
+
+func (h *SalesOrderHandler) AdminRejectSO(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+
+	adminID, err := h.resolveEmployeeID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Identitas admin tidak ditemukan"})
+		return
+	}
+
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	if err := h.soUsecase.AdminRejectSO(id, adminID, req.Notes); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Nota berhasil ditolak"})
+}
+
+// =============================================================================
+// ALUR BARU: Driver — Konfirmasi Pengiriman & Tagih Pembayaran
+// =============================================================================
+
+func (h *SalesOrderHandler) ConfirmDelivery(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+
+	var req usecase.ConfirmDeliveryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.SOID = id
+
+	if err := h.soUsecase.ConfirmDelivery(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Pengiriman berhasil dikonfirmasi"})
+}
+
+func (h *SalesOrderHandler) CollectPayment(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+
+	var req usecase.CollectPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.SOID = id
+
+	if err := h.soUsecase.CollectPayment(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Pembayaran berhasil dicatat"})
+}
+
+// resolveEmployeeID adalah helper untuk mendapatkan employee ID dari JWT token.
+func (h *SalesOrderHandler) resolveEmployeeID(c *gin.Context) (uuid.UUID, error) {
+	userIDRaw, exists := c.Get("userID")
+	if !exists {
+		return uuid.Nil, gin.Error{}
+	}
+	userID := userIDRaw.(uuid.UUID)
+	employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+	if err != nil || employee == nil {
+		return uuid.Nil, err
+	}
+	return employee.ID, nil
 }

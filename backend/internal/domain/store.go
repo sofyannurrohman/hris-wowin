@@ -26,6 +26,11 @@ type Store struct {
 
 	VisitDays            pq.Int64Array `gorm:"type:integer[]" json:"visit_days" form:"-"`
 	VisitFrequency       string        `gorm:"type:varchar(10)" json:"visit_frequency" form:"visit_frequency"` // F8, F4, F2
+	
+	// Fields for reporting (calculated via subqueries or aggregation)
+	TotalReceivable float64 `gorm:"-" json:"total_receivable"`
+	OverdueCount    int     `gorm:"-" json:"overdue_count"`
+
 	Company          *Company  `gorm:"foreignKey:CompanyID;constraint:OnDelete:CASCADE;" json:"company,omitempty"`
 	AssignedEmployee *Employee `gorm:"foreignKey:AssignedEmployeeID;constraint:OnDelete:SET NULL;" json:"assigned_employee,omitempty"`
 }

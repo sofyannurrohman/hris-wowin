@@ -23,6 +23,13 @@ func main() {
 
 	// Run AutoMigrate for critical models to ensure schema sync
 	db.AutoMigrate(
+		&domain.Company{},
+		&domain.Branch{},
+		&domain.Department{},
+		&domain.JobPosition{},
+		&domain.Employee{},
+		&domain.Store{},
+		&domain.User{},
 		&domain.SalesKPI{},
 		&domain.BannerOrder{},
 		&domain.Factory{},
@@ -41,6 +48,7 @@ func main() {
 		&domain.SalesItem{},
 		&domain.SalesStock{},
 		&domain.SalesTransfer{},
+		&domain.SalesVisit{},
 		&domain.SalesTransaction{},
 		&domain.SalesOrder{},
 		&domain.SalesOrderItem{},
@@ -87,6 +95,7 @@ func main() {
 	salesTransferRepo := repository.NewSalesTransferRepository(db)
 	salesOrderRepo := repository.NewSalesOrderRepository(db)
 	salesReturnRepo := repository.NewSalesReturnRepository(db)
+	salesVisitRepo := repository.NewSalesVisitRepository(db)
 
 	// Setup Utils
 	emailSender := utils.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
@@ -111,15 +120,15 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
-	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo, midtransClient)
+	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, salesRepo, db)
+	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo, employeeRepo, salesOrderUsecase, salesVisitRepo, midtransClient)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
 	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, salesOrderRepo, db)
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
-	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo)
+	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo, salesOrderRepo)
 	salesTransferUsecase := usecase.NewSalesTransferUsecase(salesTransferRepo, warehouseRepo, db)
-	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, salesRepo, db)
 	salesReturnUsecase := usecase.NewSalesReturnUsecase(salesReturnRepo, salesOrderRepo, salesRepo, warehouseRepo, db)
 
 	// Initialize Gin

@@ -131,9 +131,14 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
     final amount = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0).format(txn['total_amount'] ?? 0);
     final dateObj = DateTime.parse(txn['created_at']);
     final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(dateObj);
-    final status = txn['status']; // e.g. PENDING, VERIFIED
+    final status = txn['status'] ?? ''; 
+    final paymentMethod = txn['payment_method'] ?? '';
+    final isLocal = txn['is_local'] == true;
 
-    final isVerified = status == 'VERIFIED';
+    final bool isVerified = status == 'VERIFIED' || status == 'LUNAS' || status == 'CONVERTED' || status == 'DELIVERED';
+    final bool isSO = paymentMethod == 'SALES_ORDER';
+    final bool isRejected = status == 'REJECTED' || status == 'CANCELLED';
+    final bool isPending = status == 'PENDING' || status == 'WAITING_WAREHOUSE' || status == 'WAITING_STOCK' || status == 'DRAFT';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -148,12 +153,16 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: isVerified ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+            color: isVerified 
+                ? Colors.green.withOpacity(0.1) 
+                : (isRejected ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1)),
             shape: BoxShape.circle,
           ),
           child: Icon(
-            isVerified ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
-            color: isVerified ? Colors.green : Colors.orange,
+            isVerified 
+                ? Icons.check_circle_rounded 
+                : (isRejected ? Icons.cancel_rounded : Icons.pending_actions_rounded),
+            color: isVerified ? Colors.green : (isRejected ? Colors.red : Colors.orange),
             size: 28,
           ),
         ),
@@ -169,12 +178,22 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: isVerified ? Colors.green.withOpacity(0.1) : (txn['is_local'] == true ? Colors.blue.withOpacity(0.1) : Colors.orange.withOpacity(0.1)),
+                color: isVerified 
+                    ? Colors.green.withOpacity(0.1) 
+                    : (isLocal ? Colors.blue.withOpacity(0.1) : (isRejected ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1))),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                isVerified ? 'VERIFIED' : (txn['is_local'] == true ? 'OFFLINE / PENDING' : 'NEED REVIEW'),
-                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: isVerified ? Colors.green : (txn['is_local'] == true ? Colors.blue : Colors.orange)),
+                isLocal 
+                    ? 'OFFLINE / PENDING' 
+                    : (isSO ? 'SO: $status' : (isVerified ? 'VERIFIED' : 'NEED REVIEW')),
+                style: GoogleFonts.outfit(
+                  fontSize: 10, 
+                  fontWeight: FontWeight.w900, 
+                  color: isVerified 
+                      ? Colors.green 
+                      : (isLocal ? Colors.blue : (isRejected ? Colors.red : Colors.orange)),
+                ),
               ),
             ),
           ],

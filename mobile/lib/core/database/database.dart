@@ -15,6 +15,7 @@ class Products extends Table {
   TextColumn get unit => text().nullable()();
   TextColumn get category => text().nullable()();
   IntColumn get warehouseStock => integer().withDefault(const Constant(0))();
+  IntColumn get pcsPerUnit => integer().withDefault(const Constant(1))();
   TextColumn get imageUrl => text().nullable()();
   
   @override
@@ -72,7 +73,10 @@ class LocalTransactionItems extends Table {
   TextColumn get transactionLocalId => text().references(LocalTransactions, #localId)();
   TextColumn get productId => text()();
   TextColumn get productName => text()();
-  IntColumn get quantity => integer()();
+  IntColumn get quantity => integer()(); // Total pcs (base unit)
+  IntColumn get orderedQuantity => integer().withDefault(const Constant(0))();
+  TextColumn get unit => text().withDefault(const Constant('PCS'))();
+  IntColumn get piecesPerUnit => integer().withDefault(const Constant(1))();
   RealColumn get price => real()();
 }
 
@@ -90,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(constructDb());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +114,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.addColumn(products, products.warehouseStock);
         await m.addColumn(products, products.imageUrl);
+      }
+      if (from < 4) {
+        await m.addColumn(products, products.pcsPerUnit);
+        await m.addColumn(localTransactionItems, localTransactionItems.orderedQuantity);
+        await m.addColumn(localTransactionItems, localTransactionItems.unit);
+        await m.addColumn(localTransactionItems, localTransactionItems.piecesPerUnit);
       }
     },
   );

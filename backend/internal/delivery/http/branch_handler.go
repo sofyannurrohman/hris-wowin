@@ -52,6 +52,8 @@ func (h *BranchHandler) Create(c *gin.Context) {
 func (h *BranchHandler) GetAll(c *gin.Context) {
 	// Try to filter by company_id from JWT context first, then from query param
 	var companyID uuid.UUID
+	// Skip company_id filter for universal view in management
+	/*
 	if val, ok := c.Get("company_id"); ok && val != "" {
 		if id, err := uuid.Parse(val.(string)); err == nil {
 			companyID = id
@@ -61,6 +63,7 @@ func (h *BranchHandler) GetAll(c *gin.Context) {
 			companyID = id
 		}
 	}
+	*/
 
 	var branches interface{}
 	var err error

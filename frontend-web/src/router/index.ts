@@ -182,6 +182,11 @@ const router = createRouter({
               component: () => import('@/views/sales/SpandukView.vue'),
             },
             {
+              path: 'kunjungan',
+              name: 'salesVisits',
+              component: () => import('@/views/sales/VisitManagementView.vue'),
+            },
+            {
               path: 'monitoring',
               name: 'monitoring',
               component: () => import('@/views/sales/Live-Monitoring.vue'),

@@ -54,6 +54,14 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _pcsPerUnitMeta =
+      const VerificationMeta('pcsPerUnit');
+  @override
+  late final GeneratedColumn<int> pcsPerUnit = GeneratedColumn<int>(
+      'pcs_per_unit', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
   static const VerificationMeta _imageUrlMeta =
       const VerificationMeta('imageUrl');
   @override
@@ -70,6 +78,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         unit,
         category,
         warehouseStock,
+        pcsPerUnit,
         imageUrl
       ];
   @override
@@ -125,6 +134,12 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
           warehouseStock.isAcceptableOrUnknown(
               data['warehouse_stock']!, _warehouseStockMeta));
     }
+    if (data.containsKey('pcs_per_unit')) {
+      context.handle(
+          _pcsPerUnitMeta,
+          pcsPerUnit.isAcceptableOrUnknown(
+              data['pcs_per_unit']!, _pcsPerUnitMeta));
+    }
     if (data.containsKey('image_url')) {
       context.handle(_imageUrlMeta,
           imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta));
@@ -154,6 +169,8 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
           .read(DriftSqlType.string, data['${effectivePrefix}category']),
       warehouseStock: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}warehouse_stock'])!,
+      pcsPerUnit: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}pcs_per_unit'])!,
       imageUrl: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}image_url']),
     );
@@ -174,6 +191,7 @@ class Product extends DataClass implements Insertable<Product> {
   final String? unit;
   final String? category;
   final int warehouseStock;
+  final int pcsPerUnit;
   final String? imageUrl;
   const Product(
       {required this.id,
@@ -184,6 +202,7 @@ class Product extends DataClass implements Insertable<Product> {
       this.unit,
       this.category,
       required this.warehouseStock,
+      required this.pcsPerUnit,
       this.imageUrl});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -202,6 +221,7 @@ class Product extends DataClass implements Insertable<Product> {
       map['category'] = Variable<String>(category);
     }
     map['warehouse_stock'] = Variable<int>(warehouseStock);
+    map['pcs_per_unit'] = Variable<int>(pcsPerUnit);
     if (!nullToAbsent || imageUrl != null) {
       map['image_url'] = Variable<String>(imageUrl);
     }
@@ -220,6 +240,7 @@ class Product extends DataClass implements Insertable<Product> {
           ? const Value.absent()
           : Value(category),
       warehouseStock: Value(warehouseStock),
+      pcsPerUnit: Value(pcsPerUnit),
       imageUrl: imageUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(imageUrl),
@@ -238,6 +259,7 @@ class Product extends DataClass implements Insertable<Product> {
       unit: serializer.fromJson<String?>(json['unit']),
       category: serializer.fromJson<String?>(json['category']),
       warehouseStock: serializer.fromJson<int>(json['warehouseStock']),
+      pcsPerUnit: serializer.fromJson<int>(json['pcsPerUnit']),
       imageUrl: serializer.fromJson<String?>(json['imageUrl']),
     );
   }
@@ -253,6 +275,7 @@ class Product extends DataClass implements Insertable<Product> {
       'unit': serializer.toJson<String?>(unit),
       'category': serializer.toJson<String?>(category),
       'warehouseStock': serializer.toJson<int>(warehouseStock),
+      'pcsPerUnit': serializer.toJson<int>(pcsPerUnit),
       'imageUrl': serializer.toJson<String?>(imageUrl),
     };
   }
@@ -266,6 +289,7 @@ class Product extends DataClass implements Insertable<Product> {
           Value<String?> unit = const Value.absent(),
           Value<String?> category = const Value.absent(),
           int? warehouseStock,
+          int? pcsPerUnit,
           Value<String?> imageUrl = const Value.absent()}) =>
       Product(
         id: id ?? this.id,
@@ -276,6 +300,7 @@ class Product extends DataClass implements Insertable<Product> {
         unit: unit.present ? unit.value : this.unit,
         category: category.present ? category.value : this.category,
         warehouseStock: warehouseStock ?? this.warehouseStock,
+        pcsPerUnit: pcsPerUnit ?? this.pcsPerUnit,
         imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
       );
   Product copyWithCompanion(ProductsCompanion data) {
@@ -292,6 +317,8 @@ class Product extends DataClass implements Insertable<Product> {
       warehouseStock: data.warehouseStock.present
           ? data.warehouseStock.value
           : this.warehouseStock,
+      pcsPerUnit:
+          data.pcsPerUnit.present ? data.pcsPerUnit.value : this.pcsPerUnit,
       imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
     );
   }
@@ -307,6 +334,7 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('unit: $unit, ')
           ..write('category: $category, ')
           ..write('warehouseStock: $warehouseStock, ')
+          ..write('pcsPerUnit: $pcsPerUnit, ')
           ..write('imageUrl: $imageUrl')
           ..write(')'))
         .toString();
@@ -314,7 +342,7 @@ class Product extends DataClass implements Insertable<Product> {
 
   @override
   int get hashCode => Object.hash(id, companyId, name, sku, sellingPrice, unit,
-      category, warehouseStock, imageUrl);
+      category, warehouseStock, pcsPerUnit, imageUrl);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -327,6 +355,7 @@ class Product extends DataClass implements Insertable<Product> {
           other.unit == this.unit &&
           other.category == this.category &&
           other.warehouseStock == this.warehouseStock &&
+          other.pcsPerUnit == this.pcsPerUnit &&
           other.imageUrl == this.imageUrl);
 }
 
@@ -339,6 +368,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<String?> unit;
   final Value<String?> category;
   final Value<int> warehouseStock;
+  final Value<int> pcsPerUnit;
   final Value<String?> imageUrl;
   final Value<int> rowid;
   const ProductsCompanion({
@@ -350,6 +380,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.unit = const Value.absent(),
     this.category = const Value.absent(),
     this.warehouseStock = const Value.absent(),
+    this.pcsPerUnit = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -362,6 +393,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.unit = const Value.absent(),
     this.category = const Value.absent(),
     this.warehouseStock = const Value.absent(),
+    this.pcsPerUnit = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -377,6 +409,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<String>? unit,
     Expression<String>? category,
     Expression<int>? warehouseStock,
+    Expression<int>? pcsPerUnit,
     Expression<String>? imageUrl,
     Expression<int>? rowid,
   }) {
@@ -389,6 +422,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (unit != null) 'unit': unit,
       if (category != null) 'category': category,
       if (warehouseStock != null) 'warehouse_stock': warehouseStock,
+      if (pcsPerUnit != null) 'pcs_per_unit': pcsPerUnit,
       if (imageUrl != null) 'image_url': imageUrl,
       if (rowid != null) 'rowid': rowid,
     });
@@ -403,6 +437,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       Value<String?>? unit,
       Value<String?>? category,
       Value<int>? warehouseStock,
+      Value<int>? pcsPerUnit,
       Value<String?>? imageUrl,
       Value<int>? rowid}) {
     return ProductsCompanion(
@@ -414,6 +449,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       unit: unit ?? this.unit,
       category: category ?? this.category,
       warehouseStock: warehouseStock ?? this.warehouseStock,
+      pcsPerUnit: pcsPerUnit ?? this.pcsPerUnit,
       imageUrl: imageUrl ?? this.imageUrl,
       rowid: rowid ?? this.rowid,
     );
@@ -446,6 +482,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (warehouseStock.present) {
       map['warehouse_stock'] = Variable<int>(warehouseStock.value);
     }
+    if (pcsPerUnit.present) {
+      map['pcs_per_unit'] = Variable<int>(pcsPerUnit.value);
+    }
     if (imageUrl.present) {
       map['image_url'] = Variable<String>(imageUrl.value);
     }
@@ -466,6 +505,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('unit: $unit, ')
           ..write('category: $category, ')
           ..write('warehouseStock: $warehouseStock, ')
+          ..write('pcsPerUnit: $pcsPerUnit, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -2137,14 +2177,46 @@ class $LocalTransactionItemsTable extends LocalTransactionItems
   late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
       'quantity', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _orderedQuantityMeta =
+      const VerificationMeta('orderedQuantity');
+  @override
+  late final GeneratedColumn<int> orderedQuantity = GeneratedColumn<int>(
+      'ordered_quantity', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+      'unit', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('PCS'));
+  static const VerificationMeta _piecesPerUnitMeta =
+      const VerificationMeta('piecesPerUnit');
+  @override
+  late final GeneratedColumn<int> piecesPerUnit = GeneratedColumn<int>(
+      'pieces_per_unit', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
   static const VerificationMeta _priceMeta = const VerificationMeta('price');
   @override
   late final GeneratedColumn<double> price = GeneratedColumn<double>(
       'price', aliasedName, false,
       type: DriftSqlType.double, requiredDuringInsert: true);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, transactionLocalId, productId, productName, quantity, price];
+  List<GeneratedColumn> get $columns => [
+        id,
+        transactionLocalId,
+        productId,
+        productName,
+        quantity,
+        orderedQuantity,
+        unit,
+        piecesPerUnit,
+        price
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2187,6 +2259,22 @@ class $LocalTransactionItemsTable extends LocalTransactionItems
     } else if (isInserting) {
       context.missing(_quantityMeta);
     }
+    if (data.containsKey('ordered_quantity')) {
+      context.handle(
+          _orderedQuantityMeta,
+          orderedQuantity.isAcceptableOrUnknown(
+              data['ordered_quantity']!, _orderedQuantityMeta));
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+          _unitMeta, unit.isAcceptableOrUnknown(data['unit']!, _unitMeta));
+    }
+    if (data.containsKey('pieces_per_unit')) {
+      context.handle(
+          _piecesPerUnitMeta,
+          piecesPerUnit.isAcceptableOrUnknown(
+              data['pieces_per_unit']!, _piecesPerUnitMeta));
+    }
     if (data.containsKey('price')) {
       context.handle(
           _priceMeta, price.isAcceptableOrUnknown(data['price']!, _priceMeta));
@@ -2212,6 +2300,12 @@ class $LocalTransactionItemsTable extends LocalTransactionItems
           .read(DriftSqlType.string, data['${effectivePrefix}product_name'])!,
       quantity: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}quantity'])!,
+      orderedQuantity: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}ordered_quantity'])!,
+      unit: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}unit'])!,
+      piecesPerUnit: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}pieces_per_unit'])!,
       price: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}price'])!,
     );
@@ -2230,6 +2324,9 @@ class LocalTransactionItem extends DataClass
   final String productId;
   final String productName;
   final int quantity;
+  final int orderedQuantity;
+  final String unit;
+  final int piecesPerUnit;
   final double price;
   const LocalTransactionItem(
       {required this.id,
@@ -2237,6 +2334,9 @@ class LocalTransactionItem extends DataClass
       required this.productId,
       required this.productName,
       required this.quantity,
+      required this.orderedQuantity,
+      required this.unit,
+      required this.piecesPerUnit,
       required this.price});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2246,6 +2346,9 @@ class LocalTransactionItem extends DataClass
     map['product_id'] = Variable<String>(productId);
     map['product_name'] = Variable<String>(productName);
     map['quantity'] = Variable<int>(quantity);
+    map['ordered_quantity'] = Variable<int>(orderedQuantity);
+    map['unit'] = Variable<String>(unit);
+    map['pieces_per_unit'] = Variable<int>(piecesPerUnit);
     map['price'] = Variable<double>(price);
     return map;
   }
@@ -2257,6 +2360,9 @@ class LocalTransactionItem extends DataClass
       productId: Value(productId),
       productName: Value(productName),
       quantity: Value(quantity),
+      orderedQuantity: Value(orderedQuantity),
+      unit: Value(unit),
+      piecesPerUnit: Value(piecesPerUnit),
       price: Value(price),
     );
   }
@@ -2271,6 +2377,9 @@ class LocalTransactionItem extends DataClass
       productId: serializer.fromJson<String>(json['productId']),
       productName: serializer.fromJson<String>(json['productName']),
       quantity: serializer.fromJson<int>(json['quantity']),
+      orderedQuantity: serializer.fromJson<int>(json['orderedQuantity']),
+      unit: serializer.fromJson<String>(json['unit']),
+      piecesPerUnit: serializer.fromJson<int>(json['piecesPerUnit']),
       price: serializer.fromJson<double>(json['price']),
     );
   }
@@ -2283,6 +2392,9 @@ class LocalTransactionItem extends DataClass
       'productId': serializer.toJson<String>(productId),
       'productName': serializer.toJson<String>(productName),
       'quantity': serializer.toJson<int>(quantity),
+      'orderedQuantity': serializer.toJson<int>(orderedQuantity),
+      'unit': serializer.toJson<String>(unit),
+      'piecesPerUnit': serializer.toJson<int>(piecesPerUnit),
       'price': serializer.toJson<double>(price),
     };
   }
@@ -2293,6 +2405,9 @@ class LocalTransactionItem extends DataClass
           String? productId,
           String? productName,
           int? quantity,
+          int? orderedQuantity,
+          String? unit,
+          int? piecesPerUnit,
           double? price}) =>
       LocalTransactionItem(
         id: id ?? this.id,
@@ -2300,6 +2415,9 @@ class LocalTransactionItem extends DataClass
         productId: productId ?? this.productId,
         productName: productName ?? this.productName,
         quantity: quantity ?? this.quantity,
+        orderedQuantity: orderedQuantity ?? this.orderedQuantity,
+        unit: unit ?? this.unit,
+        piecesPerUnit: piecesPerUnit ?? this.piecesPerUnit,
         price: price ?? this.price,
       );
   LocalTransactionItem copyWithCompanion(LocalTransactionItemsCompanion data) {
@@ -2312,6 +2430,13 @@ class LocalTransactionItem extends DataClass
       productName:
           data.productName.present ? data.productName.value : this.productName,
       quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      orderedQuantity: data.orderedQuantity.present
+          ? data.orderedQuantity.value
+          : this.orderedQuantity,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      piecesPerUnit: data.piecesPerUnit.present
+          ? data.piecesPerUnit.value
+          : this.piecesPerUnit,
       price: data.price.present ? data.price.value : this.price,
     );
   }
@@ -2324,14 +2449,17 @@ class LocalTransactionItem extends DataClass
           ..write('productId: $productId, ')
           ..write('productName: $productName, ')
           ..write('quantity: $quantity, ')
+          ..write('orderedQuantity: $orderedQuantity, ')
+          ..write('unit: $unit, ')
+          ..write('piecesPerUnit: $piecesPerUnit, ')
           ..write('price: $price')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-      id, transactionLocalId, productId, productName, quantity, price);
+  int get hashCode => Object.hash(id, transactionLocalId, productId,
+      productName, quantity, orderedQuantity, unit, piecesPerUnit, price);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2341,6 +2469,9 @@ class LocalTransactionItem extends DataClass
           other.productId == this.productId &&
           other.productName == this.productName &&
           other.quantity == this.quantity &&
+          other.orderedQuantity == this.orderedQuantity &&
+          other.unit == this.unit &&
+          other.piecesPerUnit == this.piecesPerUnit &&
           other.price == this.price);
 }
 
@@ -2351,6 +2482,9 @@ class LocalTransactionItemsCompanion
   final Value<String> productId;
   final Value<String> productName;
   final Value<int> quantity;
+  final Value<int> orderedQuantity;
+  final Value<String> unit;
+  final Value<int> piecesPerUnit;
   final Value<double> price;
   const LocalTransactionItemsCompanion({
     this.id = const Value.absent(),
@@ -2358,6 +2492,9 @@ class LocalTransactionItemsCompanion
     this.productId = const Value.absent(),
     this.productName = const Value.absent(),
     this.quantity = const Value.absent(),
+    this.orderedQuantity = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.piecesPerUnit = const Value.absent(),
     this.price = const Value.absent(),
   });
   LocalTransactionItemsCompanion.insert({
@@ -2366,6 +2503,9 @@ class LocalTransactionItemsCompanion
     required String productId,
     required String productName,
     required int quantity,
+    this.orderedQuantity = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.piecesPerUnit = const Value.absent(),
     required double price,
   })  : transactionLocalId = Value(transactionLocalId),
         productId = Value(productId),
@@ -2378,6 +2518,9 @@ class LocalTransactionItemsCompanion
     Expression<String>? productId,
     Expression<String>? productName,
     Expression<int>? quantity,
+    Expression<int>? orderedQuantity,
+    Expression<String>? unit,
+    Expression<int>? piecesPerUnit,
     Expression<double>? price,
   }) {
     return RawValuesInsertable({
@@ -2387,6 +2530,9 @@ class LocalTransactionItemsCompanion
       if (productId != null) 'product_id': productId,
       if (productName != null) 'product_name': productName,
       if (quantity != null) 'quantity': quantity,
+      if (orderedQuantity != null) 'ordered_quantity': orderedQuantity,
+      if (unit != null) 'unit': unit,
+      if (piecesPerUnit != null) 'pieces_per_unit': piecesPerUnit,
       if (price != null) 'price': price,
     });
   }
@@ -2397,6 +2543,9 @@ class LocalTransactionItemsCompanion
       Value<String>? productId,
       Value<String>? productName,
       Value<int>? quantity,
+      Value<int>? orderedQuantity,
+      Value<String>? unit,
+      Value<int>? piecesPerUnit,
       Value<double>? price}) {
     return LocalTransactionItemsCompanion(
       id: id ?? this.id,
@@ -2404,6 +2553,9 @@ class LocalTransactionItemsCompanion
       productId: productId ?? this.productId,
       productName: productName ?? this.productName,
       quantity: quantity ?? this.quantity,
+      orderedQuantity: orderedQuantity ?? this.orderedQuantity,
+      unit: unit ?? this.unit,
+      piecesPerUnit: piecesPerUnit ?? this.piecesPerUnit,
       price: price ?? this.price,
     );
   }
@@ -2426,6 +2578,15 @@ class LocalTransactionItemsCompanion
     if (quantity.present) {
       map['quantity'] = Variable<int>(quantity.value);
     }
+    if (orderedQuantity.present) {
+      map['ordered_quantity'] = Variable<int>(orderedQuantity.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (piecesPerUnit.present) {
+      map['pieces_per_unit'] = Variable<int>(piecesPerUnit.value);
+    }
     if (price.present) {
       map['price'] = Variable<double>(price.value);
     }
@@ -2440,6 +2601,9 @@ class LocalTransactionItemsCompanion
           ..write('productId: $productId, ')
           ..write('productName: $productName, ')
           ..write('quantity: $quantity, ')
+          ..write('orderedQuantity: $orderedQuantity, ')
+          ..write('unit: $unit, ')
+          ..write('piecesPerUnit: $piecesPerUnit, ')
           ..write('price: $price')
           ..write(')'))
         .toString();
@@ -2714,6 +2878,7 @@ typedef $$ProductsTableCreateCompanionBuilder = ProductsCompanion Function({
   Value<String?> unit,
   Value<String?> category,
   Value<int> warehouseStock,
+  Value<int> pcsPerUnit,
   Value<String?> imageUrl,
   Value<int> rowid,
 });
@@ -2726,6 +2891,7 @@ typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
   Value<String?> unit,
   Value<String?> category,
   Value<int> warehouseStock,
+  Value<int> pcsPerUnit,
   Value<String?> imageUrl,
   Value<int> rowid,
 });
@@ -2763,6 +2929,9 @@ class $$ProductsTableFilterComposer
   ColumnFilters<int> get warehouseStock => $composableBuilder(
       column: $table.warehouseStock,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get pcsPerUnit => $composableBuilder(
+      column: $table.pcsPerUnit, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get imageUrl => $composableBuilder(
       column: $table.imageUrl, builder: (column) => ColumnFilters(column));
@@ -2803,6 +2972,9 @@ class $$ProductsTableOrderingComposer
       column: $table.warehouseStock,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get pcsPerUnit => $composableBuilder(
+      column: $table.pcsPerUnit, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get imageUrl => $composableBuilder(
       column: $table.imageUrl, builder: (column) => ColumnOrderings(column));
 }
@@ -2840,6 +3012,9 @@ class $$ProductsTableAnnotationComposer
   GeneratedColumn<int> get warehouseStock => $composableBuilder(
       column: $table.warehouseStock, builder: (column) => column);
 
+  GeneratedColumn<int> get pcsPerUnit => $composableBuilder(
+      column: $table.pcsPerUnit, builder: (column) => column);
+
   GeneratedColumn<String> get imageUrl =>
       $composableBuilder(column: $table.imageUrl, builder: (column) => column);
 }
@@ -2875,6 +3050,7 @@ class $$ProductsTableTableManager extends RootTableManager<
             Value<String?> unit = const Value.absent(),
             Value<String?> category = const Value.absent(),
             Value<int> warehouseStock = const Value.absent(),
+            Value<int> pcsPerUnit = const Value.absent(),
             Value<String?> imageUrl = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -2887,6 +3063,7 @@ class $$ProductsTableTableManager extends RootTableManager<
             unit: unit,
             category: category,
             warehouseStock: warehouseStock,
+            pcsPerUnit: pcsPerUnit,
             imageUrl: imageUrl,
             rowid: rowid,
           ),
@@ -2899,6 +3076,7 @@ class $$ProductsTableTableManager extends RootTableManager<
             Value<String?> unit = const Value.absent(),
             Value<String?> category = const Value.absent(),
             Value<int> warehouseStock = const Value.absent(),
+            Value<int> pcsPerUnit = const Value.absent(),
             Value<String?> imageUrl = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -2911,6 +3089,7 @@ class $$ProductsTableTableManager extends RootTableManager<
             unit: unit,
             category: category,
             warehouseStock: warehouseStock,
+            pcsPerUnit: pcsPerUnit,
             imageUrl: imageUrl,
             rowid: rowid,
           ),
@@ -3791,6 +3970,9 @@ typedef $$LocalTransactionItemsTableCreateCompanionBuilder
   required String productId,
   required String productName,
   required int quantity,
+  Value<int> orderedQuantity,
+  Value<String> unit,
+  Value<int> piecesPerUnit,
   required double price,
 });
 typedef $$LocalTransactionItemsTableUpdateCompanionBuilder
@@ -3800,6 +3982,9 @@ typedef $$LocalTransactionItemsTableUpdateCompanionBuilder
   Value<String> productId,
   Value<String> productName,
   Value<int> quantity,
+  Value<int> orderedQuantity,
+  Value<String> unit,
+  Value<int> piecesPerUnit,
   Value<double> price,
 });
 
@@ -3847,6 +4032,16 @@ class $$LocalTransactionItemsTableFilterComposer
   ColumnFilters<int> get quantity => $composableBuilder(
       column: $table.quantity, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<int> get orderedQuantity => $composableBuilder(
+      column: $table.orderedQuantity,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get piecesPerUnit => $composableBuilder(
+      column: $table.piecesPerUnit, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<double> get price => $composableBuilder(
       column: $table.price, builder: (column) => ColumnFilters(column));
 
@@ -3892,6 +4087,17 @@ class $$LocalTransactionItemsTableOrderingComposer
   ColumnOrderings<int> get quantity => $composableBuilder(
       column: $table.quantity, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get orderedQuantity => $composableBuilder(
+      column: $table.orderedQuantity,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get piecesPerUnit => $composableBuilder(
+      column: $table.piecesPerUnit,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<double> get price => $composableBuilder(
       column: $table.price, builder: (column) => ColumnOrderings(column));
 
@@ -3936,6 +4142,15 @@ class $$LocalTransactionItemsTableAnnotationComposer
 
   GeneratedColumn<int> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<int> get orderedQuantity => $composableBuilder(
+      column: $table.orderedQuantity, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<int> get piecesPerUnit => $composableBuilder(
+      column: $table.piecesPerUnit, builder: (column) => column);
 
   GeneratedColumn<double> get price =>
       $composableBuilder(column: $table.price, builder: (column) => column);
@@ -3994,6 +4209,9 @@ class $$LocalTransactionItemsTableTableManager extends RootTableManager<
             Value<String> productId = const Value.absent(),
             Value<String> productName = const Value.absent(),
             Value<int> quantity = const Value.absent(),
+            Value<int> orderedQuantity = const Value.absent(),
+            Value<String> unit = const Value.absent(),
+            Value<int> piecesPerUnit = const Value.absent(),
             Value<double> price = const Value.absent(),
           }) =>
               LocalTransactionItemsCompanion(
@@ -4002,6 +4220,9 @@ class $$LocalTransactionItemsTableTableManager extends RootTableManager<
             productId: productId,
             productName: productName,
             quantity: quantity,
+            orderedQuantity: orderedQuantity,
+            unit: unit,
+            piecesPerUnit: piecesPerUnit,
             price: price,
           ),
           createCompanionCallback: ({
@@ -4010,6 +4231,9 @@ class $$LocalTransactionItemsTableTableManager extends RootTableManager<
             required String productId,
             required String productName,
             required int quantity,
+            Value<int> orderedQuantity = const Value.absent(),
+            Value<String> unit = const Value.absent(),
+            Value<int> piecesPerUnit = const Value.absent(),
             required double price,
           }) =>
               LocalTransactionItemsCompanion.insert(
@@ -4018,6 +4242,9 @@ class $$LocalTransactionItemsTableTableManager extends RootTableManager<
             productId: productId,
             productName: productName,
             quantity: quantity,
+            orderedQuantity: orderedQuantity,
+            unit: unit,
+            piecesPerUnit: piecesPerUnit,
             price: price,
           ),
           withReferenceMapper: (p0) => p0

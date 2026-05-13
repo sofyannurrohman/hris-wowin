@@ -47,6 +47,10 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
           ..where((t) => t.localId.equals(widget.localId!)))
         .getSingleOrNull();
 
+    final updatedItems = await (_db.select(_db.localTransactionItems)
+          ..where((t) => t.transactionLocalId.equals(widget.localId!)))
+        .get();
+
     if (updated != null && mounted) {
       setState(() {
         _currentTrx = {
@@ -61,6 +65,10 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
           'midtrans_bank': updated.midtransBank,
           'midtrans_bill_key': updated.midtransBillKey,
           'midtrans_biller_code': updated.midtransBillerCode,
+          'items': updatedItems.map((i) => {
+            'product_name': i.productName,
+            'quantity': i.quantity,
+          }).toList(),
         };
       });
     }
@@ -80,6 +88,14 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
     
     String message = "Halo *$storeName*,\n\nTerima kasih telah berbelanja di *Wowin Indonesia*.\n\nBerikut ringkasan pesanan Anda:\n";
     message += "📌 *No. Nota:* $receiptNo\n";
+    
+    if (_currentTrx['items'] != null) {
+      message += "📦 *Item Pesanan:*\n";
+      for (var item in (_currentTrx['items'] as List)) {
+        message += "- ${item['product_name']} (x${item['quantity']})\n";
+      }
+    }
+
     message += "💰 *Total Tagihan:* ${currencyFormat.format(amount)}\n";
     message += "💳 *Metode Pembayaran:* $paymentMethod\n";
     
@@ -108,6 +124,47 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
       }
     }
   }
+
+  Future<void> _printReceipt(BuildContext context) async {
+    // Simulasi koneksi ke Printer Thermal Bluetooth
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('Mencari Printer Bluetooth...', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      },
+    );
+
+    // Mock delay untuk pencarian dan proses print
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (context.mounted) {
+      Navigator.pop(context); // Tutup dialog loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.print, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('Mencetak struk ke printer thermal...', style: GoogleFonts.outfit()),
+            ],
+          ),
+          backgroundColor: Colors.blueAccent,
+        ),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +218,22 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
                       children: [
                         _buildRow('Toko', storeName, isBold: true),
                         const Divider(height: 32),
+
+                        // Item Details
+                        if (_currentTrx['items'] != null && (_currentTrx['items'] as List).isNotEmpty) ...[
+                          ...((_currentTrx['items'] as List).map((item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(child: Text('${item['product_name']}', style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+                                Text('x${item['quantity']}', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w800)),
+                              ],
+                            ),
+                          ))),
+                          const Divider(height: 24),
+                        ],
+
                         _buildRow('Tanggal', dateStr),
                         const SizedBox(height: 12),
                         _buildRow('Status', _currentTrx['status'] ?? 'PENDING'),
@@ -252,6 +325,24 @@ class _DigitalReceiptPageState extends State<DigitalReceiptPage> {
             ),
             
             const SizedBox(height: 16),
+
+            // Print Thermal Receipt Button
+            SizedBox(
+              width: double.infinity,
+              height: 64,
+              child: ElevatedButton.icon(
+                onPressed: () => _printReceipt(context),
+                icon: const Icon(Icons.print_rounded, color: Colors.white),
+                label: Text('CETAK STRUK THERMAL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E293B),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+
             
             SizedBox(
               width: double.infinity,

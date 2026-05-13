@@ -96,68 +96,130 @@
         </div>
       </div>
 
-      <!-- RIGHT SIDE: ACTIVITY LOG (5/12) -->
+      <!-- RIGHT SIDE: ACTIVITY LOG & DRIVERS (5/12) -->
       <div class="lg:col-span-5 space-y-6">
         <div class="flex items-center justify-between px-2">
-          <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
-             Log Aktivitas
-             <Badge v-if="selectedVehicle" variant="outline" class="rounded-full border-slate-200 text-slate-500 font-mono">{{ selectedVehicle.license_plate }}</Badge>
-          </h2>
+          <div class="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
+            <button 
+              @click="activeTab = 'LOGS'" 
+              :class="[activeTab === 'LOGS' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50']"
+              class="px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2"
+            >
+              <History class="h-3.5 w-3.5" /> LOG AKTIVITAS
+            </button>
+            <button 
+              @click="activeTab = 'DRIVERS'" 
+              :class="[activeTab === 'DRIVERS' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50']"
+              class="px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2"
+            >
+              <User class="h-3.5 w-3.5" /> STATUS DRIVER
+            </button>
+          </div>
+          <Badge v-if="activeTab === 'LOGS' && selectedVehicle" variant="outline" class="rounded-full border-slate-200 text-slate-500 font-mono">{{ selectedVehicle.license_plate }}</Badge>
+          <Badge v-else-if="activeTab === 'DRIVERS'" variant="secondary" class="rounded-full bg-primary/10 text-primary font-bold">{{ driverStatus.length }}</Badge>
         </div>
 
-        <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[500px]">
-          <!-- Vehicle Detail Preview if selected -->
-          <div v-if="selectedVehicle" class="p-6 border-b border-slate-50 bg-slate-50/20">
-            <div v-if="selectedVehicle.image_url" class="w-full h-48 rounded-3xl overflow-hidden mb-4 border border-slate-100 shadow-inner">
-               <img :src="baseUrl + selectedVehicle.image_url" class="w-full h-full object-cover" />
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-               <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-                  <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kapasitas Muatan</p>
-                  <p class="text-lg font-black text-primary">{{ selectedVehicle.capacity }} KG</p>
-               </div>
-               <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-                  <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tahun Kendaraan</p>
-                  <p class="text-lg font-black text-slate-700">{{ selectedVehicle.year }}</p>
-               </div>
-            </div>
-          </div>
-
-          <div v-if="!selectedVehicleId" class="flex flex-col items-center justify-center h-[500px] text-center p-8">
-            <div class="bg-slate-50 h-20 w-20 rounded-[2rem] flex items-center justify-center text-slate-200 mb-4">
-              <History class="h-10 w-10" />
-            </div>
-            <h3 class="font-bold text-slate-900">Pilih Kendaraan</h3>
-            <p class="text-sm text-slate-500 mt-1 max-w-xs mx-auto">Klik pada salah satu kendaraan di sebelah kiri untuk melihat riwayat aktivitasnya.</p>
-          </div>
-
-          <div v-else-if="loadingLogs" class="flex items-center justify-center h-[500px]">
-             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-
-          <div v-else class="p-2 h-[600px] overflow-y-auto custom-scrollbar">
-            <div v-if="vehicleStore.logs.length === 0" class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
-              <ClipboardList class="h-12 w-12 text-slate-300 mb-3" />
-              <p class="text-sm font-bold text-slate-400">Belum ada riwayat aktivitas</p>
+        <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+          
+          <!-- TAB: LOGS -->
+          <template v-if="activeTab === 'LOGS'">
+            <!-- Vehicle Detail Preview if selected -->
+            <div v-if="selectedVehicle" class="p-6 border-b border-slate-50 bg-slate-50/20">
+              <div v-if="selectedVehicle.image_url" class="w-full h-48 rounded-3xl overflow-hidden mb-4 border border-slate-100 shadow-inner">
+                 <img :src="baseUrl + selectedVehicle.image_url" class="w-full h-full object-cover" />
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                 <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kapasitas Muatan</p>
+                    <p class="text-lg font-black text-primary">{{ selectedVehicle.capacity }} KG</p>
+                 </div>
+                 <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tahun Kendaraan</p>
+                    <p class="text-lg font-black text-slate-700">{{ selectedVehicle.year }}</p>
+                 </div>
+              </div>
             </div>
 
-            <div v-else class="space-y-4 p-4">
-               <div v-for="log in vehicleStore.logs" :key="log.id" class="relative pl-8 before:absolute before:left-[11px] before:top-8 before:bottom-[-20px] before:w-[2px] before:bg-slate-100 last:before:hidden">
-                  <div class="absolute left-0 top-1 h-6 w-6 rounded-full bg-white border-4 border-slate-50 ring-2 ring-primary/20 z-10"></div>
-                  <div class="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 group hover:bg-white transition-all hover:shadow-sm">
-                    <div class="flex justify-between items-start mb-2">
-                       <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ formatDate(log.created_at) }}</p>
-                       <Badge class="bg-primary/10 text-primary border-none text-[9px] font-bold">{{ log.status }}</Badge>
+            <div v-if="!selectedVehicleId" class="flex-1 flex flex-col items-center justify-center text-center p-8">
+              <div class="bg-slate-50 h-20 w-20 rounded-[2rem] flex items-center justify-center text-slate-200 mb-4">
+                <History class="h-10 w-10" />
+              </div>
+              <h3 class="font-bold text-slate-900">Pilih Kendaraan</h3>
+              <p class="text-sm text-slate-500 mt-1 max-w-xs mx-auto">Klik kendaraan untuk melihat riwayat aktivitasnya.</p>
+            </div>
+
+            <div v-else-if="loadingLogs" class="flex-1 flex items-center justify-center">
+               <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+
+            <div v-else class="flex-1 p-2 overflow-y-auto custom-scrollbar min-h-0">
+              <div v-if="vehicleStore.logs.length === 0" class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
+                <ClipboardList class="h-12 w-12 text-slate-300 mb-3" />
+                <p class="text-sm font-bold text-slate-400">Belum ada riwayat aktivitas</p>
+              </div>
+
+              <div v-else class="space-y-4 p-4">
+                 <div v-for="log in vehicleStore.logs" :key="log.id" class="relative pl-8 before:absolute before:left-[11px] before:top-8 before:bottom-[-20px] before:w-[2px] before:bg-slate-100 last:before:hidden">
+                    <div class="absolute left-0 top-1 h-6 w-6 rounded-full bg-white border-4 border-slate-50 ring-2 ring-primary/20 z-10"></div>
+                    <div class="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 group hover:bg-white transition-all hover:shadow-sm">
+                      <div class="flex justify-between items-start mb-2">
+                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ formatDate(log.created_at) }}</p>
+                         <Badge class="bg-primary/10 text-primary border-none text-[9px] font-bold">{{ log.status }}</Badge>
+                      </div>
+                      <h4 class="font-bold text-slate-900 text-sm mb-1">{{ log.delivery_order_no || 'Tugas Delivery' }}</h4>
+                      <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                        <User class="h-3 w-3" />
+                        <span>Driver: {{ log.driver?.name || 'Unknown' }}</span>
+                      </div>
                     </div>
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">{{ log.delivery_order_no || 'Tugas Delivery' }}</h4>
-                    <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <User class="h-3 w-3" />
-                      <span>Driver: {{ log.driver?.name || 'Unknown' }}</span>
+                 </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- TAB: DRIVERS -->
+          <template v-else>
+            <div v-if="loadingDrivers" class="flex-1 flex items-center justify-center">
+               <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+            
+            <div v-else class="flex-1 p-4 overflow-y-auto custom-scrollbar min-h-0">
+               <div class="space-y-3">
+                 <div v-for="driver in driverStatus" :key="driver.id" class="p-5 bg-white border border-slate-100 rounded-3xl hover:border-primary/20 transition-all group shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                       <div class="flex items-center gap-3">
+                          <div class="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-all">
+                             <User class="h-5 w-5" />
+                          </div>
+                          <div>
+                             <h4 class="font-black text-slate-900 leading-none">{{ driver.first_name }} {{ driver.last_name }}</h4>
+                             <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{{ driver.job_position?.title || 'DRIVER' }}</p>
+                          </div>
+                       </div>
+                       <Badge :class="[
+                         driver.computedStatus === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-600' :
+                         driver.computedStatus === 'DELIVERING' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                       ]" class="rounded-full border-none text-[9px] font-black uppercase tracking-wider">
+                         {{ driver.computedStatus }}
+                       </Badge>
                     </div>
-                  </div>
+                    
+                    <div v-if="driver.currentTask" class="mt-4 p-3 bg-slate-50 rounded-2xl flex items-start gap-3 border border-slate-100">
+                       <div class="p-2 bg-white rounded-xl text-primary shadow-sm">
+                          <Truck class="h-3.5 w-3.5" />
+                       </div>
+                       <div>
+                          <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Aktifitas Saat Ini</p>
+                          <p class="text-xs font-black text-slate-700 mt-1.5">{{ driver.currentTask }}</p>
+                       </div>
+                    </div>
+                    <div v-else class="mt-4 p-3 border-2 border-dashed border-slate-50 rounded-2xl flex items-center justify-center">
+                       <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">Belum ada penugasan</p>
+                    </div>
+                 </div>
                </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
     </div>
@@ -270,8 +332,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, computed } from 'vue'
+import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useVehicleStore } from '@/stores/vehicle'
+import { useDeliveryStore } from '@/stores/delivery'
+import { useMasterDataStore } from '@/stores/masterData'
+import apiClient from '@/api/axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card/index'
 import { Badge } from '@/components/ui/badge/index'
@@ -292,15 +357,23 @@ import {
 import { toast } from 'vue-sonner'
 
 const vehicleStore = useVehicleStore()
+const deliveryStore = useDeliveryStore()
+const masterStore = useMasterDataStore()
+
 const showModal = ref(false)
 const isEditing = ref(false)
 const loading = ref(false)
 const loadingLogs = ref(false)
+const loadingDrivers = ref(false)
 const currentId = ref('')
 const selectedVehicleId = ref('')
+const activeTab = ref('LOGS') // 'LOGS' or 'DRIVERS'
+
 const imageFile = ref<File | null>(null)
 const imagePreview = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+
+const drivers = ref<any[]>([])
 
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
@@ -315,8 +388,54 @@ const form = reactive({
   capacity: 0
 })
 
+const fetchDrivers = async () => {
+  loadingDrivers.value = true
+  try {
+    const res = await apiClient.get(`/employees?company_id=${masterStore.selectedBranchCompanyId || ''}`)
+    if (res.data?.data) {
+      drivers.value = res.data.data.filter((emp: any) => {
+        const jobTitle = (emp.job_position?.title || '').toLowerCase()
+        return jobTitle.includes('driver') || jobTitle.includes('sopir') || jobTitle.includes('salesman')
+      })
+    }
+    await deliveryStore.fetchBatches()
+  } finally {
+    loadingDrivers.value = false
+  }
+}
+
+const driverStatus = computed(() => {
+  return drivers.value.map(driver => {
+    const activeBatch = deliveryStore.batches.find(b => b.driver_id === driver.id && b.status !== 'COMPLETED')
+    let status = 'AVAILABLE'
+    let currentTask = ''
+    
+    if (activeBatch) {
+      if (activeBatch.status === 'ON_DELIVERY' || activeBatch.status === 'PICKING') {
+        status = 'DELIVERING'
+        currentTask = activeBatch.delivery_order_no || 'Tugas Pengiriman'
+      } else {
+        status = 'WORKING'
+        currentTask = 'Persiapan / Standby'
+      }
+    }
+    
+    return {
+      ...driver,
+      computedStatus: status,
+      currentTask
+    }
+  })
+})
+
 onMounted(() => {
   vehicleStore.fetchVehicles()
+  fetchDrivers()
+})
+
+watch(() => masterStore.selectedBranchId, () => {
+  vehicleStore.fetchVehicles()
+  fetchDrivers()
 })
 
 const selectedVehicle = computed(() => {

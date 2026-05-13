@@ -334,7 +334,11 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       ),
       body: BlocListener<SyncBloc, SyncState>(
         listener: (context, state) {
-          if (state is SyncMasterDataSuccess) {
+          if (state is SyncSuccess) {
+            _fetchData();
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✓ Sinkronisasi berhasil!'), backgroundColor: Colors.green));
+          } else if (state is SyncMasterDataSuccess) {
+            _fetchData();
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✓ Data Master berhasil diperbarui!'), backgroundColor: Colors.green));
           } else if (state is SyncFailure) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal sinkronisasi: ${state.error}'), backgroundColor: Colors.red));
@@ -768,7 +772,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isLocal ? 'OFFLINE' : 'DI SERVER',
+                                isLocal ? 'OFFLINE' : (txn['payment_method'] == 'SALES_ORDER' ? 'SO: ${txn['status']}' : 'DI SERVER'),
                                 style: GoogleFonts.outfit(
                                   fontSize: 8, 
                                   fontWeight: FontWeight.w900, 

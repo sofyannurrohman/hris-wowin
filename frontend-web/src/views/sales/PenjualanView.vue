@@ -550,168 +550,154 @@ const openNotaPreview = (sale: any) => {
       </div>
     </div>
 
-    <!-- Sales Cards / List -->
-    <div class="grid grid-cols-1 gap-6">
-      <div 
-        v-for="sale in filteredSales" 
-        :key="sale.id"
-        class="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden group"
-      >
-        <div class="flex flex-col lg:flex-row lg:items-stretch">
-          <!-- Left Info -->
-          <div class="p-8 flex-1">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-3">
-                <img v-if="sale.receiptNo" :src="`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${sale.receiptNo}`" class="w-8 h-8 rounded border border-slate-200 shadow-sm" />
-                <div class="flex flex-col">
-                  <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-primary transition-colors flex items-center gap-1.5" @click="selectedQR = sale.receiptNo">
-                    {{ sale.receiptNo || 'NO RECEIPT' }}
-                    <Maximize2 class="w-3 h-3 opacity-40" />
-                  </span>
-                  <span class="text-[11px] font-bold text-slate-500">{{ sale.id.split('-')[0] }}...</span>
-                </div>
-              </div>
-              <div class="flex flex-col items-end gap-2">
-                <span :class="[
-                  'text-[11px] font-black px-3 py-1 rounded-lg',
-                  sale.status === 'PENDING' ? 'bg-amber-50 text-amber-600' :
-                  sale.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
-                  'bg-red-50 text-red-600'
-                ]">
-                  {{ sale.status }}
-                </span>
-              </div>
-            </div>
+    <!-- Sales Table -->
+    <div class="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <div class="overflow-x-auto no-scrollbar">
+        <table class="w-full border-collapse text-left">
+          <thead class="bg-slate-50/50 border-b border-slate-100">
+            <tr>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">No. Nota</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Toko / Customer</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salesman</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Metode</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Pembayaran</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total Omzet</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            <tr v-if="isLoading" v-for="i in 5" :key="i" class="animate-pulse">
+              <td v-for="j in 9" :key="j" class="p-6">
+                <div class="h-4 bg-slate-100 rounded-lg w-full"></div>
+              </td>
+            </tr>
             
-            <h3 class="text-xl font-extrabold text-slate-900 group-hover:text-primary transition-colors flex items-center gap-2">
-              <Store class="w-5 h-5 text-slate-400" />
-              {{ sale.store }}
-            </h3>
-            
-            <div class="grid grid-cols-2 gap-4 mt-6">
-              <div class="space-y-1">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salesman</p>
-                <div class="flex flex-col">
-                  <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <User class="w-3.5 h-3.5" /> {{ sale.salesman }}
-                  </p>
-                  <p class="text-[10px] font-medium text-slate-500 mt-0.5 ml-5">
-                    {{ sale.raw?.employee?.job_position?.title || 'Sales' }} • 
-                    {{ sale.raw?.employee?.company?.name || '-' }}
-                  </p>
+            <tr v-else-if="filteredSales.length === 0">
+              <td colspan="9" class="py-24 text-center">
+                <div class="flex flex-col items-center gap-3">
+                  <ClipboardList class="w-12 h-12 text-slate-200" />
+                  <p class="font-bold text-slate-400">Tidak ada transaksi ditemukan.</p>
                 </div>
-              </div>
-              <div class="space-y-1">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waktu Input</p>
-                <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <Clock class="w-3.5 h-3.5" /> {{ sale.date }}
-                </p>
-              </div>
-            </div>
+              </td>
+            </tr>
 
-            <div class="mt-6 pt-6 border-t border-slate-100">
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Item Terjual</p>
-              <div class="flex flex-wrap gap-2">
-                <span v-for="item in sale.items" :key="item" class="text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                  {{ item }}
-                </span>
-              </div>
-
-              <div v-if="sale.deliveryOrders.length > 0" class="mt-6 pt-6 border-t border-dashed border-slate-100">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Riwayat Logistik / Surat Jalan</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div 
-                    v-for="doItem in sale.deliveryOrders" 
-                    :key="doItem.no" 
-                    @click="openSJPriority(doItem)"
-                    class="flex items-center justify-between bg-slate-900 text-white p-3 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-800 transition-all group/sj"
-                  >
-                    <div class="flex items-center gap-3">
-                      <div class="bg-white/10 p-2 rounded-xl group-hover/sj:bg-primary transition-colors">
-                        <Truck class="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <p class="text-[10px] font-black text-white/50 uppercase tracking-widest leading-none">Nomor SJ</p>
-                        <p class="text-xs font-black mt-1">{{ doItem.no || 'DALAM PROSES' }}</p>
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                       <p class="text-[9px] font-black px-2 py-1 bg-white/10 rounded-lg uppercase tracking-wider">{{ doItem.status }}</p>
-                       <Printer class="w-3.5 h-3.5 text-white/40 group-hover/sj:text-white transition-colors" />
-                    </div>
+            <tr 
+              v-for="sale in filteredSales" 
+              :key="sale.id"
+              class="group hover:bg-slate-50/50 transition-all"
+            >
+              <td class="p-6">
+                <div class="flex items-center gap-3">
+                   <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                      <FileText class="w-4 h-4 text-slate-400" />
+                   </div>
+                   <div>
+                     <p class="text-sm font-black text-slate-900 leading-none">{{ sale.receiptNo || 'MANUAL' }}</p>
+                     <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{{ sale.id.split('-')[0] }}</p>
+                   </div>
+                </div>
+              </td>
+              <td class="p-6">
+                <div class="flex items-center gap-2">
+                  <Store class="w-4 h-4 text-slate-300" />
+                  <div>
+                    <p class="text-sm font-black text-slate-900 leading-none">{{ sale.store }}</p>
+                    <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">
+                      {{ sale.storeCategory }} • {{ sale.rawItems?.length || 0 }} SKU
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </td>
+              <td class="p-6">
+                <div class="flex items-center gap-2">
+                  <User class="w-4 h-4 text-slate-300" />
+                  <p class="text-sm font-bold text-slate-700">{{ sale.salesman }}</p>
+                </div>
+              </td>
+              <td class="p-6">
+                <div class="flex items-center gap-2">
+                  <Calendar class="w-4 h-4 text-slate-300" />
+                  <p class="text-sm font-bold text-slate-700">{{ sale.date }}</p>
+                </div>
+              </td>
+              <td class="p-6">
+                <span class="text-[10px] font-black px-2 py-1 bg-slate-100 text-slate-500 rounded-lg uppercase border border-slate-200">
+                  {{ sale.raw?.payment_method || 'COD' }}
+                </span>
+              </td>
+              <td class="p-6">
+                <div class="flex justify-center">
+                  <span :class="[
+                    'text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-tighter border',
+                    sale.raw?.payment_status === 'PAID' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
+                  ]">
+                    {{ sale.raw?.payment_status || 'UNPAID' }}
+                  </span>
+                </div>
+              </td>
+              <td class="p-6 text-right">
+                <p class="text-sm font-black text-slate-900">{{ formatCurrency(sale.amount) }}</p>
+              </td>
+              <td class="p-6">
+                <div class="flex justify-center">
+                  <span :class="[
+                    'text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border',
+                    sale.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                    sale.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    'bg-red-50 text-red-600 border-red-100'
+                  ]">
+                    {{ sale.status }}
+                  </span>
+                </div>
+              </td>
+              <td class="p-6 text-right">
+                <div class="flex justify-end gap-1">
+                  <!-- Approval Actions for Pending -->
+                  <template v-if="sale.status === 'PENDING'">
+                    <button 
+                      @click="handleApprove(sale.id)"
+                      class="p-2 hover:bg-emerald-50 rounded-xl transition-all text-emerald-500"
+                      title="Setujui"
+                    >
+                      <CheckCircle2 class="w-5 h-5" />
+                    </button>
+                    <button 
+                      @click="handleReject(sale.id)"
+                      class="p-2 hover:bg-red-50 rounded-xl transition-all text-red-500"
+                      title="Tolak"
+                    >
+                      <XCircle class="w-5 h-5" />
+                    </button>
+                  </template>
 
-          <!-- Middle: Amount -->
-          <div class="bg-slate-50/50 p-8 lg:w-64 flex flex-col justify-center items-center border-y lg:border-y-0 lg:border-x border-slate-100 text-center">
-            <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Nilai Transaksi</p>
-            <h4 class="text-2xl font-black text-slate-900">{{ formatCurrency(sale.amount) }}</h4>
-          </div>
-
-          <!-- Right: Photo & Actions -->
-          <div class="p-8 lg:w-80 flex flex-col justify-between gap-6">
-            <div class="relative h-48 bg-slate-100 rounded-2xl overflow-hidden cursor-pointer group/img" @click="openImagePreview(sale.notaImage)">
-              <img :src="sale.notaImage" class="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
-              <div class="absolute inset-0 bg-slate-900/0 group-hover/img:bg-slate-900/20 transition-all flex items-center justify-center">
-                <Maximize2 class="w-8 h-8 text-white opacity-0 group-hover/img:opacity-100 transition-all scale-50 group-hover/img:scale-100" />
-              </div>
-              <div class="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg shadow-sm">
-                <p class="text-[10px] font-black text-slate-900 flex items-center gap-1.5">
-                  <ImageIcon class="w-3 h-3 text-primary" /> FOTO NOTA
-                </p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-               <!-- Status Based Actions -->
-               <div v-if="sale.status === 'PENDING'" class="flex gap-3">
-                 <button 
-                   @click="handleApprove(sale.id)"
-                   class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
-                 >
-                   <CheckCircle2 class="w-4 h-4" /> SETUJUI
-                 </button>
-                 <button 
-                   @click="handleReject(sale.id)"
-                   class="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
-                 >
-                   <XCircle class="w-4 h-4" /> TOLAK
-                 </button>
-               </div>
-               <div v-else-if="sale.status === 'APPROVED'" class="bg-emerald-50 text-emerald-700 rounded-2xl py-3 px-4 text-xs font-black flex items-center justify-center gap-2 border border-emerald-100">
-                 <CheckCircle2 class="w-4 h-4" /> SIAP DIKIRIM (MENUNGGU BATCH)
-               </div>
-               <div v-else-if="sale.status === 'REJECTED'" class="bg-red-50 text-red-700 rounded-2xl py-3 px-4 text-xs font-black flex items-center justify-center gap-2 border border-red-100">
-                 <XCircle class="w-4 h-4" /> TRANSAKSI DITOLAK
-               </div>
-
-                <!-- Admin General Actions -->
-                <div class="flex flex-wrap gap-3">
                   <button 
                     @click="openNotaPreview(sale)"
-                    class="flex-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2 border border-primary/10"
+                    class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-primary"
+                    title="Cetak Nota"
                   >
-                    <Printer class="w-4 h-4" /> CETAK NOTA
+                    <Printer class="w-5 h-5" />
                   </button>
                   <button 
                     @click="handleEdit(sale)"
-                    class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
+                    class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-amber-500"
+                    title="Edit"
                   >
-                    <Pencil class="w-4 h-4" /> EDIT
+                    <Pencil class="w-5 h-5" />
                   </button>
                   <button 
                     @click="handleDelete(sale.id)"
-                    class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl py-3 text-xs font-black transition-all flex items-center justify-center gap-2"
+                    class="p-2 hover:bg-red-50 rounded-xl transition-all text-red-400 hover:text-red-600"
+                    title="Hapus"
                   >
-                    <Trash2 class="w-4 h-4" /> HAPUS
+                    <Trash2 class="w-5 h-5" />
                   </button>
                 </div>
-            </div>
-          </div>
-        </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 

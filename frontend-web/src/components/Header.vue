@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useLayoutStore } from '@/stores/layout'
 import { useMasterDataStore } from '@/stores/masterData'
-import { Menu, Search, Bell, Briefcase, Users, PieChart, ChevronDown, Factory, Warehouse, Building2 } from 'lucide-vue-next'
+import { Menu, Search, Bell, Briefcase, Users, PieChart, ChevronDown, Factory, Warehouse, Building2, Globe } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -108,7 +108,7 @@ const handleModuleChange = (moduleId: string) => {
 
     <div class="flex items-center gap-3 md:gap-6">
       <!-- Branch Selector -->
-      <div v-if="masterDataStore.branches.length > 0" class="hidden sm:block">
+      <div class="hidden sm:block">
         <Select :model-value="masterDataStore.selectedBranchId || undefined" @update:model-value="(val) => masterDataStore.setSelectedBranchId(val as string)">
           <SelectTrigger class="w-[180px] h-10 bg-slate-100/50 border-slate-200/50 rounded-xl focus:ring-primary/20">
             <div class="flex items-center gap-2 text-slate-700">

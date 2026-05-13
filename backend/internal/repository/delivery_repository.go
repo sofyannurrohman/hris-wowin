@@ -16,6 +16,7 @@ type DeliveryRepository interface {
 	GetBatchesHistoryByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error)
 	ListBatches() ([]domain.DeliveryBatch, error)
 	GetItemByReceiptNo(receiptNo string) (*domain.DeliveryItem, error)
+	GetItemBySONumber(soNumber string) (*domain.DeliveryItem, error)
 	DeleteBatch(id uuid.UUID) error
 }
 
@@ -27,29 +28,40 @@ func NewDeliveryRepository(db *gorm.DB) DeliveryRepository {
 	return &deliveryRepository{db}
 }
 
+// preloadBatch adalah helper untuk memuat semua relasi yang dibutuhkan secara konsisten.
+func (r *deliveryRepository) preloadBatch(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("Driver").
+		Preload("Vehicle").
+		Preload("AdminNota").
+		Preload("Supervisor").
+		// Alur baru: muat SalesOrder beserta relasinya
+		Preload("Items.SalesOrder").
+		Preload("Items.SalesOrder.Store").
+		Preload("Items.SalesOrder.Employee").
+		Preload("Items.SalesOrder.Items").
+		Preload("Items.SalesOrder.Items.Product").
+		// Legacy: muat SalesTransaction untuk data lama
+		Preload("Items.SalesTransaction").
+		Preload("Items.SalesTransaction.Store").
+		Preload("Items.SalesTransaction.Employee").
+		Preload("Items.SalesTransaction.Items.Product")
+}
+
 func (r *deliveryRepository) CreateBatch(batch *domain.DeliveryBatch) error {
 	return r.db.Create(batch).Error
 }
 
 func (r *deliveryRepository) GetBatchByDO(doNo string) (*domain.DeliveryBatch, error) {
 	var batch domain.DeliveryBatch
-	err := r.db.Preload("Driver").Preload("Vehicle").
-		Preload("AdminNota").Preload("Supervisor").
-		Preload("Items.SalesTransaction.Store").
-		Preload("Items.SalesTransaction.Employee").
-		Preload("Items.SalesTransaction.Items.Product").
+	err := r.preloadBatch(r.db).
 		Where("delivery_order_no = ?", doNo).First(&batch).Error
 	return &batch, err
 }
 
 func (r *deliveryRepository) GetBatchByID(id uuid.UUID) (*domain.DeliveryBatch, error) {
 	var batch domain.DeliveryBatch
-	err := r.db.Preload("Driver").Preload("Vehicle").
-		Preload("AdminNota").Preload("Supervisor").
-		Preload("Items.SalesTransaction.Store").
-		Preload("Items.SalesTransaction.Employee").
-		Preload("Items.SalesTransaction.Items.Product").
-		First(&batch, id).Error
+	err := r.preloadBatch(r.db).First(&batch, id).Error
 	return &batch, err
 }
 
@@ -68,15 +80,22 @@ func (r *deliveryRepository) UpdateItem(item *domain.DeliveryItem) error {
 
 func (r *deliveryRepository) GetBatchesByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {
 	var batches []domain.DeliveryBatch
-	err := r.db.Preload("Items.SalesTransaction.Store").
-		Where("driver_id = ? AND status != ?", driverID, domain.DeliveryBatchCompleted).
+	err := r.db.
+		Preload("Items.SalesOrder.Store").
+		Preload("Items.SalesOrder.Items.Product").
+		Preload("Items.SalesTransaction.Store").
+		Where("driver_id = ? AND status NOT IN ?", driverID,
+			[]domain.DeliveryBatchStatus{domain.DeliveryBatchCompleted}).
 		Order("created_at DESC").Find(&batches).Error
 	return batches, err
 }
 
 func (r *deliveryRepository) GetBatchesHistoryByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {
 	var batches []domain.DeliveryBatch
-	err := r.db.Preload("Items.SalesTransaction.Store").
+	err := r.db.
+		Preload("Items.SalesOrder.Store").
+		Preload("Items.SalesOrder.Items.Product").
+		Preload("Items.SalesTransaction.Store").
 		Preload("Items.SalesTransaction.Items.Product").
 		Where("driver_id = ? AND status = ?", driverID, domain.DeliveryBatchCompleted).
 		Order("finished_at DESC").Find(&batches).Error
@@ -85,8 +104,7 @@ func (r *deliveryRepository) GetBatchesHistoryByDriver(driverID uuid.UUID) ([]do
 
 func (r *deliveryRepository) ListBatches() ([]domain.DeliveryBatch, error) {
 	var batches []domain.DeliveryBatch
-	err := r.db.Preload("Driver").Preload("Vehicle").
-		Preload("Items.SalesTransaction.Store").
+	err := r.preloadBatch(r.db).
 		Order("created_at DESC").Find(&batches).Error
 	return batches, err
 }
@@ -96,6 +114,17 @@ func (r *deliveryRepository) GetItemByReceiptNo(receiptNo string) (*domain.Deliv
 	err := r.db.Preload("SalesTransaction").
 		Joins("JOIN sales_transactions ON sales_transactions.id = delivery_items.sales_transaction_id").
 		Where("sales_transactions.receipt_no = ?", receiptNo).
+		First(&item).Error
+	return &item, err
+}
+
+func (r *deliveryRepository) GetItemBySONumber(soNumber string) (*domain.DeliveryItem, error) {
+	var item domain.DeliveryItem
+	err := r.db.Preload("SalesOrder").
+		Preload("SalesOrder.Store").
+		Preload("SalesOrder.Items.Product").
+		Joins("JOIN sales_orders ON sales_orders.id = delivery_items.sales_order_id").
+		Where("sales_orders.so_number = ?", soNumber).
 		First(&item).Error
 	return &item, err
 }

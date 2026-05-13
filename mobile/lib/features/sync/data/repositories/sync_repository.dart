@@ -76,6 +76,9 @@ class SyncRepository {
         final validItems = items.where((i) => i.productId.isNotEmpty && i.productId != '00000000-0000-0000-0000-000000000000').map((i) => {
           'product_id': i.productId,
           'quantity': i.quantity,
+          'ordered_quantity': i.orderedQuantity,
+          'unit': i.unit,
+          'pieces_per_unit': i.piecesPerUnit,
           'price': i.price,
         }).toList();
 
@@ -185,6 +188,7 @@ class SyncRepository {
                 sellingPrice: (p['selling_price'] ?? p['sellingPrice'] ?? p['SellingPrice'] ?? 0 as num).toDouble(),
                 sku: Value(p['sku'] ?? p['SKU']),
                 unit: Value(p['unit'] ?? p['Unit']),
+                pcsPerUnit: Value(p['pcs_per_unit'] ?? p['pcsPerUnit'] ?? p['PcsPerUnit'] ?? 1),
                 category: Value(p['category'] ?? p['Category']),
                 imageUrl: Value(p['image_url'] ?? p['imageUrl']),
               )), mode: InsertMode.insertOrReplace);
@@ -219,6 +223,7 @@ class SyncRepository {
             sellingPrice: (p['selling_price'] ?? p['sellingPrice'] ?? p['SellingPrice'] ?? 0 as num).toDouble(),
             sku: Value(p['sku'] ?? p['SKU']),
             unit: Value(p['unit'] ?? p['Unit']),
+            pcsPerUnit: Value(p['pcs_per_unit'] ?? p['pcsPerUnit'] ?? p['PcsPerUnit'] ?? 1),
             category: Value(p['category'] ?? p['Category']),
             imageUrl: Value(p['image_url'] ?? p['imageUrl']),
           )), mode: InsertMode.insertOrReplace);
@@ -250,6 +255,7 @@ class SyncRepository {
                 sellingPrice: (p['selling_price'] ?? p['sellingPrice'] ?? p['SellingPrice'] ?? 0 as num).toDouble(),
                 sku: Value(p['sku'] ?? p['SKU']),
                 unit: Value(p['unit'] ?? p['Unit']),
+                pcsPerUnit: Value(p['pcs_per_unit'] ?? p['pcsPerUnit'] ?? p['PcsPerUnit'] ?? 1),
                 category: Value(p['category'] ?? p['Category']),
                 warehouseStock: Value((item['quantity'] ?? item['Quantity'] ?? 0 as num).toInt()),
                 imageUrl: Value(p['image_url'] ?? p['imageUrl']),

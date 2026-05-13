@@ -370,8 +370,9 @@ func (u *factoryUsecase) RequestShipment(fromFactoryID, toBranchID uuid.UUID, it
 			}
 		}
 
-		// 2. Generate a common DO number for this shipment
-		doNo := fmt.Sprintf("SJ/%s/%s", time.Now().Format("20060102"), strings.ToUpper(uuid.New().String()[:6]))
+		// 2. Generate a common DO number for this shipment (SJ - Surat Jalan)
+		now := time.Now()
+		doNo := fmt.Sprintf("SJ-%s-%s", now.Format("20060102"), strings.ToUpper(uuid.New().String()[:6]))
 
 		fmt.Printf("DEBUG: Processing Shipment Request with %d items\n", len(items))
 		for _, item := range items {
@@ -452,12 +453,13 @@ func (u *factoryUsecase) ExecuteApprovedShipment(transferID uuid.UUID) error {
 			return err
 		}
 
-		// 4. Update Status to SHIPPED and Generate DO No
+		// 4. Update Status to SHIPPED. Keep the existing SJ number if present.
 		now := time.Now()
 		transfer.Status = "SHIPPED"
 		transfer.ShippedAt = &now
-		// Format: DO-[YYYYMMDD]-[UUID8]
-		transfer.DeliveryOrderNo = fmt.Sprintf("DO-%s-%s", now.Format("20060102"), uuid.New().String()[:8])
+		if transfer.DeliveryOrderNo == "" {
+			transfer.DeliveryOrderNo = fmt.Sprintf("SJ-%s-%s", now.Format("20060102"), strings.ToUpper(uuid.New().String()[:6]))
+		}
 
 		if err := repo.UpdateTransfer(transfer); err != nil {
 			return err

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,6 +44,13 @@ type SalesUsecase interface {
 	CountByCompanyAndDate(companyID uuid.UUID, date time.Time) (int64, error)
 	HandleMidtransNotification(notificationPayload map[string]interface{}) error
 	GetProductSalesDistribution(productID uuid.UUID, companyID uuid.UUID) ([]map[string]interface{}, error)
+
+	// Visit Management
+	RecordVisit(req RecordVisitRequest) error
+	GetVisitHistory(limit, offset int, employeeID, branchID *uuid.UUID, startDate, endDate *time.Time) ([]domain.SalesVisit, error)
+	CreateVisit(req RecordVisitRequest) error
+	UpdateVisit(id uuid.UUID, req RecordVisitRequest) error
+	DeleteVisit(id uuid.UUID) error
 }
 
 type VisitPlanItem struct {
@@ -72,9 +80,12 @@ type CreateTransactionRequest struct {
 }
 
 type SalesItemRequest struct {
-	ProductID uuid.UUID `json:"product_id"`
-	Quantity  int       `json:"quantity"`
-	Price     float64   `json:"price"`
+	ProductID       uuid.UUID `json:"product_id"`
+	Quantity        int       `json:"quantity"`         // Total pieces
+	OrderedQuantity int       `json:"ordered_quantity"` // e.g., 2 (Kartons)
+	Unit            string    `json:"unit"`             // e.g., 'KRT'
+	PiecesPerUnit   int       `json:"pieces_per_unit"`  // e.g., 24
+	Price           float64   `json:"price"`
 }
 
 type RecordPaymentRequest struct {
@@ -91,12 +102,27 @@ type VerifyTransactionRequest struct {
 	TotalAmount float64 `json:"total_amount"`
 	Notes       string  `json:"notes"` // Catatan dari finalisasi
 }
+
+type RecordVisitRequest struct {
+	EmployeeID uuid.UUID `json:"employee_id"`
+	StoreID    uuid.UUID `json:"store_id"`
+	Latitude   float64   `json:"latitude"`
+	Longitude  float64   `json:"longitude"`
+	SelfieURL  string    `json:"selfie_url"`
+	Type       string    `json:"type"` // CHECKIN, CHECKOUT
+	CheckTime  time.Time `json:"check_time"`
+	Notes      string    `json:"notes"`
+}
+
 type salesUsecase struct {
 	salesRepo       repository.SalesTransactionRepository
 	performanceRepo repository.PerformanceRepository
 	storeRepo       repository.StoreRepository
 	attendanceRepo  repository.AttendanceRepository
 	companyRepo     repository.CompanyRepository
+	employeeRepo    repository.EmployeeRepository
+	soUsecase       SalesOrderUsecase
+	visitRepo       repository.SalesVisitRepository
 	midtransClient  *midtrans.MidtransClient
 }
 
@@ -106,6 +132,9 @@ func NewSalesUsecase(
 	storeRepo repository.StoreRepository,
 	attendanceRepo repository.AttendanceRepository,
 	companyRepo repository.CompanyRepository,
+	employeeRepo repository.EmployeeRepository,
+	soUsecase SalesOrderUsecase,
+	visitRepo repository.SalesVisitRepository,
 	midtransClient *midtrans.MidtransClient,
 ) SalesUsecase {
 	return &salesUsecase{
@@ -114,6 +143,9 @@ func NewSalesUsecase(
 		storeRepo:       storeRepo,
 		attendanceRepo:  attendanceRepo,
 		companyRepo:     companyRepo,
+		employeeRepo:    employeeRepo,
+		soUsecase:       soUsecase,
+		visitRepo:       visitRepo,
 		midtransClient:  midtransClient,
 	}
 }
@@ -279,12 +311,52 @@ func (u *salesUsecase) GetSummaryKPI(month, year int) (map[string]interface{}, e
 }
 
 func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.SalesTransaction, error) {
-	receiptNo := req.ReceiptNo
-	if receiptNo == "" {
-		// Format: WOW-[YYYYMMDD]-[RANDOM]
-		now := time.Now()
-		randomPart := uuid.New().String()[:4]
-		receiptNo = fmt.Sprintf("WOW-%s-%s", now.Format("20060102"), randomPart)
+	if req.PaymentMethod == "SALES_ORDER" {
+		// 1. Resolve BranchID from Employee
+		emp, err := u.employeeRepo.FindByID(req.EmployeeID)
+		if err != nil || emp == nil {
+			return nil, fmt.Errorf("failed to resolve employee for sales order: %v", err)
+		}
+		if emp.BranchID == nil {
+			return nil, errors.New("employee must be assigned to a branch to create sales orders")
+		}
+
+		// 2. Map to CreateSORequest
+		// Use BranchID and CompanyID from employee record for maximum reliability
+		soReq := CreateSORequest{
+			BranchID:      *emp.BranchID,
+			CompanyID:     *emp.CompanyID,
+			EmployeeID:    emp.ID,
+			StoreID:       req.StoreID,
+			StoreCategory: req.StoreCategory,
+			Notes:         req.Notes,
+		}
+
+		for _, it := range req.Items {
+			soReq.Items = append(soReq.Items, SOItemRequest{
+				ProductID:       it.ProductID,
+				OrderedQuantity: it.OrderedQuantity,
+				Unit:            it.Unit,
+				PiecesPerUnit:   it.PiecesPerUnit,
+				Price:           it.Price,
+			})
+		}
+
+		// 3. Call SO Usecase
+		so, err := u.soUsecase.CreateSO(soReq)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sales order: %v", err)
+		}
+
+		// 4. Return "fake" transaction to satisfy mobile app sync
+		return &domain.SalesTransaction{
+			ID:              so.ID,
+			ReceiptNo:       so.SONumber,
+			TotalAmount:     so.TotalAmount,
+			TransactionDate: so.OrderDate,
+			Status:          string(so.Status),
+			PaymentMethod:   "SALES_ORDER",
+		}, nil
 	}
 
 	paymentStatus := string(domain.PaymentStatusUnpaid)
@@ -304,11 +376,26 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 			compCode = comp.Code
 		}
 		
-		receiptNo = fmt.Sprintf("INV-%s-%s-%04d", compCode, req.TransactionDate.Format("20060102"), count+1)
-		req.ReceiptNo = receiptNo
+		req.ReceiptNo = fmt.Sprintf("INV-%s-%s-%04d", compCode, req.TransactionDate.Format("20060102"), count+1)
+	}
+
+	// Try to find actual visit for today to link it
+	visit, _ := u.visitRepo.FindTodayByEmployeeAndStore(req.EmployeeID, req.StoreID)
+	var visitID *uuid.UUID
+	if visit != nil {
+		visitID = &visit.ID
+	}
+
+	receiptNo := req.ReceiptNo
+	if receiptNo == "" {
+		// Format: WOW-[YYYYMMDD]-[RANDOM]
+		now := time.Now()
+		randomPart := uuid.New().String()[:4]
+		receiptNo = fmt.Sprintf("WOW-%s-%s", now.Format("20060102"), randomPart)
 	}
 
 	trx := &domain.SalesTransaction{
+		VisitID:         visitID,
 		CompanyID:       req.CompanyID,
 		StoreID:         req.StoreID,
 		EmployeeID:      req.EmployeeID,
@@ -406,7 +493,7 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 	// Create initial payment record if paid
 	if req.PaidAmount > 0 {
 		payment := &domain.SalesPayment{
-			SalesTransactionID: trx.ID,
+			SalesTransactionID: &trx.ID,
 			EmployeeID:         req.EmployeeID,
 			Amount:             req.PaidAmount,
 			PaymentDate:        req.TransactionDate,
@@ -459,7 +546,7 @@ func (u *salesUsecase) RecordPayment(req RecordPaymentRequest) error {
 	}
 
 	payment := &domain.SalesPayment{
-		SalesTransactionID: trx.ID,
+		SalesTransactionID: &trx.ID,
 		EmployeeID:         req.EmployeeID,
 		Amount:             req.Amount,
 		PaymentDate:        paymentDate,
@@ -479,10 +566,6 @@ func (u *salesUsecase) GetTransactionsByDueDate(date time.Time, employeeID uuid.
 }
 
 func (u *salesUsecase) GetPendingTransactions(employeeID uuid.UUID) ([]domain.SalesTransaction, error) {
-	// Re-using the repository, maybe filtering by status PENDING manually or we add a repo method.
-	// We'll fetch all by employee and period, but filtering manually is fine for now, or just add a method.
-	// Since repo only has GetTransactionsByEmployeeAndPeriod, let's use FindAll and filter.
-	// In a real app we'd add GetPendingByEmployee to repo.
 	all, err := u.salesRepo.FindAll()
 	if err != nil {
 		return nil, err
@@ -494,6 +577,18 @@ func (u *salesUsecase) GetPendingTransactions(employeeID uuid.UUID) ([]domain.Sa
 			pending = append(pending, t)
 		}
 	}
+
+	// Include Sales Orders (Draft, Waiting Warehouse/Stock, Processing)
+	orders, _ := u.soUsecase.GetSOByEmployee(employeeID)
+	for _, so := range orders {
+		if so.Status == domain.SOStatusDraft || 
+		   so.Status == domain.SOStatusWaitingWarehouse || 
+		   so.Status == domain.SOStatusWaitingStock || 
+		   so.Status == domain.SOStatusProcessing {
+			pending = append(pending, u.mapSOToTransaction(so))
+		}
+	}
+
 	return pending, nil
 }
 
@@ -504,15 +599,41 @@ func (u *salesUsecase) GetHistoryTransactions(employeeID uuid.UUID) ([]domain.Sa
 	}
 
 	var history []domain.SalesTransaction
-	// Let's return all transactions for the employee (or just VERIFIED, depending on need. The user wants log checkin/checkout, upload nota, etc. So returning all makes sense).
 	for _, t := range all {
 		if t.EmployeeID == employeeID {
 			history = append(history, t)
 		}
 	}
+
+	// Include Sales Orders
+	orders, _ := u.soUsecase.GetSOByEmployee(employeeID)
+	for _, so := range orders {
+		history = append(history, u.mapSOToTransaction(so))
+	}
 	
-	// Normally we would sort by date descending here, but let's assume it's sorted by creation order in FindAll.
+	// Sort by date descending
+	sort.Slice(history, func(i, j int) bool {
+		return history[i].CreatedAt.After(history[j].CreatedAt)
+	})
+
 	return history, nil
+}
+
+func (u *salesUsecase) mapSOToTransaction(so domain.SalesOrder) domain.SalesTransaction {
+	return domain.SalesTransaction{
+		ID:              so.ID,
+		ReceiptNo:       so.SONumber,
+		TotalAmount:     so.TotalAmount,
+		TransactionDate: so.OrderDate,
+		Status:          string(so.Status),
+		PaymentMethod:   "SALES_ORDER",
+		CreatedAt:       so.CreatedAt,
+		UpdatedAt:       so.UpdatedAt,
+		EmployeeID:      so.EmployeeID,
+		StoreID:         so.StoreID,
+		Store:           so.Store,
+		Notes:           &so.Notes,
+	}
 }
 
 func (u *salesUsecase) VerifyTransaction(id uuid.UUID, req VerifyTransactionRequest) error {
@@ -688,18 +809,18 @@ func (u *salesUsecase) GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]Vis
 		return nil, err
 	}
 
-	// 3. Fetch Actual Visits for today (via transactions)
-	// Better approach: Get all transactions for today and their VisitID (AttendanceLog).
-	allTrxs, err := u.salesRepo.FindAll() // Should filter by date in real app
+	// 3. Fetch Actual Visits for today
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	
+	actualVisits, err := u.visitRepo.FindAllHistory(100, 0, &employeeID, nil, &startOfDay, &endOfDay)
 	if err != nil {
 		return nil, err
 	}
 
-	trxVisitedMap := make(map[uuid.UUID]*uuid.UUID) // StoreID -> VisitID
-	for _, trx := range allTrxs {
-		if trx.EmployeeID == employeeID && trx.TransactionDate.Format("2006-01-02") == date.Format("2006-01-02") {
-			trxVisitedMap[trx.StoreID] = trx.VisitID
-		}
+	visitMap := make(map[uuid.UUID]uuid.UUID) // StoreID -> VisitID
+	for _, v := range actualVisits {
+		visitMap[v.StoreID] = v.ID
 	}
 
 	var result []VisitPlanItem
@@ -709,9 +830,9 @@ func (u *salesUsecase) GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]Vis
 	for _, store := range scheduledStores {
 		status := "PLANNED"
 		var visitID *uuid.UUID
-		if vid, exists := trxVisitedMap[store.ID]; exists {
+		if vid, exists := visitMap[store.ID]; exists {
 			status = "COMPLETED"
-			visitID = vid
+			visitID = &vid
 		}
 
 		result = append(result, VisitPlanItem{
@@ -726,21 +847,15 @@ func (u *salesUsecase) GetVisitPlan(employeeID uuid.UUID, date time.Time) ([]Vis
 	}
 
 	// Add Extra Visits (Visited but not in schedule)
-	for storeID, visitID := range trxVisitedMap {
-		if !scheduledMap[storeID] {
-			// Fetch store info
-			store, err := u.storeRepo.FindByID(storeID)
-			if err != nil || store == nil {
-				continue
-			}
-
+	for _, v := range actualVisits {
+		if !scheduledMap[v.StoreID] {
 			result = append(result, VisitPlanItem{
-				StoreID:   store.ID,
-				StoreName: store.Name,
-				Address:   store.Address,
+				StoreID:   v.StoreID,
+				StoreName: v.Store.Name,
+				Address:   v.Store.Address,
 				Status:    "EXTRA",
 				IsExtra:   true,
-				VisitID:   visitID,
+				VisitID:   &v.ID,
 			})
 		}
 	}
@@ -806,3 +921,74 @@ func (u *salesUsecase) GetProductSalesDistribution(productID uuid.UUID, companyI
 	return u.salesRepo.GetProductSalesDistribution(productID, companyID)
 }
 
+
+func (u *salesUsecase) RecordVisit(req RecordVisitRequest) error {
+	visit := &domain.SalesVisit{
+		EmployeeID:  req.EmployeeID,
+		StoreID:     req.StoreID,
+		CheckInTime: req.CheckTime,
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
+		SelfieURL:   req.SelfieURL,
+		Type:        req.Type,
+		Notes:       req.Notes,
+	}
+
+	if req.Type == "CHECKOUT" {
+		existing, _ := u.visitRepo.FindTodayByEmployeeAndStore(req.EmployeeID, req.StoreID)
+		if existing != nil {
+			existing.CheckOutTime = &req.CheckTime
+			if req.Notes != "" {
+				existing.Notes = req.Notes
+			}
+			return u.visitRepo.Update(existing)
+		}
+	}
+
+	return u.visitRepo.Create(visit)
+}
+
+func (u *salesUsecase) GetVisitHistory(limit, offset int, employeeID, branchID *uuid.UUID, startDate, endDate *time.Time) ([]domain.SalesVisit, error) {
+	return u.visitRepo.FindAllHistory(limit, offset, employeeID, branchID, startDate, endDate)
+}
+
+func (u *salesUsecase) CreateVisit(req RecordVisitRequest) error {
+	visit := &domain.SalesVisit{
+		EmployeeID:  req.EmployeeID,
+		StoreID:     req.StoreID,
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
+		SelfieURL:   req.SelfieURL,
+		Type:        req.Type,
+		CheckInTime: req.CheckTime,
+		Notes:       req.Notes,
+	}
+	return u.visitRepo.Create(visit)
+}
+
+func (u *salesUsecase) UpdateVisit(id uuid.UUID, req RecordVisitRequest) error {
+	visit, err := u.visitRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if visit == nil {
+		return errors.New("visit not found")
+	}
+
+	visit.EmployeeID = req.EmployeeID
+	visit.StoreID = req.StoreID
+	visit.Latitude = req.Latitude
+	visit.Longitude = req.Longitude
+	if req.SelfieURL != "" {
+		visit.SelfieURL = req.SelfieURL
+	}
+	visit.Type = req.Type
+	visit.CheckInTime = req.CheckTime
+	visit.Notes = req.Notes
+
+	return u.visitRepo.Update(visit)
+}
+
+func (u *salesUsecase) DeleteVisit(id uuid.UUID) error {
+	return u.visitRepo.Delete(id)
+}

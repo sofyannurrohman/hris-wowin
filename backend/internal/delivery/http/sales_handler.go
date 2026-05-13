@@ -32,6 +32,10 @@ func (h *SalesHandler) RegisterRoutes(router *gin.RouterGroup) {
 		sales.GET("/transactions/all", h.GetAllTransactions)
 		sales.GET("/transactions/next-receipt-no", h.GetNextReceiptNo)
 		sales.GET("/delivery-pending", h.GetTransactions)
+		sales.GET("/visits", h.GetVisitHistory)
+		sales.POST("/visits", h.CreateVisit)
+		sales.PUT("/visits/:id", h.UpdateVisit)
+		sales.DELETE("/visits/:id", h.DeleteVisit)
 		sales.PUT("/transactions/:id", h.UpdateTransaction)
 		sales.DELETE("/transactions/:id", h.DeleteTransaction)
 		sales.POST("/targets", h.SetKPITarget)
@@ -63,7 +67,132 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 }
 
 func (h *SalesHandler) RecordAttendance(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Attendance recorded successfully"})
+	var req usecase.RecordVisitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Resolve EmployeeID from token if empty
+	if req.EmployeeID == uuid.Nil {
+		if userIDStr, exists := c.Get("userID"); exists {
+			userID := userIDStr.(uuid.UUID)
+			employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
+			if err == nil && employee != nil {
+				req.EmployeeID = employee.ID
+			}
+		}
+	}
+
+	if req.CheckTime.IsZero() {
+		req.CheckTime = time.Now()
+	}
+
+	if err := h.salesUsecase.RecordVisit(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Visit recorded successfully"})
+}
+
+func (h *SalesHandler) GetVisitHistory(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	
+	var empID *uuid.UUID
+	if idStr := c.Query("employee_id"); idStr != "" {
+		if id, err := uuid.Parse(idStr); err == nil {
+			empID = &id
+		}
+	}
+	
+	var branchID *uuid.UUID
+	if idStr := c.Query("branch_id"); idStr != "" {
+		if id, err := uuid.Parse(idStr); err == nil {
+			branchID = &id
+		}
+	}
+	
+	var start *time.Time
+	if sStr := c.Query("start_date"); sStr != "" {
+		if t, err := time.Parse("2006-01-02", sStr); err == nil {
+			start = &t
+		}
+	}
+	
+	var end *time.Time
+	if eStr := c.Query("end_date"); eStr != "" {
+		if t, err := time.Parse("2006-01-02", eStr); err == nil {
+			// Set to end of day
+			eDate := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, t.Location())
+			end = &eDate
+		}
+	}
+
+	visits, err := h.salesUsecase.GetVisitHistory(limit, offset, empID, branchID, start, end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Success",
+		"data":    visits,
+	})
+}
+
+func (h *SalesHandler) CreateVisit(c *gin.Context) {
+	var req usecase.RecordVisitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.salesUsecase.CreateVisit(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Visit created successfully"})
+}
+
+func (h *SalesHandler) UpdateVisit(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid visit id"})
+		return
+	}
+
+	var req usecase.RecordVisitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.salesUsecase.UpdateVisit(id, req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Visit updated successfully"})
+}
+
+func (h *SalesHandler) DeleteVisit(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid visit id"})
+		return
+	}
+
+	if err := h.salesUsecase.DeleteVisit(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Visit deleted successfully"})
 }
 
 func (h *SalesHandler) SetupPublicRoutes(router *gin.RouterGroup) {

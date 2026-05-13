@@ -119,6 +119,9 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
             productId: item['product_id'],
             productName: item['product_name'],
             quantity: item['quantity'],
+            orderedQuantity: Value(item['ordered_quantity'] ?? 0),
+            unit: Value(item['unit'] ?? 'PCS'),
+            piecesPerUnit: Value(item['pieces_per_unit'] ?? 1),
             price: (item['price'] as num).toDouble(),
           ));
         }
@@ -133,6 +136,7 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
         'status': _selectedPaymentMethod == 'CASH' ? 'LUNAS (CASH)' : 'PENDING (OFFLINE)',
         'payment_method': _selectedPaymentMethod,
         'bank': _selectedBank,
+        'items': widget.items,
       };
 
       // 4. Trigger Sync in background
@@ -211,7 +215,27 @@ class _VisitCheckoutPageState extends State<VisitCheckoutPage> {
                   const SizedBox(height: 10),
                   _row(Icons.business_rounded, 'Entitas', widget.companyName ?? 'Wowin Indonesia'),
                   const SizedBox(height: 10),
-                  _row(Icons.shopping_basket_rounded, 'Item Pesanan', widget.items != null ? '${widget.items!.length} Produk' : 'TIDAK ADA TRANSAKSI'),
+                  if (widget.items != null && widget.items!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.shopping_basket_rounded, color: Colors.blueAccent, size: 18),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Item Pesanan (${widget.items!.length})', style: GoogleFonts.outfit(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        ...widget.items!.map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '• ${item['product_name']} x ${item['breakdown'] ?? (item['quantity'].toString() + ' PCS')}', 
+                            style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))
+                          ),
+                        )).toList(),
+                      ])),
+                    ]),
+                  ] else ...[
+                    const SizedBox(height: 10),
+                    _row(Icons.shopping_basket_rounded, 'Item Pesanan', 'TIDAK ADA TRANSAKSI'),
+                  ],
                   if (widget.notes != null && widget.notes!.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     _row(Icons.speaker_notes_rounded, 'Alasan / Catatan', widget.notes!, valueColor: Colors.orange.shade800),

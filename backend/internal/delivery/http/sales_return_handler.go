@@ -19,13 +19,10 @@ func NewSalesReturnHandler(ru usecase.SalesReturnUsecase, eu usecase.EmployeeUse
 
 
 func (h *SalesReturnHandler) RegisterRoutes(router *gin.RouterGroup) {
-	ret := router.Group("/sales-returns")
-	{
-		ret.GET("", h.GetByBranch)
-		ret.GET("/:id", h.GetByID)
-		ret.POST("", h.CreateReturn)
-		ret.PATCH("/:id/approve", h.ApproveReturn)
-	}
+	router.GET("/admin/sales-returns", h.GetByBranch)
+	router.GET("/admin/sales-returns/:id", h.GetByID)
+	router.POST("/admin/sales-returns", h.CreateReturn)
+	router.PATCH("/admin/sales-returns/:id/approve", h.ApproveReturn)
 }
 
 func (h *SalesReturnHandler) CreateReturn(c *gin.Context) {

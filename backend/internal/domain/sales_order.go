@@ -11,14 +11,19 @@ type SalesOrderStatus string
 
 const (
 	SOStatusDraft            SalesOrderStatus = "DRAFT"             // Baru dibuat salesman
-	SOStatusWaitingWarehouse SalesOrderStatus = "WAITING_WAREHOUSE" // Siap diproses gudang (Stok ter-reserve)
-	SOStatusWaitingStock     SalesOrderStatus = "WAITING_STOCK"     // Antrean Backorder (Stok tidak cukup)
-	SOStatusProcessing       SalesOrderStatus = "PROCESSING"        // Sedang dipacking gudang
-	SOStatusShipped          SalesOrderStatus = "SHIPPED"           // Surat Jalan terbit (Stok keluar permanen)
-	SOStatusDelivered        SalesOrderStatus = "DELIVERED"         // Barang sampai di pelanggan (POD)
-	SOStatusConverted        SalesOrderStatus = "CONVERTED"         // Invoice diterbitkan
+	SOStatusConfirmed        SalesOrderStatus = "CONFIRMED"         // Diverifikasi Admin Nota (siap dibatch)
+	SOStatusInDelivery       SalesOrderStatus = "IN_DELIVERY"       // Sudah masuk Batch Pengiriman
+	SOStatusDelivered        SalesOrderStatus = "DELIVERED"         // Barang sampai di pelanggan
+	SOStatusPaid             SalesOrderStatus = "PAID"              // Pembayaran sudah diterima
 	SOStatusCancelled        SalesOrderStatus = "CANCELLED"         // Dibatalkan
-	SOStatusRejected         SalesOrderStatus = "REJECTED"          // Ditolak admin
+	SOStatusRejected         SalesOrderStatus = "REJECTED"          // Ditolak Admin Nota
+
+	// Legacy statuses — dipertahankan agar data lama tidak rusak
+	SOStatusWaitingWarehouse SalesOrderStatus = "WAITING_WAREHOUSE"
+	SOStatusWaitingStock     SalesOrderStatus = "WAITING_STOCK"
+	SOStatusProcessing       SalesOrderStatus = "PROCESSING"
+	SOStatusShipped          SalesOrderStatus = "SHIPPED"
+	SOStatusConverted        SalesOrderStatus = "CONVERTED"
 )
 
 // SalesOrder adalah dokumen Pesanan Order (PO) yang dibuat salesman.
@@ -34,19 +39,32 @@ type SalesOrder struct {
 	TotalAmount   float64          `gorm:"type:decimal(15,2);default:0" json:"total_amount"`
 	Notes         string           `gorm:"type:text" json:"notes"`
 
-	// Metadata Pengiriman (Gudang)
-	DeliveryOrderNo string     `gorm:"type:varchar(50);unique" json:"delivery_order_no"`
+	// --- Verifikasi Admin Nota ---
+	AdminNotaConfirmedAt   *time.Time `json:"admin_nota_confirmed_at,omitempty"`
+	AdminNotaConfirmedByID *uuid.UUID `gorm:"type:uuid" json:"admin_nota_confirmed_by_id"`
+	AdminNotaRejectNotes   string     `gorm:"type:text" json:"admin_nota_reject_notes"`
+
+	// --- Batch Pengiriman ---
+	DeliveryBatchID *uuid.UUID `gorm:"type:uuid" json:"delivery_batch_id"`
+	DeliveryOrderNo *string    `gorm:"type:varchar(50)" json:"delivery_order_no"`
 	ShippedAt       *time.Time `json:"shipped_at,omitempty"`
 
-	// Proof of Delivery (POD)
+	// --- Proof of Delivery (POD) ---
 	PODImageURL *string    `gorm:"type:text" json:"pod_image_url"`
 	ReceivedAt  *time.Time `json:"received_at,omitempty"`
 	ReceivedBy  string     `gorm:"type:varchar(100)" json:"received_by"`
 
-	// Link ke Invoice setelah dikonversi
+	// --- Pembayaran & Midtrans ---
+	PaymentStatus          string     `gorm:"type:varchar(20);default:'UNPAID'" json:"payment_status"` // UNPAID, PARTIAL, PAID
+	PaymentCollectedAt     *time.Time `json:"payment_collected_at,omitempty"`
+	PaymentCollectedAmount float64    `gorm:"type:decimal(15,2);default:0" json:"payment_collected_amount"`
+	PaymentMethod          string     `gorm:"type:varchar(50)" json:"payment_method"` // CASH, MIDTRANS_QRIS, MIDTRANS_VA
+	MidtransTransactionID  *string    `gorm:"type:varchar(100)" json:"midtrans_transaction_id"`
+
+	// --- Link ke Invoice setelah lunas ---
 	InvoiceID *uuid.UUID `gorm:"type:uuid" json:"invoice_id"`
 
-	// Approval metadata
+	// --- Legacy / Approval metadata ---
 	ConfirmedAt   *time.Time `json:"confirmed_at,omitempty"`
 	ConfirmedByID *uuid.UUID `gorm:"type:uuid" json:"confirmed_by_id"`
 	ConvertedAt   *time.Time `json:"converted_at,omitempty"`
@@ -58,12 +76,14 @@ type SalesOrder struct {
 	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
 	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`
 
-	Branch      *Branch          `gorm:"foreignKey:BranchID" json:"branch,omitempty"`
-	Company     *Company         `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
-	Employee    *Employee        `gorm:"foreignKey:EmployeeID" json:"employee,omitempty"`
-	Store       *Store           `gorm:"foreignKey:StoreID" json:"store,omitempty"`
-	ConfirmedBy *Employee        `gorm:"foreignKey:ConfirmedByID" json:"confirmed_by,omitempty"`
-	Items       []SalesOrderItem `gorm:"foreignKey:SalesOrderID" json:"items,omitempty"`
+	Branch            *Branch          `gorm:"foreignKey:BranchID" json:"branch,omitempty"`
+	Company           *Company         `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
+	Employee          *Employee        `gorm:"foreignKey:EmployeeID" json:"employee,omitempty"`
+	Store             *Store           `gorm:"foreignKey:StoreID" json:"store,omitempty"`
+	ConfirmedBy       *Employee        `gorm:"foreignKey:ConfirmedByID" json:"confirmed_by,omitempty"`
+	AdminNotaConfirmedBy *Employee     `gorm:"foreignKey:AdminNotaConfirmedByID" json:"admin_nota_confirmed_by,omitempty"`
+	DeliveryBatch     *DeliveryBatch   `gorm:"foreignKey:DeliveryBatchID" json:"delivery_batch,omitempty"`
+	Items             []SalesOrderItem `gorm:"foreignKey:SalesOrderID" json:"items,omitempty"`
 }
 
 // SalesOrderItem adalah item produk dalam sebuah Sales Order.
@@ -95,6 +115,7 @@ type SalesOrderItemBatch struct {
 	CreatedAt        time.Time `gorm:"default:now()" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"default:now()" json:"updated_at"`
 }
+
 
 func (so *SalesOrder) BeforeCreate(tx *gorm.DB) (err error) {
 	if so.ID == uuid.Nil {

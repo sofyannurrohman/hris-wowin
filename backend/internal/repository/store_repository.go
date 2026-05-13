@@ -30,7 +30,13 @@ func (r *storeRepository) Create(store *domain.Store) error {
 
 func (r *storeRepository) FindAll() ([]domain.Store, error) {
 	var stores []domain.Store
-	if err := r.db.Preload("Company").Preload("AssignedEmployee").Find(&stores).Error; err != nil {
+	query := `
+		SELECT s.*, 
+			COALESCE((SELECT SUM(total_amount - payment_collected_amount) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT')), 0) as total_receivable,
+			(SELECT COUNT(*) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT') AND received_at < NOW() - INTERVAL '7 days') as overdue_count
+		FROM stores s
+	`
+	if err := r.db.Raw(query).Preload("Company").Preload("AssignedEmployee").Find(&stores).Error; err != nil {
 		return nil, err
 	}
 	return stores, nil
@@ -38,7 +44,13 @@ func (r *storeRepository) FindAll() ([]domain.Store, error) {
 
 func (r *storeRepository) FindByID(id uuid.UUID) (*domain.Store, error) {
 	var store domain.Store
-	if err := r.db.Preload("Company").Preload("AssignedEmployee").Where("id = ?", id).First(&store).Error; err != nil {
+	query := `
+		SELECT s.*, 
+			COALESCE((SELECT SUM(total_amount - payment_collected_amount) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT')), 0) as total_receivable,
+			(SELECT COUNT(*) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT') AND received_at < NOW() - INTERVAL '7 days') as overdue_count
+		FROM stores s WHERE s.id = ?
+	`
+	if err := r.db.Raw(query, id).Preload("Company").Preload("AssignedEmployee").First(&store).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -57,7 +69,13 @@ func (r *storeRepository) Delete(id uuid.UUID) error {
 
 func (r *storeRepository) FindByVisitDay(day int, employeeID uuid.UUID) ([]domain.Store, error) {
 	var stores []domain.Store
-	if err := r.db.Where("? = ANY(visit_days) AND assigned_employee_id = ?", day, employeeID).Find(&stores).Error; err != nil {
+	query := `
+		SELECT s.*, 
+			COALESCE((SELECT SUM(total_amount - payment_collected_amount) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT')), 0) as total_receivable,
+			(SELECT COUNT(*) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT') AND received_at < NOW() - INTERVAL '7 days') as overdue_count
+		FROM stores s WHERE ? = ANY(visit_days) AND assigned_employee_id = ?
+	`
+	if err := r.db.Raw(query, day, employeeID).Find(&stores).Error; err != nil {
 		return nil, err
 	}
 	return stores, nil
@@ -65,7 +83,13 @@ func (r *storeRepository) FindByVisitDay(day int, employeeID uuid.UUID) ([]domai
 
 func (r *storeRepository) FindByCompanyID(companyID uuid.UUID) ([]domain.Store, error) {
 	var stores []domain.Store
-	if err := r.db.Preload("Company").Preload("AssignedEmployee").Where("company_id = ?", companyID).Find(&stores).Error; err != nil {
+	query := `
+		SELECT s.*, 
+			COALESCE((SELECT SUM(total_amount - payment_collected_amount) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT')), 0) as total_receivable,
+			(SELECT COUNT(*) FROM sales_orders WHERE store_id = s.id AND status NOT IN ('PAID', 'CANCELLED', 'REJECTED', 'DRAFT') AND received_at < NOW() - INTERVAL '7 days') as overdue_count
+		FROM stores s WHERE company_id = ?
+	`
+	if err := r.db.Raw(query, companyID).Preload("Company").Preload("AssignedEmployee").Find(&stores).Error; err != nil {
 		return nil, err
 	}
 	return stores, nil

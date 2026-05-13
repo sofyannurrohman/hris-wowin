@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hris_app/features/sales/presentation/pages/delivery_checkout_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:hris_app/features/sales/presentation/pages/optimal_route_map_page.dart';
@@ -589,7 +590,17 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
                     if (!isDelivered)
                       IconButton(
                         icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.blueAccent, size: 32),
-                        onPressed: () => _updateItemStatus(item['id'], 'DELIVERED'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DeliveryCheckoutPage(
+                                deliveryItem: item,
+                                onSuccess: () => _fetchBatch(_batchData!['delivery_order_no']),
+                              ),
+                            ),
+                          );
+                        },
                       )
                     else
                       const Icon(Icons.check_circle_rounded, color: Colors.green, size: 32),

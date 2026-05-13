@@ -19,6 +19,10 @@ type SalesOrderRepository interface {
 	CountByBranchAndDate(branchID uuid.UUID, date time.Time) (int64, error)
 	Delete(id uuid.UUID) error
 	FindWaitingStockByProduct(branchID, productID uuid.UUID) ([]domain.SalesOrder, error)
+
+	// Payment Methods
+	AddPayment(payment *domain.SalesPayment) error
+	GetPaymentsBySO(soID uuid.UUID) ([]domain.SalesPayment, error)
 }
 
 
@@ -126,4 +130,14 @@ func (r *salesOrderRepository) FindWaitingStockByProduct(branchID, productID uui
 // GenerateSONumber generates a unique SO number: SO-YYYYMMDD-NNNN
 func GenerateSONumber(branchID uuid.UUID, date time.Time, count int64) string {
 	return fmt.Sprintf("SO-%s-%04d", date.Format("20060102"), count+1)
+}
+
+func (r *salesOrderRepository) AddPayment(payment *domain.SalesPayment) error {
+	return r.db.Create(payment).Error
+}
+
+func (r *salesOrderRepository) GetPaymentsBySO(soID uuid.UUID) ([]domain.SalesPayment, error) {
+	var payments []domain.SalesPayment
+	err := r.db.Where("sales_order_id = ?", soID).Order("created_at asc").Find(&payments).Error
+	return payments, err
 }

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import apiClient from '@/api/axios'
 
-export type SOStatus = 'DRAFT' | 'WAITING_WAREHOUSE' | 'WAITING_STOCK' | 'PROCESSING' | 'SHIPPED' | 'CONVERTED' | 'CANCELLED' | 'REJECTED'
+export type SOStatus = 'DRAFT' | 'CONFIRMED' | 'IN_DELIVERY' | 'DELIVERED' | 'PAID' | 'WAITING_WAREHOUSE' | 'WAITING_STOCK' | 'PROCESSING' | 'SHIPPED' | 'CONVERTED' | 'CANCELLED' | 'REJECTED'
 
 export interface SOItem {
   id: string
@@ -37,6 +37,8 @@ export interface SalesOrder {
   pod_image_url?: string
   received_at?: string
   received_by?: string
+  payment_collected_amount?: number
+  payment_method?: string
   branch_id: string
   company_id: string
   employee_id: string
@@ -104,13 +106,31 @@ export const useSalesOrderStore = defineStore('salesOrder', {
       await this._refreshOrder(id)
     },
 
+    /** Admin Nota: Verifikasi nota dari salesman → SO status CONFIRMED */
+    async adminConfirmSO(id: string): Promise<void> {
+      await apiClient.patch(`/admin/sales-orders/${id}/admin-confirm`)
+      await this._refreshOrder(id)
+    },
+
+    /** Admin Nota: Tolak nota dari salesman */
+    async adminRejectSO(id: string, notes: string): Promise<void> {
+      await apiClient.patch(`/admin/sales-orders/${id}/admin-reject`, { notes })
+      await this._refreshOrder(id)
+    },
+
     async processByWarehouse(id: string, items: any[]): Promise<void> {
-      await apiClient.patch(`/admin/sales-orders/${id}/process-warehouse`, { items })
+      await apiClient.patch(`/admin/sales-orders/${id}/process-warehouse`, { 
+        so_id: id,
+        items 
+      })
       await this._refreshOrder(id)
     },
 
     async confirmPOD(id: string, data: { received_by: string; pod_image_url?: string }): Promise<void> {
-      await apiClient.patch(`/admin/sales-orders/${id}/confirm-pod`, data)
+      await apiClient.patch(`/admin/sales-orders/${id}/confirm-pod`, {
+        so_id: id,
+        ...data
+      })
       await this._refreshOrder(id)
     },
 

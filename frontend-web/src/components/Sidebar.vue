@@ -97,6 +97,7 @@ const salesGroups = [
         items: [
           { to: '/sales', name: 'Dashboard Sales', icon: LayoutDashboard },
           { to: '/sales/pesanan', name: 'Pesanan (SO)', icon: ShoppingCart },
+          { to: '/sales/kunjungan', name: 'Data Kunjungan', icon: MapPin },
           { to: '/sales/delivery', name: 'Manajemen Pengiriman', icon: Truck },
           { to: '/sales/retur', name: 'Retur Penjualan', icon: RotateCcw },
           { to: '/sales/penjualan', name: 'Faktur Penjualan', icon: Banknote },

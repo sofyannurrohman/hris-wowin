@@ -18,7 +18,9 @@ import {
   MoreVertical,
   Navigation,
   Globe,
-  ImagePlus
+  ImagePlus,
+  Banknote,
+  AlertTriangle
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { useMasterDataStore } from '@/stores/masterData'
@@ -285,6 +287,13 @@ watch(() => masterDataStore.selectedBranchId, () => {
   fetchStores()
   fetchSalesmen()
 })
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0
+  }).format(amount)
+}
 </script>
 
 <template>
@@ -331,85 +340,128 @@ watch(() => masterDataStore.selectedBranchId, () => {
       </div>
     </div>
 
-    <!-- Store Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      <div 
-        v-for="store in filteredStores" 
-        :key="store.id"
-        class="bg-white rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-500 group overflow-hidden flex flex-col"
-      >
-        <div class="p-7 flex-1">
-          <div class="flex items-start justify-between mb-6">
-            <div class="flex items-center gap-4">
-              <div v-if="store.photo_url" class="w-16 h-16 rounded-2xl overflow-hidden border-2 border-slate-100 shrink-0 bg-slate-50">
-                  <img :src="store.photo_url" class="w-full h-full object-cover" />
-              </div>
-              <div class="p-4 bg-slate-50 rounded-2xl group-hover:bg-primary/10 transition-colors" v-else>
-                <Store class="w-6 h-6 text-slate-400 group-hover:text-primary transition-colors" />
-              </div>
-            </div>
-            <span :class="[
-              'px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border',
-              store.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'
-            ]">
-              {{ store.is_active ? 'AKTIF' : 'NON-AKTIF' }}
-            </span>
-          </div>
+    <!-- Store DataTable -->
+    <div class="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <div class="overflow-x-auto no-scrollbar">
+        <table class="w-full border-collapse text-left">
+          <thead class="bg-slate-50/50 border-b border-slate-100">
+            <tr>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Toko / Outlet</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pemilik</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kontak</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Salesman</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Wilayah / Alamat</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total Piutang</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+              <th class="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            <tr v-if="isLoading" v-for="i in 5" :key="i" class="animate-pulse">
+              <td v-for="j in 7" :key="j" class="p-6">
+                <div class="h-4 bg-slate-100 rounded-lg w-full"></div>
+              </td>
+            </tr>
+            
+            <tr v-else-if="filteredStores.length === 0">
+              <td colspan="7" class="py-24 text-center">
+                <div class="flex flex-col items-center gap-3">
+                  <Store class="w-12 h-12 text-slate-200" />
+                  <p class="font-bold text-slate-400">Tidak ada toko ditemukan.</p>
+                </div>
+              </td>
+            </tr>
 
-          <h3 class="text-xl font-black text-slate-900 mb-1 group-hover:text-primary transition-colors">{{ store.name }}</h3>
-          <p class="text-xs font-bold text-slate-400 flex items-center gap-2 mb-6">
-            <User class="w-3.5 h-3.5" /> Owner: {{ store.owner_name || '-' }}
-          </p>
-
-          <div class="space-y-4 pt-6 border-t border-slate-50">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <Phone class="w-4 h-4" />
-              </div>
-              <p class="text-sm font-bold text-slate-700">{{ store.phone_number || '-' }}</p>
-            </div>
-            <div class="flex items-start gap-3">
-              <div class="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
-                <MapPin class="w-4 h-4" />
-              </div>
-              <p class="text-sm font-bold text-slate-600 leading-relaxed line-clamp-2">{{ store.address || 'Alamat belum diset' }}</p>
-            </div>
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
-                <User class="w-4 h-4" />
-              </div>
-              <div class="flex flex-col">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salesman Penanggung Jawab</p>
-                <p class="text-sm font-bold text-slate-900">{{ store.assigned_employee?.first_name || 'Belum diplot' }} {{ store.assigned_employee?.last_name || '' }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer Actions -->
-        <div class="px-7 py-5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-          <div class="flex gap-2">
-            <button @click="handleEdit(store)" class="p-2.5 bg-white text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all shadow-sm border border-slate-100">
-              <Pencil class="w-4 h-4" />
-            </button>
-            <button @click="handleDelete(store.id)" class="p-2.5 bg-white text-slate-400 hover:text-red-500 hover:bg-white rounded-xl transition-all shadow-sm border border-slate-100">
-              <Trash2 class="w-4 h-4" />
-            </button>
-          </div>
-          <button class="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 text-xs font-black rounded-xl border border-slate-100 shadow-sm hover:bg-slate-50 transition-all">
-            <Navigation class="w-3.5 h-3.5" /> LOKASI
-          </button>
-        </div>
+            <tr 
+              v-for="store in filteredStores" 
+              :key="store.id"
+              class="group hover:bg-slate-50/50 transition-all"
+            >
+              <td class="p-6">
+                <div class="flex items-center gap-4">
+                   <div v-if="store.photo_url" class="w-10 h-10 rounded-xl overflow-hidden border border-slate-100 shrink-0">
+                      <img :src="store.photo_url" class="w-full h-full object-cover" />
+                   </div>
+                   <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0" v-else>
+                      <Store class="w-5 h-5 text-slate-400" />
+                   </div>
+                   <div>
+                     <p class="text-sm font-black text-slate-900 leading-none">{{ store.name }}</p>
+                     <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">ID: {{ store.id.split('-')[0] }}</p>
+                   </div>
+                </div>
+              </td>
+              <td class="p-6">
+                <p class="text-sm font-bold text-slate-700">{{ store.owner_name || '-' }}</p>
+              </td>
+              <td class="p-6">
+                <div class="flex items-center gap-2">
+                  <Phone class="w-3.5 h-3.5 text-slate-300" />
+                  <p class="text-sm font-bold text-slate-700">{{ store.phone_number || '-' }}</p>
+                </div>
+              </td>
+              <td class="p-6">
+                <div class="flex items-center gap-2">
+                   <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <User class="w-3.5 h-3.5" />
+                   </div>
+                   <p class="text-sm font-bold text-slate-700">{{ store.assigned_employee?.first_name || 'Unassigned' }}</p>
+                </div>
+              </td>
+              <td class="p-6 max-w-xs">
+                <p class="text-xs font-medium text-slate-500 line-clamp-1 leading-relaxed">{{ store.address || '-' }}</p>
+              </td>
+              <td class="p-6 text-right">
+                <div class="flex flex-col items-end">
+                   <p :class="['text-sm font-black', store.total_receivable > 0 ? 'text-rose-600' : 'text-slate-900']">
+                     {{ formatCurrency(store.total_receivable || 0) }}
+                   </p>
+                   <div v-if="store.overdue_count > 0" class="flex items-center gap-1 mt-1">
+                      <AlertTriangle class="w-3 h-3 text-rose-500 animate-pulse" />
+                      <p class="text-[9px] font-bold text-rose-500 uppercase">{{ store.overdue_count }} Nota Jatuh Tempo</p>
+                   </div>
+                   <p v-else-if="store.total_receivable > 0" class="text-[9px] font-bold text-orange-500 uppercase mt-1">Belum Lunas</p>
+                   <p v-else class="text-[9px] font-bold text-emerald-500 uppercase mt-1">Lunas</p>
+                </div>
+              </td>
+              <td class="p-6">
+                <div class="flex justify-center">
+                  <span :class="[
+                    'text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border',
+                    store.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'
+                  ]">
+                    {{ store.is_active ? 'AKTIF' : 'NON-AKTIF' }}
+                  </span>
+                </div>
+              </td>
+              <td class="p-6 text-right">
+                <div class="flex justify-end gap-1">
+                  <button 
+                    @click="handleEdit(store)"
+                    class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-primary"
+                    title="Edit Toko"
+                  >
+                    <Pencil class="w-5 h-5" />
+                  </button>
+                  <button 
+                    @click="handleDelete(store.id)"
+                    class="p-2 hover:bg-red-50 rounded-xl transition-all text-red-400 hover:text-red-600"
+                    title="Hapus Toko"
+                  >
+                    <Trash2 class="w-5 h-5" />
+                  </button>
+                  <button 
+                    class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-blue-500"
+                    title="Lihat Lokasi"
+                  >
+                    <Navigation class="w-5 h-5" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-
-    <!-- No Data State -->
-    <div v-if="!isLoading && filteredStores.length === 0" class="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] border-2 border-dashed border-slate-100">
-      <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-        <Store class="w-10 h-10 text-slate-300" />
-      </div>
-      <h3 class="text-xl font-black text-slate-900">Toko tidak ditemukan</h3>
-      <p class="text-slate-500 font-medium mt-2">Coba sesuaikan kata kunci pencarian atau filter Anda.</p>
     </div>
 
     <!-- Store Modal -->

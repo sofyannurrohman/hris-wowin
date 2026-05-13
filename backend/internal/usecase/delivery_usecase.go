@@ -30,39 +30,80 @@ type DeliveryUsecase interface {
 }
 
 type CreateBatchRequest struct {
-	CompanyID   uuid.UUID   `json:"company_id"`
-	DriverID    *uuid.UUID  `json:"driver_id"`
-	VehicleID   *uuid.UUID  `json:"vehicle_id"`
+	CompanyID    uuid.UUID   `json:"company_id"`
+	BranchID     *uuid.UUID  `json:"branch_id"`
+	DriverID     *uuid.UUID  `json:"driver_id"`
+	VehicleID    *uuid.UUID  `json:"vehicle_id"`
+	SalesOrderIDs []uuid.UUID `json:"sales_order_ids"`
+
+	// Legacy — dipertahankan agar tidak break frontend lama
 	SalesTrxIDs []uuid.UUID `json:"sales_transaction_ids"`
 }
 
 type deliveryUsecase struct {
 	repo      repository.DeliveryRepository
 	salesRepo repository.SalesTransactionRepository
+	soRepo    repository.SalesOrderRepository
 }
 
-func NewDeliveryUsecase(repo repository.DeliveryRepository, salesRepo repository.SalesTransactionRepository) DeliveryUsecase {
-	return &deliveryUsecase{repo, salesRepo}
+func NewDeliveryUsecase(
+	repo repository.DeliveryRepository,
+	salesRepo repository.SalesTransactionRepository,
+	soRepo repository.SalesOrderRepository,
+) DeliveryUsecase {
+	return &deliveryUsecase{repo, salesRepo, soRepo}
 }
 
 func (u *deliveryUsecase) CreateBatch(req CreateBatchRequest) (*domain.DeliveryBatch, error) {
+	now := time.Now()
+	// Generate nomor Surat Jalan saat batch dibuat (bukan saat di-approve)
+	doNo := fmt.Sprintf("SJ-%s-%s", now.Format("20060102"), uuid.New().String()[:6])
+
 	batch := &domain.DeliveryBatch{
-		CompanyID: req.CompanyID,
-		DriverID:  req.DriverID,
-		VehicleID: req.VehicleID,
-		Status:    domain.DeliveryBatchWaitingApproval,
+		CompanyID:       req.CompanyID,
+		BranchID:        req.BranchID,
+		DriverID:        req.DriverID,
+		VehicleID:       req.VehicleID,
+		DeliveryOrderNo: &doNo,
+		BarcodeData:     doNo, // QR akan di-generate dari field ini di frontend
+		Status:          domain.DeliveryBatchWaitingApproval,
 	}
 
-	for i, trxID := range req.SalesTrxIDs {
+	// Tambahkan SO ke dalam batch (alur baru)
+	for i, soID := range req.SalesOrderIDs {
 		batch.Items = append(batch.Items, domain.DeliveryItem{
-			SalesTransactionID: trxID,
-			Sequence:           i + 1,
+			SalesOrderID: soID,
+			BarcodeData:  soID.String(), // Tiap nota punya barcode sendiri
+			Sequence:     i + 1,
+			Status:       domain.DeliveryItemPending,
+		})
+	}
+
+	// Legacy: tambahkan SalesTransaction ke batch (backward-compatibility)
+	for i, trxID := range req.SalesTrxIDs {
+		trxIDCopy := trxID
+		batch.Items = append(batch.Items, domain.DeliveryItem{
+			SalesTransactionID: &trxIDCopy,
+			Sequence:           len(req.SalesOrderIDs) + i + 1,
 			Status:             domain.DeliveryItemPending,
 		})
 	}
 
 	if err := u.repo.CreateBatch(batch); err != nil {
 		return nil, err
+	}
+
+	// Update status setiap SO menjadi IN_DELIVERY
+	for _, soID := range req.SalesOrderIDs {
+		so, err := u.soRepo.FindByID(soID)
+		if err != nil || so == nil {
+			continue
+		}
+		batchID := batch.ID
+		so.Status = domain.SOStatusInDelivery
+		so.DeliveryBatchID = &batchID
+		so.DeliveryOrderNo = &doNo
+		_ = u.soRepo.Update(so)
 	}
 
 	return batch, nil
@@ -232,9 +273,10 @@ func (u *deliveryUsecase) UpdateBatchItems(batchID uuid.UUID, req CreateBatchReq
 	// In GORM we can use association management
 	items := make([]domain.DeliveryItem, 0)
 	for i, trxID := range req.SalesTrxIDs {
+		trxIDCopy := trxID
 		items = append(items, domain.DeliveryItem{
 			DeliveryBatchID:    batchID,
-			SalesTransactionID: trxID,
+			SalesTransactionID: &trxIDCopy,
 			Sequence:           i + 1,
 			Status:             domain.DeliveryItemPending,
 		})

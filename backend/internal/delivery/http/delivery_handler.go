@@ -319,3 +319,4 @@ func (h *DeliveryHandler) UpdateCash(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cash amount updated"})
 }
+

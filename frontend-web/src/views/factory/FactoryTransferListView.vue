@@ -1,5 +1,7 @@
 <template>
   <div class="p-8 space-y-8 bg-[#f8fafc] min-h-screen">
+    <!-- Main UI (Hidden when printing) -->
+    <div class="no-print space-y-8">
     <!-- Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
       <div>
@@ -108,7 +110,7 @@
                    <p class="text-xs font-bold leading-relaxed">Alasan: {{ shipment.items[0]?.rejection_reason || 'Tidak ada alasan spesifik' }}</p>
                 </div>
               </template>
-              <Button variant="ghost" size="icon" class="h-10 w-10 text-slate-400 hover:text-primary">
+              <Button @click="printShipment(shipment)" variant="ghost" size="icon" class="h-10 w-10 text-slate-400 hover:text-primary">
                 <Printer class="h-5 w-5" />
               </Button>
             </div>
@@ -214,6 +216,13 @@
         </div>
       </div>
 
+    </div>
+
+    </div>
+
+    <!-- PRINT AREA (Only visible when printing) -->
+    <div class="print-only hidden print:block">
+      <SuratJalanPrint v-if="shipmentToPrint" :shipment="shipmentToPrint" />
     </div>
 
     <div v-if="showProcessModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-6">
@@ -677,6 +686,7 @@ import { onMounted, ref, computed, reactive } from 'vue'
 import { useFactoryStore } from '@/stores/factory'
 import { useMasterDataStore } from '@/stores/masterData'
 import { useVehicleStore } from '@/stores/vehicle'
+import SuratJalanPrint from '@/components/factory/SuratJalanPrint.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card/index'
 import { Badge } from '@/components/ui/badge'
@@ -707,6 +717,15 @@ const showProcessModal = ref(false)
 const showManualModal = ref(false)
 const processing = ref(false)
 const selectedRequest = ref<any>(null)
+const shipmentToPrint = ref<any>(null)
+
+const printShipment = (shipment: any) => {
+  shipmentToPrint.value = shipment
+  // Wait for barcode to render
+  setTimeout(() => {
+    window.print()
+  }, 300)
+}
 
 const processForm = reactive({
   factory_id: '',
@@ -1152,5 +1171,19 @@ const getStatusClass = (status: string) => {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #e2e8f0;
   border-radius: 10px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 }
 </style>
