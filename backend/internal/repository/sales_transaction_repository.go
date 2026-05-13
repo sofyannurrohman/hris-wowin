@@ -172,11 +172,11 @@ func (r *salesTransactionRepository) CountByCompanyAndDate(companyID uuid.UUID, 
 func (r *salesTransactionRepository) GetProductSalesDistribution(productID uuid.UUID, companyID uuid.UUID) ([]map[string]interface{}, error) {
 	var results []map[string]interface{}
 	
-	query := r.db.Table("sales_items si").
+	query := r.db.Table("sales_order_items si").
 		Select("s.id as store_id, s.name as store_name, s.latitude, s.longitude, SUM(si.quantity) as total_quantity").
-		Joins("JOIN sales_transactions st ON si.sales_transaction_id = st.id").
+		Joins("JOIN sales_orders st ON si.sales_order_id = st.id").
 		Joins("JOIN stores s ON st.store_id = s.id").
-		Where("si.product_id = ? AND st.status = ?", productID, "VERIFIED")
+		Where("si.product_id = ? AND st.status IN ?", productID, []string{"SHIPPED", "DELIVERED", "PAID", "CONVERTED"})
 
 	if companyID != uuid.Nil {
 		query = query.Where("st.company_id = ?", companyID)

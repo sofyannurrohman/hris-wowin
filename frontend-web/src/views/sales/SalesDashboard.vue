@@ -36,6 +36,7 @@ const products = ref<any[]>([])
 const mapMode = ref<'STORES' | 'PRODUCTS'>('STORES')
 const selectedProductId = ref('')
 const productSalesData = ref<any[]>([])
+const isMapLoading = ref(false)
 
 // --- Chart Options ---
 const omzetChartOption = ref({
@@ -187,9 +188,10 @@ const fetchDashboardData = async () => {
     }
 
     // 6. Fetch Products for tracking
-    const prodRes = await apiClient.get('/factory/products')
-    if (prodRes.data?.data) {
-      products.value = prodRes.data.data
+    const prodRes = await apiClient.get(`/factory/products?company_id=${companyId}`)
+    if (prodRes.data) {
+      // Handle both { data: [] } and direct [] responses
+      products.value = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data.data || [])
     }
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error)
@@ -200,7 +202,7 @@ const fetchDashboardData = async () => {
 
 const fetchProductDistribution = async () => {
   if (!selectedProductId.value) return
-  isLoading.value = true
+  isMapLoading.value = true
   try {
     const companyId = masterDataStore.selectedBranchCompanyId || ''
     const res = await apiClient.get(`/admin/sales/reports/product-distribution?product_id=${selectedProductId.value}&company_id=${companyId}`)
@@ -211,8 +213,18 @@ const fetchProductDistribution = async () => {
   } catch (error) {
     console.error('Failed to fetch product distribution:', error)
   } finally {
-    isLoading.value = false
+    isMapLoading.value = false
   }
+}
+
+const getEmployeeColor = (id: string | null | undefined) => {
+  if (!id) return '#94a3b8' // Default slate-400
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const c = (hash & 0x00FFFFFF).toString(16).toUpperCase()
+  return '#' + '000000'.substring(0, 6 - c.length) + c
 }
 
 let markerGroup: L.LayerGroup | null = null
@@ -238,14 +250,41 @@ const updateMarkers = () => {
   if (mapMode.value === 'STORES') {
     const validStores = stores.value.filter(s => s.latitude && s.longitude)
     validStores.forEach(store => {
-      const marker = L.marker([store.latitude, store.longitude])
+      const salesmanColor = getEmployeeColor(store.assigned_employee_id)
+      
+      const icon = L.divIcon({
+        html: `
+          <div class="relative group">
+            <div class="w-4 h-4 rounded-full border-2 border-white shadow-md transition-all group-hover:scale-150" 
+                 style="background-color: ${salesmanColor};"></div>
+            <div class="absolute hidden group-hover:block left-6 top-0 bg-white border border-slate-200 rounded-lg p-2 shadow-xl z-[1000] whitespace-nowrap">
+              <p class="text-[9px] font-black text-slate-900">${store.name}</p>
+              <p class="text-[8px] font-bold text-slate-400 mt-0.5 uppercase">${store.assigned_employee?.first_name || 'Unassigned'}</p>
+            </div>
+          </div>
+        `,
+        className: 'custom-store-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      })
+
+      const marker = L.marker([store.latitude, store.longitude], { icon })
       marker.bindPopup(`
-        <div class="p-2 min-w-[150px]">
-          <h4 class="font-black text-slate-900">${store.name}</h4>
-          <p class="text-[10px] text-slate-500 mt-1 uppercase font-bold">${store.address || 'Tanpa Alamat'}</p>
-          <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
-             <span class="w-2 h-2 rounded-full ${store.is_active ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-             <span class="text-[10px] font-black">${store.is_active ? 'AKTIF' : 'NON-AKTIF'}</span>
+        <div class="p-3 min-w-[200px] font-sans">
+          <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+             <div class="w-3 h-3 rounded-full" style="background-color: ${salesmanColor};"></div>
+             <h4 class="font-black text-slate-900 leading-tight">${store.name}</h4>
+          </div>
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-[10px]">
+               <span class="font-bold text-slate-400 uppercase">Salesman</span>
+               <span class="font-black text-primary">${store.assigned_employee?.first_name || 'Belum Ditugaskan'}</span>
+            </div>
+            <div class="flex justify-between items-center text-[10px]">
+               <span class="font-bold text-slate-400 uppercase">Status</span>
+               <span class="font-black ${store.is_active ? 'text-emerald-500' : 'text-rose-500'}">${store.is_active ? 'AKTIF' : 'NON-AKTIF'}</span>
+            </div>
+            <p class="text-[9px] text-slate-500 mt-2 italic border-t border-slate-50 pt-2">${store.address || 'Tanpa Alamat'}</p>
           </div>
         </div>
       `)
@@ -259,30 +298,36 @@ const updateMarkers = () => {
   } else {
     // Product Distribution Mode
     const validData = productSalesData.value.filter(d => d.latitude && d.longitude)
-    const maxQty = Math.max(...validData.map(d => d.total_quantity), 1)
+    const maxQty = Math.max(...validData.map(d => (d.total_quantity || d.totalQuantity || 0)), 1)
     
     // Find the selected product image
     const selectedProduct = products.value.find(p => p.id === selectedProductId.value)
     const productImage = selectedProduct?.image_url || 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
 
     validData.forEach(data => {
+      const qty = data.total_quantity || data.totalQuantity || 0
       // Calculate size based on volume (min 30px, max 80px)
-      const size = 30 + (Math.sqrt(data.total_quantity / maxQty) * 50)
+      const size = 30 + (Math.sqrt(qty / maxQty) * 50)
       
       const icon = L.divIcon({
         html: `
-          <div class="relative group transition-all duration-300 transform hover:scale-110">
-            <div class="w-full h-full rounded-full border-4 border-white shadow-xl overflow-hidden bg-white ring-2 ring-primary/20">
-              <img src="${productImage}" class="w-full h-full object-cover" />
+          <div class="relative group transition-all duration-300 transform hover:scale-110 flex flex-col items-center">
+            <div class="relative" style="width: ${size}px; height: ${size}px;">
+              <div class="w-full h-full rounded-full border-4 border-white shadow-xl overflow-hidden bg-white ring-2 ring-primary/20">
+                <img src="${productImage}" class="w-full h-full object-cover" />
+              </div>
+              <div class="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-black px-1.5 py-0.5 rounded-lg shadow-lg z-10 border border-white">
+                ${qty}
+              </div>
             </div>
-            <div class="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg shadow-lg">
-              ${data.total_quantity}
+            <div class="bg-slate-900 text-white px-2 py-0.5 rounded-full shadow-md mt-1 whitespace-nowrap border border-white/20">
+               <span class="text-[8px] font-black uppercase tracking-tighter">${qty} PCS</span>
             </div>
           </div>
         `,
         className: 'custom-product-marker',
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2]
+        iconSize: [size + 40, size + 40],
+        iconAnchor: [(size + 40) / 2, (size + 40) / 2]
       })
 
       const marker = L.marker([data.latitude, data.longitude], { icon })
@@ -299,10 +344,10 @@ const updateMarkers = () => {
           <div class="space-y-2">
             <div class="flex justify-between items-center">
                <span class="text-[10px] font-bold text-slate-400 uppercase">Total Penjualan</span>
-               <span class="text-sm font-black text-primary">${data.total_quantity} PCS</span>
+               <span class="text-sm font-black text-primary">${qty} PCS</span>
             </div>
             <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-               <div class="h-full bg-primary" style="width: ${(data.total_quantity/maxQty)*100}%"></div>
+               <div class="h-full bg-primary" style="width: ${(qty/maxQty)*100}%"></div>
             </div>
           </div>
         </div>
@@ -472,7 +517,15 @@ const formatCurrency = (val: number) => {
           </button>
         </div>
       </div>
-      <div ref="mapContainer" class="h-[450px] w-full z-0"></div>
+      <div class="relative">
+        <div v-if="isMapLoading" class="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center">
+           <div class="flex flex-col items-center gap-3">
+              <RefreshCw class="w-8 h-8 text-primary animate-spin" />
+              <p class="text-xs font-black text-slate-900 uppercase tracking-widest">Memetakan Data...</p>
+           </div>
+        </div>
+        <div ref="mapContainer" class="h-[450px] w-full z-0"></div>
+      </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div class="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col h-[480px]">

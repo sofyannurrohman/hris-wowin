@@ -177,8 +177,8 @@ const menuGroups = computed(() => {
           class="flex flex-col transition-all duration-500 origin-left"
           :class="[layoutStore.isSidebarCollapsed ? 'opacity-0 w-0 -translate-x-4 scale-75' : 'opacity-100 w-auto translate-x-0 scale-100']"
         >
-          <span class="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">HRIS</span>
-          <span class="text-[10px] font-bold text-primary uppercase tracking-[0.2em] leading-none">SENTRAWEB</span>
+          <span class="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">Wowin</span>
+          <span class="text-[10px] font-bold text-primary uppercase tracking-[0.2em] leading-none">Super App</span>
         </div>
       </div>
     </div>

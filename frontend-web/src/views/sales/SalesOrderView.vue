@@ -10,12 +10,22 @@ import {
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 const soStore = useSalesOrderStore()
 const masterStore = useMasterDataStore()
 const factoryStore = useFactoryStore()
 
 const selectedStatus = ref<SOStatus | 'ALL'>('ALL')
+const selectedCompanyId = ref('ALL')
+const selectedEmployeeId = ref('ALL')
 const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showDetailModal = ref(false)
@@ -51,11 +61,24 @@ const statusColor: Record<string, string> = {
 
 
 const filteredOrders = computed(() => {
-  return soStore.orders.filter(o => {
+  const filtered = soStore.orders.filter(o => {
     const matchStatus = selectedStatus.value === 'ALL' || o.status === selectedStatus.value
+    const matchCompany = selectedCompanyId.value === 'ALL' || o.company_id === selectedCompanyId.value
+    const matchEmployee = selectedEmployeeId.value === 'ALL' || o.employee_id === selectedEmployeeId.value
+    
     const q = searchQuery.value.toLowerCase()
-    const matchSearch = !q || o.so_number.toLowerCase().includes(q) || o.store?.name?.toLowerCase().includes(q) || o.employee?.first_name?.toLowerCase().includes(q)
-    return matchStatus && matchSearch
+    const matchSearch = !q || 
+      o.so_number.toLowerCase().includes(q) || 
+      o.store?.name?.toLowerCase().includes(q) || 
+      o.employee?.first_name?.toLowerCase().includes(q) ||
+      o.employee?.last_name?.toLowerCase().includes(q)
+      
+    return matchStatus && matchCompany && matchEmployee && matchSearch
+  })
+  
+  // Urutkan berdasarkan yang terbaru (created_at DESC)
+  return [...filtered].sort((a, b) => {
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
 })
 
@@ -194,6 +217,7 @@ onMounted(async () => {
   await Promise.all([
     factoryStore.fetchProducts(), 
     masterStore.fetchBranches(), 
+    masterStore.fetchCompanies(),
     masterStore.fetchEmployees(),
     masterStore.fetchStores(masterStore.selectedBranchCompanyId)
   ])
@@ -235,16 +259,27 @@ watch(() => masterStore.selectedBranchId, () => {
 
 
     <!-- Filters -->
-    <div class="flex flex-col sm:flex-row gap-3">
+    <div class="flex flex-col lg:flex-row gap-4">
       <div class="relative flex-1">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input v-model="searchQuery" type="text" placeholder="Cari nomor SO, toko, atau salesman..." class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none" />
+        <input v-model="searchQuery" type="text" placeholder="Cari nomor SO, toko, atau salesman..." class="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none shadow-sm" />
       </div>
-      <div class="flex gap-2 overflow-x-auto no-scrollbar">
-        <button v-for="s in statusOptions" :key="s" @click="selectedStatus = s as any" :class="['px-4 py-3 rounded-2xl text-xs font-black transition-all whitespace-nowrap', selectedStatus === s ? 'bg-slate-900 text-white shadow-lg' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50']">
-          {{ s }}
-        </button>
+      <div class="flex flex-wrap gap-2">
+        <select v-model="selectedCompanyId" class="bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 shadow-sm min-w-[160px]">
+          <option value="ALL">Semua Perusahaan</option>
+          <option v-for="c in masterStore.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+        <select v-model="selectedEmployeeId" class="bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 shadow-sm min-w-[160px]">
+          <option value="ALL">Semua Salesman</option>
+          <option v-for="e in masterStore.employees" :key="e.id" :value="e.id">{{ e.first_name }} {{ e.last_name }}</option>
+        </select>
       </div>
+    </div>
+
+    <div class="flex gap-2 overflow-x-auto no-scrollbar">
+      <button v-for="s in statusOptions" :key="s" @click="selectedStatus = s as any" :class="['px-4 py-3 rounded-2xl text-xs font-black transition-all whitespace-nowrap', selectedStatus === s ? 'bg-slate-900 text-white shadow-lg' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50']">
+        {{ s }}
+      </button>
     </div>
 
     <!-- Orders List -->
@@ -259,128 +294,92 @@ watch(() => masterStore.selectedBranchId, () => {
       <p class="text-sm text-slate-400 mt-1">Buat pesanan baru atau ubah filter status</p>
     </div>
 
-    <div v-else class="space-y-4">
-      <div v-for="order in filteredOrders" :key="order.id" class="bg-white border border-slate-200 rounded-3xl shadow-sm hover:shadow-md transition-all overflow-hidden group">
-        <div class="flex flex-col lg:flex-row lg:items-center">
-          <!-- Info Left -->
-          <div class="p-6 flex-1 cursor-pointer" @click="openDetail(order)">
-            <div class="flex items-center gap-3 mb-3">
-              <span :class="[statusColor[order.status], 'text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider']">{{ order.status }}</span>
-              <span class="font-mono text-[11px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border">{{ order.so_number }}</span>
-            </div>
-            <h3 class="text-lg font-extrabold text-slate-900 group-hover:text-primary transition-colors">
-              {{ order.store?.name || 'Toko Tidak Diketahui' }}
-            </h3>
-            <div class="flex items-center gap-4 mt-2 text-xs text-slate-500 font-medium">
-              <span>{{ order.employee?.first_name }} {{ order.employee?.last_name }}</span>
-              <span>•</span>
-              <span>{{ formatDate(order.order_date) }}</span>
-            </div>
-
-            <!-- Items Preview -->
-            <div class="flex flex-wrap gap-1.5 mt-3">
-              <span v-for="item in order.items.slice(0,3)" :key="item.id" class="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-lg">
-                {{ item.product?.name || 'Produk' }} × {{ item.ordered_quantity }} {{ item.unit }}
+    <div v-else class="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
+      <Table>
+        <TableHeader class="bg-slate-50/50">
+          <TableRow>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest pl-8">No. SO / Tanggal</TableHead>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest">Toko / Customer</TableHead>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest">Salesman</TableHead>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest">Item</TableHead>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest text-right">Total Amount</TableHead>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest text-center">Status</TableHead>
+            <TableHead class="font-black text-[10px] uppercase tracking-widest text-right pr-8">Aksi</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="order in filteredOrders" :key="order.id" class="group hover:bg-slate-50/50 transition-colors">
+            <TableCell class="pl-8">
+              <div class="flex flex-col">
+                <span class="font-mono text-[10px] font-bold text-slate-400 mb-1 tracking-tight">{{ order.so_number }}</span>
+                <span class="font-bold text-xs text-slate-700 whitespace-nowrap">{{ formatDate(order.order_date) }}</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div class="flex flex-col">
+                <span class="font-black text-slate-900 leading-tight">{{ order.store?.name || 'Unknown Store' }}</span>
+                <span class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{{ order.store_category?.replace('_', ' ') }}</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div class="flex items-center gap-2">
+                <div class="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                  {{ order.employee?.first_name?.charAt(0) }}{{ order.employee?.last_name?.charAt(0) }}
+                </div>
+                <span class="font-bold text-slate-700 text-xs">{{ order.employee?.first_name }} {{ order.employee?.last_name }}</span>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div class="flex flex-wrap gap-1 max-w-[200px]">
+                <Badge variant="outline" v-for="item in order.items.slice(0, 2)" :key="item.id" class="text-[9px] font-bold px-2 py-0 h-5 border-slate-200 bg-white">
+                  {{ item.product?.name?.split(' ')[0] }}... x{{ item.ordered_quantity }}
+                </Badge>
+                <span v-if="order.items.length > 2" class="text-[9px] font-bold text-slate-400 ml-1">+{{ order.items.length - 2 }} more</span>
+              </div>
+            </TableCell>
+            <TableCell class="text-right">
+              <span class="font-black text-slate-900">{{ formatCurrency(order.total_amount) }}</span>
+            </TableCell>
+            <TableCell class="text-center">
+              <span :class="[statusColor[order.status], 'text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm']">
+                {{ order.status }}
               </span>
-              <span v-if="order.items.length > 3" class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-lg">
-                +{{ order.items.length - 3 }} lainnya
-              </span>
-            </div>
-          </div>
-
-          <!-- Amount -->
-          <div class="px-6 py-4 bg-slate-50 lg:w-52 flex flex-col items-center justify-center border-y lg:border-y-0 lg:border-x border-slate-100 text-center">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Nilai</p>
-            <p class="text-xl font-black text-slate-900">{{ formatCurrency(order.total_amount) }}</p>
-            <p class="text-[10px] text-slate-400 mt-1">{{ order.items.length }} item</p>
-          </div>
-
-          <!-- Actions -->
-          <div class="p-6 lg:w-72 flex flex-col gap-3">
-            <template v-if="order.status === 'DRAFT'">
-              <!-- Tombol Admin Nota (alur baru) -->
-              <Button @click="handleAdminConfirm(order.id)" class="w-full bg-green-600 hover:bg-green-700 text-white rounded-2xl py-5 font-black text-xs flex items-center justify-center gap-2">
-                <CheckCircle2 class="w-4 h-4" /> ✓ Verifikasi (Admin Nota)
-              </Button>
-              <div class="flex gap-2">
-                <Button variant="outline" @click="handleAdminReject(order.id)" class="flex-1 border-red-200 text-red-600 hover:bg-red-50 rounded-2xl py-4 text-xs font-black">
-                  <XCircle class="w-4 h-4 mr-1" /> Tolak
+            </TableCell>
+            <TableCell class="text-right pr-8">
+              <div class="flex items-center justify-end gap-2">
+                <Button variant="ghost" size="sm" @click="openDetail(order)" class="h-8 w-8 p-0 rounded-lg hover:bg-primary/5 hover:text-primary transition-all">
+                  <FileText class="w-4 h-4" />
                 </Button>
-                <Button variant="outline" @click="handleDelete(order.id)" class="border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-2xl px-4 py-4 text-xs font-black">
+                
+                <template v-if="order.status === 'DRAFT'">
+                  <Button size="sm" @click="handleAdminConfirm(order.id)" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black shadow-sm">
+                    APPROVE
+                  </Button>
+                  <Button variant="ghost" size="sm" @click="handleAdminReject(order.id)" class="h-8 w-8 p-0 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600">
+                    <XCircle class="w-4 h-4" />
+                  </Button>
+                </template>
+
+                <template v-else-if="order.status === 'SHIPPED'">
+                  <Button size="sm" @click="handleConvert(order.id)" class="h-8 px-3 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black shadow-sm flex items-center gap-1">
+                    <FileText class="w-3.5 h-3.5" /> INVOICE
+                  </Button>
+                </template>
+
+                <template v-else-if="order.status === 'WAITING_WAREHOUSE'">
+                  <Button variant="ghost" size="sm" @click="handleCancel(order.id)" class="h-8 w-8 p-0 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
+                    <XCircle class="w-4 h-4" />
+                  </Button>
+                </template>
+
+                <Button v-if="order.status === 'DRAFT' || order.status === 'REJECTED'" variant="ghost" size="sm" @click="handleDelete(order.id)" class="h-8 w-8 p-0 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-600">
                   <Trash2 class="w-4 h-4" />
                 </Button>
               </div>
-              <!-- Legacy: konfirmasi ke gudang langsung -->
-              <Button variant="ghost" @click="handleConfirm(order.id)" class="w-full text-slate-400 text-xs font-bold">
-                Konfirmasi Legacy (ke Gudang)
-              </Button>
-            </template>
-
-            <template v-else-if="order.status === 'CONFIRMED'">
-              <div class="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
-                <p class="text-[10px] font-black text-green-700 uppercase tracking-widest mb-1">✓ Terverifikasi Admin Nota</p>
-                <p class="text-[9px] text-green-600 font-medium">Menunggu Supervisor membuat Batch Pengiriman.</p>
-              </div>
-            </template>
-
-            <template v-else-if="order.status === 'IN_DELIVERY'">
-              <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
-                <p class="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-1">🚛 Dalam Pengiriman</p>
-                <p class="text-[9px] text-blue-600 font-medium font-mono">SJ: {{ order.delivery_order_no }}</p>
-                <p class="text-[9px] text-blue-500 mt-1">Driver sedang dalam perjalanan ke toko.</p>
-              </div>
-            </template>
-
-            <template v-else-if="order.status === 'DELIVERED'">
-              <div class="bg-teal-50 border border-teal-100 rounded-2xl p-4 text-center">
-                <p class="text-[10px] font-black text-teal-700 uppercase tracking-widest mb-1">📦 Barang Diterima</p>
-                <p class="text-[9px] text-teal-600 font-medium">Diterima oleh: {{ order.received_by }}</p>
-              </div>
-            </template>
-
-            <template v-else-if="order.status === 'PAID'">
-              <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
-                <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">✅ LUNAS</p>
-                <p class="text-[9px] text-emerald-600 font-medium">{{ formatCurrency(order.payment_collected_amount || 0) }} · {{ order.payment_method }}</p>
-              </div>
-            </template>
-
-            <template v-else-if="order.status === 'WAITING_WAREHOUSE'">
-              <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Menunggu Gudang</p>
-                <p class="text-[9px] text-amber-500 font-medium">Stok sudah di-reserve. Gudang sedang menyiapkan barang.</p>
-              </div>
-              <Button variant="outline" @click="handleCancel(order.id)" class="w-full text-slate-500 rounded-2xl py-4 text-xs font-black">
-                Batalkan & Lepas Reserve
-              </Button>
-            </template>
-
-            <template v-else-if="order.status === 'SHIPPED'">
-              <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 mb-1">
-                <p class="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-1">Surat Jalan: {{ order.delivery_order_no }}</p>
-                <p class="text-[8px] text-indigo-400 font-medium italic">Siap ditagihkan ke pelanggan.</p>
-              </div>
-              <Button @click="handleConvert(order.id)" :disabled="loading" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-5 font-black text-xs flex items-center justify-center gap-2">
-                <FileText class="w-4 h-4" /> Terbitkan Faktur Penjualan
-              </Button>
-            </template>
-
-            <template v-else-if="order.status === 'CONVERTED'">
-              <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
-                <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">✓ Faktur Diterbitkan</p>
-                <p class="text-[9px] text-emerald-500 mt-0.5 font-mono">{{ order.invoice_id?.slice(0, 8) }}...</p>
-              </div>
-            </template>
-
-            <template v-else>
-              <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ order.status }}</p>
-              </div>
-            </template>
-          </div>
-
-        </div>
-      </div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
 
     <!-- Create Modal -->

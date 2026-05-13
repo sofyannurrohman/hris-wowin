@@ -27,114 +27,90 @@
       
       <!-- LEFT SIDE: ACTIVE & COMPLETED SHIPMENTS (8/12) -->
       <div class="lg:col-span-8 space-y-6">
-        <div class="flex items-center justify-between px-2">
-          <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
-             Daftar Surat Jalan 
-             <Badge variant="secondary" class="rounded-full bg-slate-100 text-slate-500">{{ processedShipments.length }}</Badge>
-          </h2>
-          <div class="relative w-64">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input v-model="searchQuery" type="text" placeholder="Cari No. SJ..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none" />
-          </div>
-        </div>
+        <DataTable 
+          :columns="shipmentColumns" 
+          :data="processedShipments" 
+          :isLoading="factoryStore.loading"
+          class="shadow-xl shadow-slate-200/50 rounded-[2rem] overflow-hidden"
+        >
+          <template #headerTitle>
+             <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
+                Daftar Surat Jalan 
+                <Badge variant="secondary" class="rounded-full bg-slate-100 text-slate-500">{{ processedShipments.length }}</Badge>
+             </h2>
+          </template>
 
-        <div v-if="processedShipments.length === 0" class="bg-white rounded-[2rem] p-12 text-center border border-dashed border-slate-200">
-          <div class="bg-slate-50 h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-300">
-            <Truck class="h-8 w-8" />
-          </div>
-          <h3 class="font-bold text-slate-900">Belum ada pengiriman</h3>
-          <p class="text-sm text-slate-500 mt-1">Proses permintaan di sebelah kanan untuk membuat surat jalan baru.</p>
-        </div>
-
-        <div v-for="shipment in processedShipments" :key="shipment.doNo" class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all hover:shadow-md">
-          <div class="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30 border-b border-slate-50">
-            <div class="flex items-center gap-4">
-              <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-                <Truck class="h-6 w-6 text-primary" />
+          <template #cell-doNo="{ row }">
+            <div class="flex items-center gap-3">
+              <div class="bg-slate-50 p-2 rounded-xl border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all">
+                <Truck class="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No. Surat Jalan</p>
-                <h3 class="text-lg font-black text-slate-900 font-mono">{{ shipment.doNo }}</h3>
+                <p class="text-[11px] font-black text-slate-900 font-mono tracking-tight">{{ row.doNo }}</p>
+                <div v-if="row.items[0]?.target_shipment_date" class="flex items-center gap-1 text-[9px] font-bold text-slate-400 mt-0.5">
+                   <Calendar class="h-2.5 w-2.5" /> {{ new Date(row.items[0].target_shipment_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}
+                </div>
               </div>
             </div>
-            <div class="flex items-center gap-6">
-              <div class="text-right">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tujuan</p>
-                <p class="text-sm font-bold text-slate-700">{{ shipment.to }}</p>
+          </template>
+
+          <template #cell-to="{ row }">
+            <div class="space-y-1">
+              <p class="text-xs font-black text-slate-700 truncate max-w-[120px]">{{ row.to }}</p>
+              <div v-if="row.items[0]?.driver" class="flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                <User class="h-2.5 w-2.5" /> {{ row.items[0].driver.first_name }}
               </div>
-              <div class="text-right" v-if="shipment.items[0]?.target_shipment_date">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tgl Kirim</p>
-                <p class="text-sm font-bold text-blue-600">
-                  {{ new Date(shipment.items[0].target_shipment_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}
-                </p>
+            </div>
+          </template>
+
+          <template #cell-items="{ row }">
+            <div class="space-y-1.5">
+              <div class="text-[10px] font-bold text-slate-500 leading-tight">
+                <span v-for="(item, idx) in row.items.slice(0, 2)" :key="item.id">
+                  {{ item.product?.name }}{{ (idx as number) < Math.min(row.items.length, 2) - 1 ? ', ' : '' }}
+                </span>
+                <span v-if="row.items.length > 2" class="text-primary font-black ml-1">+{{ row.items.length - 2 }}</span>
               </div>
-              <div class="text-right" v-if="shipment.items[0]?.estimated_arrival">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Est. Sampai</p>
-                <p class="text-sm font-bold text-orange-600">
-                  {{ new Date(shipment.items[0].estimated_arrival).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}
-                </p>
+              <div class="flex items-center gap-2">
+                <Badge variant="outline" class="text-[8px] font-black border-slate-100 bg-slate-50 text-slate-400 h-4 px-1 rounded-sm">
+                  {{ row.items.length }} SKU
+                </Badge>
+                <span class="text-[10px] font-black text-primary">{{ row.totalWeight.toFixed(2) }} KG</span>
               </div>
-              <div class="text-right" v-if="shipment.items[0]?.vehicle">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Armada</p>
-                <p class="text-sm font-bold text-slate-700">{{ shipment.items[0].vehicle.name }}</p>
-              </div>
-              <div class="text-right" v-if="shipment.items[0]?.driver">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sopir</p>
-                <p class="text-sm font-bold text-slate-700">{{ shipment.items[0].driver.first_name }}</p>
-              </div>
-              <Badge :class="getStatusClass(shipment.status)" class="rounded-full px-4 py-1.5 font-bold uppercase text-[10px]">
-                {{ shipment.status }}
+            </div>
+          </template>
+
+          <template #cell-status="{ row }">
+            <div class="flex flex-col gap-1.5 items-start">
+              <Badge :class="getStatusClass(row.status)" class="rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-wider border-none shadow-sm">
+                {{ row.status }}
               </Badge>
-              <template v-if="shipment.status === 'REQUESTED'">
-                <div class="px-4 py-1.5 bg-orange-50 text-orange-600 rounded-xl border border-orange-100 text-[10px] font-black uppercase tracking-widest">
-                  Menunggu Approval Cabang
-                </div>
+              <div v-if="row.status === 'REJECTED' && row.rejectionReason" class="text-[9px] font-bold text-rose-500 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100 max-w-[150px] leading-snug shadow-sm">
+                <span class="text-[7px] uppercase font-black block mb-0.5 opacity-60">Alasan Penolakan:</span>
+                {{ row.rejectionReason }}
+              </div>
+            </div>
+          </template>
+
+          <template #cell-actions="{ row }">
+            <div class="flex items-center gap-1">
+              <template v-if="row.status === 'REQUESTED' || row.status === 'APPROVED' || row.status === 'REJECTED'">
+                 <Button v-if="row.status === 'APPROVED'" @click="processShipment(row)" size="sm" class="bg-primary hover:bg-primary/90 text-white font-black h-8 px-3 rounded-lg text-[9px] shadow-sm tracking-tighter">
+                   KIRIM
+                 </Button>
+                 <Button @click="openEditModal(row)" variant="ghost" size="sm" class="h-8 w-8 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-lg shrink-0">
+                   <RefreshCw class="h-3.5 w-3.5" />
+                 </Button>
+                 <Button @click="handleDeleteShipment(row)" variant="ghost" size="sm" class="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-destructive/5 rounded-lg shrink-0">
+                   <Trash2 class="h-3.5 w-3.5" />
+                 </Button>
               </template>
-              <template v-if="shipment.status === 'REJECTED'">
-                 <div class="flex items-center gap-3">
-                   <Button @click="openEditModal(shipment)" size="sm" class="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl px-6 h-10 shadow-lg shadow-rose-100">Jadwal Ulang</Button>
-                 </div>
-              </template>
-              <template v-if="shipment.status === 'APPROVED'">
-                <div v-if="shipment.items[0]?.initiated_by === 'FACTORY'" class="px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                  Sudah Di-ACC Gudang (Siap Kirim)
-                </div>
-                <Button @click="processShipment(shipment)" class="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg shadow-primary/20">
-                  Proses & Kirim
-                </Button>
-              </template>
-              <template v-if="shipment.status === 'REJECTED'">
-                <div class="px-4 py-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100 flex flex-col gap-1">
-                   <p class="text-[9px] font-black uppercase tracking-[0.2em]">Ditolak Cabang</p>
-                   <p class="text-xs font-bold leading-relaxed">Alasan: {{ shipment.items[0]?.rejection_reason || 'Tidak ada alasan spesifik' }}</p>
-                </div>
-              </template>
-              <Button @click="printShipment(shipment)" variant="ghost" size="icon" class="h-10 w-10 text-slate-400 hover:text-primary">
-                <Printer class="h-5 w-5" />
+              <Button @click="printShipment(row)" variant="ghost" size="sm" class="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg shrink-0">
+                <Printer class="h-3.5 w-3.5" />
               </Button>
             </div>
-          </div>
-          <div class="p-6">
-            <table class="w-full text-sm">
-              <tbody class="divide-y divide-slate-50">
-                <tr v-for="item in shipment.items" :key="item.id" class="group">
-                  <td class="py-3 px-2">
-                    <span class="font-bold text-slate-800">{{ item.product?.name }}</span>
-                  </td>
-                  <td class="py-3 px-2 text-right">
-                    <span class="font-black text-slate-700">{{ item.quantity }}</span>
-                    <span class="text-[10px] text-slate-400 ml-1 uppercase font-bold">{{ item.unit || item.product?.unit }}</span>
-                    <span v-if="item.pcs_per_unit > 1" class="text-[9px] text-slate-500 block">({{ item.quantity * item.pcs_per_unit }} PCS)</span>
-                  </td>
-                  <td class="py-3 px-2 text-right w-32">
-                    <span class="font-bold text-primary">{{ item.total_weight.toFixed(2) }} KG</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+          </template>
+        </DataTable>
       </div>
 
       <!-- RIGHT SIDE: INCOMING REQUESTS (4/12) -->
@@ -158,8 +134,9 @@
             </div>
             <div class="flex flex-col items-end gap-1">
               <Badge :class="getStatusClass(request.status)" class="border-none text-[9px] font-bold uppercase">{{ request.status }}</Badge>
-              <div v-if="request.status === 'REJECTED'" class="text-[8px] font-bold text-rose-500 italic max-w-[120px] text-right leading-tight">
-                {{ request.items[0]?.rejection_reason }}
+              <div v-if="request.status === 'REJECTED' && request.rejectionReason" class="text-[9px] font-bold text-rose-500 bg-rose-50/50 px-2 py-1 rounded-lg border border-rose-100 max-w-[150px] leading-snug mt-1 shadow-sm text-left">
+                <span class="text-[7px] uppercase font-black block mb-0.5 opacity-60">Alasan Penolakan:</span>
+                {{ request.rejectionReason }}
               </div>
             </div>
           </div>
@@ -222,8 +199,19 @@
 
     <!-- PRINT AREA (Only visible when printing) -->
     <div class="print-only hidden print:block">
-      <SuratJalanPrint v-if="shipmentToPrint" :shipment="shipmentToPrint" />
+      <SuratJalanPrint v-if="shipmentToPrint" :shipment="shipmentToPrint" class="hidden print:block" />
     </div>
+
+    <ConfirmationDialog 
+      v-model:open="confirmDialog.open"
+      :title="confirmDialog.title"
+      :description="confirmDialog.description"
+      :variant="confirmDialog.variant"
+      :confirm-text="confirmDialog.confirmText"
+      :is-loading="processing"
+      @confirm="confirmDialog.onConfirm"
+      @cancel="confirmDialog.open = false"
+    />
 
     <div v-if="showProcessModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-6">
       <Card class="w-full max-w-4xl shadow-2xl rounded-[2.5rem] overflow-hidden border-none animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
@@ -277,8 +265,8 @@
                 <label class="text-sm font-bold text-slate-700 ml-1">Armada (Kendaraan)</label>
                 <select v-model="processForm.vehicle_id" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none">
                   <option value="">Pilih Armada...</option>
-                  <option v-for="v in vehicleStore.vehicles" :key="v.id" :value="v.id">
-                    {{ v.name }} ({{ v.license_plate }}) - Cap: {{ v.capacity }} KG
+                  <option v-for="v in availableVehicles" :key="v.id" :value="v.id" :disabled="!v.isAvailable">
+                    {{ v.name }} ({{ v.license_plate }}) - Cap: {{ v.capacity }} KG {{ !v.isAvailable ? '(Sedang Digunakan)' : '' }}
                   </option>
                 </select>
               </div>
@@ -286,7 +274,9 @@
                 <label class="text-sm font-bold text-slate-700 ml-1">Sopir (Driver)</label>
                 <select v-model="processForm.driver_id" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none">
                   <option value="">Pilih Sopir...</option>
-                  <option v-for="e in masterDataStore.employees" :key="e.id" :value="e.id">{{ e.first_name }} {{ e.last_name }}</option>
+                  <option v-for="e in availableDrivers" :key="e.id" :value="e.id" :disabled="!e.isAvailable">
+                    {{ e.first_name }} {{ e.last_name }} {{ !e.isAvailable ? '(Sedang Mengirim)' : '' }}
+                  </option>
                 </select>
               </div>
               <div class="grid grid-cols-2 gap-4">
@@ -437,8 +427,8 @@
               </label>
               <select v-model="manualShipmentForm.vehicle_id" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none">
                 <option value="">Pilih Armada...</option>
-                <option v-for="v in vehicleStore.vehicles" :key="v.id" :value="v.id">
-                  {{ v.name }} ({{ v.license_plate }}) - Cap: {{ v.capacity }} KG
+                <option v-for="v in availableVehicles" :key="v.id" :value="v.id" :disabled="!v.isAvailable">
+                  {{ v.name }} ({{ v.license_plate }}) - Cap: {{ v.capacity }} KG {{ !v.isAvailable ? '(Sedang Digunakan)' : '' }}
                 </option>
               </select>
             </div>
@@ -448,8 +438,8 @@
               </label>
               <select v-model="manualShipmentForm.driver_id" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none">
                 <option value="">Pilih Sopir...</option>
-                <option v-for="e in masterDataStore.employees" :key="e.id" :value="e.id">
-                  {{ e.first_name }} {{ e.last_name }}
+                <option v-for="e in availableDrivers" :key="e.id" :value="e.id" :disabled="!e.isAvailable">
+                  {{ e.first_name }} {{ e.last_name }} {{ !e.isAvailable ? '(Sedang Mengirim)' : '' }}
                 </option>
               </select>
             </div>
@@ -596,8 +586,8 @@
               </label>
               <select v-model="editForm.vehicle_id" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none">
                 <option value="">Pilih Armada...</option>
-                <option v-for="v in vehicleStore.vehicles" :key="v.id" :value="v.id">
-                  {{ v.name }} ({{ v.license_plate }}) - Cap: {{ v.capacity }} KG
+                <option v-for="v in availableVehicles" :key="v.id" :value="v.id" :disabled="!v.isAvailable">
+                  {{ v.name }} ({{ v.license_plate }}) - Cap: {{ v.capacity }} KG {{ !v.isAvailable ? '(Sedang Digunakan)' : '' }}
                 </option>
               </select>
             </div>
@@ -607,8 +597,8 @@
               </label>
               <select v-model="editForm.driver_id" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none">
                 <option value="">Pilih Sopir...</option>
-                <option v-for="e in masterDataStore.employees" :key="e.id" :value="e.id">
-                  {{ e.first_name }} {{ e.last_name }}
+                <option v-for="e in availableDrivers" :key="e.id" :value="e.id" :disabled="!e.isAvailable">
+                  {{ e.first_name }} {{ e.last_name }} {{ !e.isAvailable ? '(Sedang Mengirim)' : '' }}
                 </option>
               </select>
             </div>
@@ -619,13 +609,13 @@
               <label class="text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
                 <Calendar class="h-4 w-4 text-primary" /> Tanggal Pengiriman
               </label>
-              <Input type="datetime-local" v-model="editForm.target_shipment_date" class="rounded-2xl h-12" />
+              <input type="datetime-local" v-model="editForm.target_shipment_date" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none" />
             </div>
             <div class="space-y-2">
               <label class="text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
                 <Clock class="h-4 w-4 text-orange-500" /> Estimasi Sampai
               </label>
-              <Input type="datetime-local" v-model="editForm.estimated_arrival" class="rounded-2xl h-12" />
+              <input type="datetime-local" v-model="editForm.estimated_arrival" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none" />
             </div>
           </div>
 
@@ -687,12 +677,14 @@ import { useFactoryStore } from '@/stores/factory'
 import { useMasterDataStore } from '@/stores/masterData'
 import { useVehicleStore } from '@/stores/vehicle'
 import SuratJalanPrint from '@/components/factory/SuratJalanPrint.vue'
+import DataTable from '@/components/DataTable.vue'
+import { useDeliveryStore } from '@/stores/delivery'
 import { Button } from '@/components/ui/button'
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog.vue'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card/index'
 import { Badge } from '@/components/ui/badge'
 import { 
   Truck, 
-  Search, 
   RefreshCw, 
   Plus, 
   Printer, 
@@ -711,11 +703,27 @@ import { toast } from 'vue-sonner'
 
 const factoryStore = useFactoryStore()
 const masterDataStore = useMasterDataStore()
+const deliveryStore = useDeliveryStore()
+
+const shipmentColumns = [
+  { key: 'doNo', label: 'No. Surat Jalan' },
+  { key: 'to', label: 'Tujuan' },
+  { key: 'items', label: 'Item & Muatan' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: 'Aksi' }
+]
 const vehicleStore = useVehicleStore()
-const searchQuery = ref('')
 const showProcessModal = ref(false)
 const showManualModal = ref(false)
 const processing = ref(false)
+const confirmDialog = reactive({
+  open: false,
+  title: '',
+  description: '',
+  variant: 'info' as 'danger' | 'warning' | 'success' | 'info',
+  confirmText: '',
+  onConfirm: () => {}
+})
 const selectedRequest = ref<any>(null)
 const shipmentToPrint = ref<any>(null)
 
@@ -798,13 +806,10 @@ const openManualShipmentModal = () => {
   showManualModal.value = true
 }
 
-const formatToRFC3339 = (dateStr: string) => {
+const formatToRFC3339 = (dateStr: any) => {
   if (!dateStr) return null
-  // If it's already in a long format, return as is
-  if (dateStr.length > 16) return dateStr
-  // Append seconds and a simple Z or local offset
-  // For simplicity and to match local intent, we'll append :00Z but ideally we'd use a real date object
   const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
   return date.toISOString()
 }
 
@@ -849,6 +854,41 @@ onMounted(() => {
   masterDataStore.fetchBranches()
   masterDataStore.fetchEmployees()
   vehicleStore.fetchVehicles()
+  deliveryStore.fetchBatches()
+})
+
+const availableVehicles = computed(() => {
+  return vehicleStore.vehicles.map(v => {
+    const isUsedInTransfer = factoryStore.allTransfers.some(t => 
+      t.vehicle_id === v.id && (t.status === 'SHIPPED' || t.status === 'ARRIVED')
+    )
+    const isUsedInBatch = deliveryStore.batches.some(b => 
+      b.vehicle_id === v.id && b.status !== 'COMPLETED'
+    )
+    return {
+      ...v,
+      isAvailable: !isUsedInTransfer && !isUsedInBatch
+    }
+  })
+})
+
+const availableDrivers = computed(() => {
+  return masterDataStore.employees.filter((emp: any) => {
+    if (!emp.job_position?.title) return true
+    const jobTitle = emp.job_position.title.toLowerCase()
+    return jobTitle.includes('driver') || jobTitle.includes('sopir') || jobTitle.includes('salesman') || jobTitle.includes('motoris')
+  }).map(e => {
+    const isUsedInTransfer = factoryStore.allTransfers.some(t => 
+      t.driver_id === e.id && (t.status === 'SHIPPED' || t.status === 'ARRIVED')
+    )
+    const isUsedInBatch = deliveryStore.batches.some(b => 
+      b.driver_id === e.id && b.status !== 'COMPLETED'
+    )
+    return {
+      ...e,
+      isAvailable: !isUsedInTransfer && !isUsedInBatch
+    }
+  })
 })
 
 const totalManualWeight = computed(() => {
@@ -892,7 +932,7 @@ const isProcessOverWeight = computed(() => {
 const groupedTransfers = computed(() => {
   const groups: Record<string, any> = {}
   
-  factoryStore.allTransfers.forEach(item => {
+  factoryStore.allTransfers.forEach((item: any) => {
     const doNo = item.delivery_order_no || 'DRAFT-' + item.id.substring(0, 8)
     if (!groups[doNo]) {
       groups[doNo] = {
@@ -901,14 +941,23 @@ const groupedTransfers = computed(() => {
         to: item.to_branch?.name,
         totalWeight: 0,
         status: item.status,
+        createdAt: item.created_at,
+        rejectionReason: item.rejection_reason,
         items: []
       }
     }
     groups[doNo].items.push(item)
     groups[doNo].totalWeight += item.total_weight
+    
+    // Update status if any item is different (should be consistent though)
+    groups[doNo].status = item.status
+    // Keep the earliest created_at for the group
+    if (new Date(item.created_at) < new Date(groups[doNo].createdAt)) {
+      groups[doNo].createdAt = item.created_at
+    }
   })
   
-  return Object.values(groups).sort((a, b) => b.doNo.localeCompare(a.doNo))
+  return Object.values(groups).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 })
 
 const incomingRequests = computed(() => {
@@ -926,11 +975,10 @@ const processedShipments = computed(() => {
     const isFactoryInitiated = g.items[0]?.initiated_by === 'FACTORY'
     // Show if it's already in transit or completed
     const isInTransitOrDone = g.status === 'SHIPPED' || g.status === 'ARRIVED' || g.status === 'RECEIVED'
+    // Show if branch request is approved by factory
+    const isBranchApproved = g.status === 'APPROVED' && g.items[0]?.initiated_by === 'BRANCH'
     
-    return isFactoryInitiated || isInTransitOrDone
-  }).filter(g => {
-    if (!searchQuery.value) return true
-    return g.doNo.toLowerCase().includes(searchQuery.value.toLowerCase())
+    return isFactoryInitiated || isInTransitOrDone || isBranchApproved
   })
 })
 
@@ -1000,8 +1048,8 @@ const handleUpdateShipment = async () => {
         unit: item.unit,
         pcs_per_unit: item.pcs_per_unit,
         notes: editForm.notes,
-        target_shipment_date: editForm.target_shipment_date || null,
-        estimated_arrival: editForm.estimated_arrival || null,
+        target_shipment_date: formatToRFC3339(editForm.target_shipment_date),
+        estimated_arrival: formatToRFC3339(editForm.estimated_arrival),
         vehicle_id: editForm.vehicle_id || null,
         driver_id: editForm.driver_id || null,
         from_factory_id: editForm.from_factory_id || null,
@@ -1028,20 +1076,26 @@ const handleUpdateShipment = async () => {
   }
 }
 
-const handleDeleteShipment = async (group: any) => {
-  if (!confirm(`Apakah Anda yakin ingin menghapus pengiriman ${group.doNo}?`)) return
-  
-  processing.value = true
-  try {
-    for (const item of group.items) {
-      await factoryStore.deleteTransfer(item.id)
+const handleDeleteShipment = (group: any) => {
+  confirmDialog.title = 'Hapus Pengiriman?'
+  confirmDialog.description = `Apakah Anda yakin ingin menghapus pengiriman ${group.doNo}? Tindakan ini tidak dapat dibatalkan dan stok akan dikembalikan.`
+  confirmDialog.variant = 'danger'
+  confirmDialog.confirmText = 'Ya, Hapus'
+  confirmDialog.open = true
+  confirmDialog.onConfirm = async () => {
+    processing.value = true
+    try {
+      for (const item of group.items) {
+        await factoryStore.deleteTransfer(item.id)
+      }
+      toast.success('Pengiriman berhasil dihapus.')
+      await factoryStore.fetchAllTransfers()
+      confirmDialog.open = false
+    } catch (err) {
+      toast.error('Gagal menghapus pengiriman: ' + err)
+    } finally {
+      processing.value = false
     }
-    toast.success('Pengiriman berhasil dihapus.')
-    await factoryStore.fetchAllTransfers()
-  } catch (err) {
-    toast.error('Gagal menghapus pengiriman: ' + err)
-  } finally {
-    processing.value = false
   }
 }
 
@@ -1050,8 +1104,8 @@ const processShipment = (request: any) => {
   processForm.notes = request.items[0]?.notes || ''
   processForm.vehicle_id = request.items[0]?.vehicle_id || ''
   processForm.driver_id = request.items[0]?.driver_id || ''
-  processForm.target_shipment_date = request.items[0]?.target_shipment_date?.split('T')[0] || ''
-  processForm.estimated_arrival = request.items[0]?.estimated_arrival?.split('T')[0] || ''
+  processForm.target_shipment_date = request.items[0]?.target_shipment_date ? new Date(request.items[0].target_shipment_date).toISOString().slice(0, 16) : ''
+  processForm.estimated_arrival = request.items[0]?.estimated_arrival ? new Date(request.items[0].estimated_arrival).toISOString().slice(0, 16) : ''
   
   // Clone items for adjustment
   processForm.items = request.items.map((item: any) => ({
@@ -1085,7 +1139,7 @@ const handleConfirmProcess = async () => {
     const originalItems = processForm.items.filter(i => i.original)
     for (const item of originalItems) {
       await factoryStore.updateTransfer(item.id, {
-        status: 'APPROVED',
+        status: 'SHIPPED',
         quantity: item.quantity,
         unit: item.unit,
         pcs_per_unit: item.pcs_per_unit,
@@ -1111,7 +1165,7 @@ const handleConfirmProcess = async () => {
         driver_id: processForm.driver_id || null,
         delivery_order_no: selectedRequest.value.doNo,
         initiated_by: 'FACTORY',
-        status: 'APPROVED'
+        status: 'SHIPPED'
       })
     }
 
@@ -1119,7 +1173,7 @@ const handleConfirmProcess = async () => {
     // We need to re-fetch to get all IDs including new ones if we want to ship them all at once.
     // Or just ship the original ones and the new ones will be shipped separately?
     // Let's re-fetch to be sure.
-    toast.success('Draft Surat Jalan berhasil diterbitkan. Menunggu konfirmasi kesiapan Gudang.')
+    toast.success('Surat Jalan diterbitkan. Pengiriman kini dalam perjalanan (SHIPPED).')
     showProcessModal.value = false
     await factoryStore.fetchAllTransfers()
   } catch (err) {
@@ -1131,20 +1185,26 @@ const handleConfirmProcess = async () => {
 
 
 
-const handleApproveRequest = async (request: any) => {
-  if (!confirm('Setujui permintaan barang dari cabang ini?')) return
-  
-  processing.value = true
-  try {
-    for (const item of request.items) {
-      await factoryStore.approveTransfer(item.id)
+const handleApproveRequest = (request: any) => {
+  confirmDialog.title = 'Setujui Permintaan?'
+  confirmDialog.description = 'Apakah Anda yakin ingin menyetujui permintaan barang dari cabang ini? Pastikan stok mencukupi.'
+  confirmDialog.variant = 'success'
+  confirmDialog.confirmText = 'Ya, Setujui'
+  confirmDialog.open = true
+  confirmDialog.onConfirm = async () => {
+    processing.value = true
+    try {
+      for (const item of request.items) {
+        await factoryStore.approveTransfer(item.id)
+      }
+      toast.success('Permintaan telah disetujui.')
+      await factoryStore.fetchAllTransfers()
+      confirmDialog.open = false
+    } catch (err) {
+      toast.error('Gagal menyetujui permintaan: ' + err)
+    } finally {
+      processing.value = false
     }
-    toast.success('Permintaan telah disetujui.')
-    await factoryStore.fetchAllTransfers()
-  } catch (err) {
-    toast.error('Gagal menyetujui permintaan: ' + err)
-  } finally {
-    processing.value = false
   }
 }
 

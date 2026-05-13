@@ -132,205 +132,138 @@
 
       <!-- TAB: INBOUND -->
       <div v-else-if="activeTab === 'inbound'" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div v-if="warehouseStore.pendingShipments.length === 0" class="bg-white rounded-[3rem] p-20 text-center border border-dashed border-slate-200">
-           <div class="bg-slate-50 h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <PackageSearch class="h-10 w-10 text-slate-300" />
+        
+        <!-- PRINT AREA -->
+        <div class="print-only hidden print:block">
+          <SuratJalanPrint v-if="shipmentToPrint" :shipment="shipmentToPrint" class="hidden print:block" />
+        </div>
+
+        <div v-if="groupedPending.length === 0" class="bg-white rounded-[3rem] p-20 text-center border-2 border-dashed border-slate-100 animate-in fade-in zoom-in duration-700">
+           <div class="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+             <PackageSearch class="h-10 w-10 text-slate-300" />
            </div>
-           <h3 class="text-xl font-black text-slate-900">Belum Ada Penerimaan</h3>
+           <h3 class="text-xl font-black text-slate-900">Belum Ada Antrian Inbound</h3>
            <p class="text-sm text-slate-400 mt-2 max-w-xs mx-auto">Tidak ada pengiriman atau permintaan yang memerlukan tindakan. Pastikan Anda telah memilih <b>Cabang (Branch)</b> yang benar di navigasi atas.</p>
            <Button @click="refreshAll" variant="outline" class="mt-8 rounded-2xl px-12 h-14 font-black border-slate-200 hover:bg-slate-50">Refresh Antrian</Button>
         </div>
 
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card v-for="shipment in groupedPending" :key="shipment.doNo" class="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-500 border border-slate-100 flex flex-col">
-            <div class="p-8 flex-1">
-              <div class="flex justify-between items-start mb-6">
-                <div class="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center">
-                  <Truck v-if="shipment.status === 'SHIPPED'" class="h-7 w-7 text-blue-600" />
-                  <MapPin v-else-if="shipment.status === 'ARRIVED'" class="h-7 w-7 text-emerald-600" />
-                  <ClipboardList v-else class="h-7 w-7 text-orange-600" />
-                </div>
-                <div class="text-right">
-                   <div class="flex items-center gap-2 mb-1 justify-end">
-                      <span class="text-sm font-black text-slate-900">{{ shipment.doNo }}</span>
-                   </div>
-                   <Badge :variant="shipment.status === 'SHIPPED' ? 'default' : shipment.status === 'ARRIVED' ? 'success' : 'secondary'" class="rounded-lg text-[9px] font-black uppercase px-2.5 h-6">
-                      {{ formatStatus(shipment.status) }}
-                   </Badge>
-                </div>
-              </div>
+        <Card v-else class="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden border border-slate-100">
+          <DataTable :columns="inboundColumns" :data="groupedPending">
+            <template #cell-doNo="{ row }">
+               <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                    <Truck v-if="row.status === 'SHIPPED'" class="h-5 w-5 text-blue-600" />
+                    <MapPin v-else-if="row.status === 'ARRIVED'" class="h-5 w-5 text-emerald-600" />
+                    <ClipboardList v-else class="h-5 w-5 text-orange-600" />
+                  </div>
+                  <span class="font-black text-slate-900">{{ row.doNo }}</span>
+               </div>
+            </template>
 
-              <div class="space-y-4 mb-6">
-                <div>
-                   <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asal Pengiriman</p>
-                   <p class="text-sm font-bold text-slate-700 flex items-center mt-1">
-                      <Factory class="mr-2 h-4 w-4 text-slate-300" /> {{ shipment.from }}
-                   </p>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                   <div>
-                      <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kuantitas</p>
-                      <p class="text-lg font-black text-slate-900 mt-0.5">{{ shipment.totalQty }} Item</p>
-                   </div>
-                   <div>
-                      <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Berat</p>
-                      <p class="text-lg font-black text-slate-900 mt-0.5">{{ shipment.totalWeight.toFixed(2) }} KG</p>
-                   </div>
-                </div>
+            <template #cell-from="{ row }">
+               <div class="flex items-center text-xs font-bold text-slate-600">
+                  <Factory class="mr-2 h-3.5 w-3.5 text-slate-300" /> {{ row.from }}
+               </div>
+            </template>
 
-                <!-- Logistics Detail -->
-                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
-                   <div v-if="shipment.targetDate || shipment.eta">
-                      <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jadwal</p>
-                      <div class="space-y-0.5 mt-1">
-                        <p v-if="shipment.targetDate" class="text-[11px] font-bold text-slate-600 flex items-center">
-                          <Calendar class="h-3 w-3 mr-1.5 text-blue-500" /> {{ new Date(shipment.targetDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) }}
-                        </p>
-                        <p v-if="shipment.eta" class="text-[11px] font-bold text-slate-600 flex items-center">
-                          <Clock class="h-3 w-3 mr-1.5 text-emerald-500" /> ETA: {{ new Date(shipment.eta).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) }}
-                        </p>
-                      </div>
-                   </div>
-                   <div v-if="shipment.vehicle || shipment.driver">
-                      <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logistik</p>
-                      <div class="space-y-0.5 mt-1">
-                        <p v-if="shipment.vehicle" class="text-[11px] font-bold text-slate-900 flex items-center">
-                          <Truck class="h-3 w-3 mr-1.5 text-slate-400" /> {{ shipment.vehicle.name }}
-                        </p>
-                        <p v-if="shipment.driver" class="text-[11px] font-bold text-slate-600 flex items-center">
-                          <User class="h-3 w-3 mr-1.5 text-slate-400" /> {{ shipment.driver.first_name }} {{ shipment.driver.last_name }}
-                        </p>
-                      </div>
-                   </div>
-                </div>
-              </div>
+            <template #cell-status="{ row }">
+               <Badge :variant="row.status === 'SHIPPED' ? 'default' : row.status === 'ARRIVED' ? 'success' : 'secondary'" class="rounded-lg text-[9px] font-black uppercase px-2.5 h-6">
+                  {{ formatStatus(row.status) }}
+               </Badge>
+            </template>
 
-              <div class="bg-slate-50 rounded-2xl p-4 space-y-3">
-                 <div v-for="item in shipment.items" :key="item.id" class="flex justify-between items-center text-xs">
-                    <span class="font-bold text-slate-600">{{ item.product?.name }}</span>
-                    <span class="font-black text-slate-900">{{ item.quantity }} {{ item.product?.unit }}</span>
-                 </div>
-              </div>
-            </div>
+            <template #cell-totalQty="{ row }">
+               <span class="font-black text-slate-900">{{ row.totalQty }} <span class="text-[10px] text-slate-400">Unit</span></span>
+            </template>
 
-            <div class="p-6 bg-slate-50/50 border-t border-slate-100">
-               <template v-if="shipment.status === 'SHIPPED'">
-                  <div class="flex gap-2">
-                    <Button @click="handleArrive(shipment)" :loading="processingId === shipment.doNo" class="flex-1 rounded-2xl h-14 font-black bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100 flex gap-2">
-                      KONFIRMASI KEDATANGAN <ArrowUpRight class="h-4 w-4" />
+            <template #cell-totalWeight="{ row }">
+               <span class="font-black text-slate-900">{{ row.totalWeight.toFixed(2) }} <span class="text-[10px] text-slate-400">KG</span></span>
+            </template>
+
+            <template #cell-targetDate="{ row }">
+               <div class="space-y-1 text-[11px] font-bold">
+                  <div v-if="row.targetDate" class="flex items-center gap-1.5 text-blue-600">
+                    <Calendar class="h-3 w-3" /> {{ new Date(row.targetDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) }}
+                  </div>
+                  <div v-if="row.eta" class="flex items-center gap-1.5 text-emerald-600">
+                    <Clock class="h-3 w-3" /> {{ new Date(row.eta).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) }}, {{ new Date(row.eta).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) }}
+                  </div>
+               </div>
+            </template>
+
+            <template #cell-actions="{ row }">
+               <div class="flex items-center gap-2">
+                  <template v-if="row.status === 'SHIPPED'">
+                    <Button @click="handleArrive(row)" :loading="processingId === row.doNo" size="sm" class="rounded-xl h-9 font-bold bg-blue-600 hover:bg-blue-700 text-white px-4 text-[10px]">
+                      KONFIRMASI TIBA
                     </Button>
-                    <Button @click="handleReject(shipment)" variant="ghost" class="rounded-2xl h-14 font-bold text-slate-400 hover:text-rose-600">Tolak</Button>
-                  </div>
-               </template>
-               <template v-else-if="shipment.status === 'ARRIVED'">
-                  <Button @click="handleReceive(shipment)" :loading="processingId === shipment.doNo" class="w-full rounded-2xl h-14 font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100 flex gap-2">
-                    TERIMA BARANG & UPDATE STOK <CheckCircle2 class="h-4 w-4" />
+                    <Button @click="handleReject(row)" variant="ghost" size="sm" class="rounded-xl h-9 font-bold text-slate-400 hover:text-rose-600 px-3">Tolak</Button>
+                  </template>
+                  <template v-else-if="row.status === 'ARRIVED'">
+                    <Button @click="handleReceive(row)" :loading="processingId === row.doNo" size="sm" class="rounded-xl h-9 font-black bg-emerald-600 hover:bg-emerald-700 text-white px-4 text-[10px]">
+                      TERIMA BARANG
+                    </Button>
+                  </template>
+                  <template v-else-if="row.status === 'APPROVED'">
+                    <Button v-if="row.vehicle || row.driver" @click="handleConfirmSJ(row)" :loading="processingId === row.doNo" size="sm" class="rounded-xl h-9 font-black bg-emerald-600 hover:bg-emerald-700 text-white px-4 text-[10px]">
+                      SETUJUI SJ
+                    </Button>
+                    <div v-else class="text-[9px] font-bold text-amber-500 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
+                      Menunggu Armada
+                    </div>
+                  </template>
+                  <template v-else-if="row.status === 'REQUESTED' && row.items[0]?.initiated_by === 'FACTORY'">
+                    <Button @click="handleApprove(row)" size="sm" class="rounded-xl h-9 font-bold bg-white text-orange-600 border border-orange-100 hover:bg-orange-50 px-4 text-[10px]">SETUJUI</Button>
+                    <Button @click="handleReject(row)" variant="ghost" size="sm" class="rounded-xl h-9 font-bold text-slate-400 hover:text-rose-600 px-3">Tolak</Button>
+                  </template>
+                  <span v-else class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Pending</span>
+                  
+                  <Button @click="printShipment(row)" variant="ghost" size="icon" class="rounded-xl h-9 w-9 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-slate-100">
+                    <Printer class="h-4 w-4" />
                   </Button>
-               </template>
-               <template v-else-if="shipment.status === 'APPROVED'">
-                  <div v-if="!shipment.vehicle && !shipment.driver" class="bg-amber-50 p-6 rounded-[2rem] border border-amber-100 flex items-center gap-4">
-                     <div class="bg-white h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm">
-                       <Clock class="h-6 w-6 text-amber-600" />
-                     </div>
-                     <div class="flex-1">
-                       <p class="text-[10px] font-black text-amber-400 uppercase tracking-widest">Status</p>
-                       <h4 class="text-sm font-black text-amber-900 leading-tight">Disetujui Pabrik</h4>
-                       <p class="text-[10px] font-bold text-amber-600 mt-1">Menunggu Pabrik menerbitkan Surat Jalan & menetapkan Armada.</p>
-                     </div>
-                     <Button @click="handleReject(shipment)" variant="ghost" class="rounded-2xl h-12 font-bold text-slate-400 hover:text-rose-600">Tolak</Button>
-                  </div>
-                  <div v-else class="space-y-3">
-                    <div class="px-4 py-3 bg-emerald-50 rounded-2xl border border-emerald-100/50 flex items-center gap-3">
-                      <Truck class="h-5 w-5 text-emerald-600" />
-                      <div class="flex-1">
-                        <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Surat Jalan Siap</p>
-                        <p class="text-[11px] font-bold text-emerald-800">Draft SJ telah diterbitkan. Mohon setujui untuk memulai pengiriman.</p>
-                      </div>
-                    </div>
-                    <div class="flex gap-2">
-                      <Button @click="handleConfirmSJ(shipment)" :loading="processingId === shipment.doNo" class="flex-1 rounded-2xl h-14 font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100 flex gap-2 uppercase tracking-tight">
-                        Setujui Surat Jalan <CheckCircle2 class="h-5 w-5" />
-                      </Button>
-                      <Button @click="handleReject(shipment)" variant="ghost" class="rounded-2xl h-14 font-bold text-slate-400 hover:text-rose-600">Tolak</Button>
-                    </div>
-                  </div>
-               </template>
-               <template v-else-if="shipment.status === 'REQUESTED' && shipment.items[0]?.initiated_by === 'FACTORY'">
-                  <div class="flex gap-2">
-                    <Button @click="handleApprove(shipment)" class="flex-1 rounded-2xl h-12 font-bold bg-white text-orange-600 border border-orange-100 hover:bg-orange-50">Setujui</Button>
-                    <Button @click="handleReject(shipment)" variant="ghost" class="rounded-2xl h-12 font-bold text-slate-400 hover:text-rose-600">Tolak</Button>
-                  </div>
-               </template>
-               <template v-else>
-                  <div class="w-full py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] bg-white rounded-2xl border border-slate-100">
-                    Menunggu Approval Pabrik
-                  </div>
-               </template>
-            </div>
-          </Card>
-        </div>
+               </div>
+            </template>
+          </DataTable>
+        </Card>
       </div>
 
       <!-- TAB: HISTORY -->
       <div v-else-if="activeTab === 'history'" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <Card class="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden border border-slate-100">
-           <div class="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between gap-4">
-             <div class="relative w-full md:w-96">
-                <Search class="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input 
-                  v-model="historySearch" 
-                  placeholder="Cari riwayat (No SJ, Pabrik)..." 
-                  class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                />
-             </div>
-          </div>
-          <div class="p-0">
-             <div v-if="filteredHistory.length === 0" class="p-20 text-center">
-                <History class="h-16 w-16 text-slate-100 mx-auto mb-4" />
-                <p class="text-slate-400 font-bold">Tidak ada riwayat penerimaan yang ditemukan.</p>
-             </div>
-             <div v-else class="divide-y divide-slate-50">
-                <div v-for="shipment in filteredHistory" :key="shipment.doNo" class="p-8 hover:bg-slate-50/50 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                   <div class="flex items-center gap-5">
-                      <div class="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100/50">
-                        <CheckCircle2 class="h-7 w-7" />
-                      </div>
-                      <div>
-                        <div class="flex items-center gap-3 mb-1">
-                          <h4 class="text-lg font-black text-slate-900">{{ shipment.doNo }}</h4>
-                          <Badge variant="outline" class="bg-emerald-50 text-emerald-600 border-emerald-100 rounded-lg text-[9px] font-black uppercase tracking-wider">Berhasil Diterima</Badge>
-                        </div>
-                        <div class="flex items-center gap-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                           <span class="flex items-center gap-1"><Factory class="h-3 w-3" /> {{ shipment.from }}</span>
-                           <span class="w-1 h-1 bg-slate-200 rounded-full"></span>
-                           <span class="flex items-center gap-1"><Calendar class="h-3 w-3" /> {{ new Date(shipment.receivedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) }}</span>
-                           <span class="w-1 h-1 bg-slate-200 rounded-full"></span>
-                           <span class="flex items-center gap-1"><Clock class="h-3 w-3" /> {{ new Date(shipment.receivedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) }}</span>
-                        </div>
-                      </div>
+           <DataTable :columns="historyColumns" :data="filteredHistory">
+             <template #cell-doNo="{ row }">
+                <div class="flex items-center gap-3">
+                   <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100/50">
+                     <CheckCircle2 class="h-5 w-5" />
                    </div>
-                   
-                   <div class="flex items-center gap-8 w-full md:w-auto">
-                      <div class="flex flex-col items-end">
-                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Detail Barang</p>
-                         <div class="flex -space-x-2">
-                            <div v-for="item in shipment.items.slice(0, 4)" :key="item.id" class="inline-block h-10 w-10 rounded-xl ring-2 ring-white bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600 border border-slate-200 shadow-sm">
-                              {{ item.product?.name?.charAt(0) }}
-                            </div>
-                            <div v-if="shipment.items.length > 4" class="inline-block h-10 w-10 rounded-xl ring-2 ring-white bg-slate-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg">
-                              +{{ shipment.items.length - 4 }}
-                            </div>
-                         </div>
-                      </div>
-                      <div class="h-12 w-[1px] bg-slate-100 hidden md:block"></div>
-                      <div class="text-right">
-                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Muatan</p>
-                         <p class="text-xl font-black text-slate-900">{{ shipment.totalWeight.toFixed(2) }} <span class="text-xs font-normal text-slate-400">KG</span></p>
-                      </div>
+                   <span class="font-black text-slate-900">{{ row.doNo }}</span>
+                </div>
+             </template>
+             <template #cell-from="{ row }">
+                <div class="flex items-center text-xs font-bold text-slate-600 uppercase tracking-widest">
+                   <Factory class="h-3.5 w-3.5 mr-2 text-slate-300" /> {{ row.from }}
+                </div>
+             </template>
+             <template #cell-receivedAt="{ row }">
+                <div class="flex flex-col text-[11px] font-bold text-slate-500 uppercase">
+                   <span class="flex items-center gap-1.5"><Calendar class="h-3 w-3" /> {{ new Date(row.receivedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) }}</span>
+                   <span class="flex items-center gap-1.5"><Clock class="h-3 w-3" /> {{ new Date(row.receivedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) }}</span>
+                </div>
+             </template>
+             <template #cell-totalWeight="{ row }">
+                <span class="text-lg font-black text-slate-900">{{ row.totalWeight.toFixed(2) }} <span class="text-[10px] font-normal text-slate-400">KG</span></span>
+             </template>
+             <template #cell-items="{ row }">
+                <div class="flex -space-x-2">
+                   <div v-for="item in row.items.slice(0, 3)" :key="item.id" class="inline-block h-8 w-8 rounded-lg ring-2 ring-white bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-600 border border-slate-200 shadow-sm">
+                     {{ item.product?.name?.charAt(0) }}
+                   </div>
+                   <div v-if="row.items.length > 3" class="inline-block h-8 w-8 rounded-lg ring-2 ring-white bg-slate-900 flex items-center justify-center text-[8px] font-black text-white shadow-lg">
+                     +{{ row.items.length - 3 }}
                    </div>
                 </div>
-             </div>
-          </div>
+             </template>
+           </DataTable>
         </Card>
       </div>
     </div>
@@ -546,16 +479,29 @@
             </div>
          </CardHeader>
          <CardContent class="p-8 space-y-6 bg-white max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex gap-4 items-center">
-              <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-                <Truck class="h-5 w-5" />
-              </div>
-              <div>
-                <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Surat Jalan</p>
-                <p class="text-sm font-black text-blue-900">{{ receivingShipment?.doNo }}</p>
-              </div>
-            </div>
-
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex gap-4 items-center">
+                  <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                    <Truck class="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest leading-none mb-1">Surat Jalan</p>
+                    <p class="text-sm font-black text-blue-900">{{ receivingShipment?.doNo }}</p>
+                  </div>
+                </div>
+                <div v-if="receivingShipment?.eta" class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex gap-4 items-center">
+                  <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                    <Clock class="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p class="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mb-1">Estimasi Tiba</p>
+                    <p class="text-sm font-black text-emerald-900">
+                      {{ new Date(receivingShipment.eta).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}, 
+                      {{ new Date(receivingShipment.eta).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) }}
+                    </p>
+                  </div>
+                </div>
+             </div>
             <div class="space-y-4">
               <div v-for="(item, index) in receiveForm.items" :key="item.id" class="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
                 <div class="flex justify-between items-center">
@@ -666,8 +612,10 @@ import {
   Factory,
   Package,
   User,
-  ClipboardList
+  AlertTriangle,
+  Printer
 } from 'lucide-vue-next'
+import SuratJalanPrint from '@/components/factory/SuratJalanPrint.vue'
 import { toast } from 'vue-sonner'
 
 const warehouseStore = useWarehouseStore()
@@ -692,6 +640,14 @@ const isRejecting = ref(false)
 const isSubmittingReceive = ref(false)
 const stockSearch = ref('')
 const historySearch = ref('')
+const shipmentToPrint = ref<any>(null)
+
+const printShipment = (group: any) => {
+  shipmentToPrint.value = group
+  setTimeout(() => {
+    window.print()
+  }, 300)
+}
 
 const receiveForm = reactive({
   items: [] as any[]
@@ -1023,6 +979,24 @@ const stockColumns = [
     label: 'Update Terakhir', 
     render: (v: string) => `<span class="text-[10px] font-bold text-slate-400 uppercase">${new Date(v).toLocaleDateString('id-ID')}</span>` 
   }
+]
+
+const inboundColumns = [
+  { key: 'doNo', label: 'Surat Jalan' },
+  { key: 'from', label: 'Asal Pengiriman' },
+  { key: 'status', label: 'Status' },
+  { key: 'totalQty', label: 'Item' },
+  { key: 'totalWeight', label: 'Berat' },
+  { key: 'targetDate', label: 'Jadwal / ETA' },
+  { key: 'actions', label: 'Aksi' }
+]
+
+const historyColumns = [
+  { key: 'doNo', label: 'Surat Jalan' },
+  { key: 'from', label: 'Asal' },
+  { key: 'receivedAt', label: 'Diterima Pada' },
+  { key: 'totalWeight', label: 'Total Muatan' },
+  { key: 'items', label: 'Produk' }
 ]
 
 onMounted(() => {

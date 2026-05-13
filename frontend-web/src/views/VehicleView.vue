@@ -21,7 +21,7 @@
         <div class="flex items-center justify-between px-2">
           <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
              Daftar Armada
-             <Badge variant="secondary" class="rounded-full bg-slate-100 text-slate-500">{{ vehicleStore.vehicles.length }}</Badge>
+             <Badge variant="secondary" class="rounded-full bg-slate-100 text-slate-500">{{ computedVehicles.length }}</Badge>
           </h2>
         </div>
 
@@ -30,7 +30,7 @@
         </div>
 
         <div v-else class="space-y-4">
-          <Card v-for="vehicle in vehicleStore.vehicles" :key="vehicle.id" 
+          <Card v-for="vehicle in computedVehicles" :key="vehicle.id" 
             class="relative overflow-hidden group border-slate-100 shadow-sm rounded-[2rem] transition-all hover:shadow-md cursor-pointer bg-white"
             :class="selectedVehicleId === vehicle.id ? 'ring-2 ring-primary border-transparent shadow-lg' : ''"
             @click="selectVehicle(vehicle)"
@@ -44,7 +44,7 @@
             <div 
               v-else
               class="absolute top-0 right-0 w-32 h-32 -mr-12 -mt-12 rounded-full opacity-5 transition-transform group-hover:scale-110"
-              :class="statusColors[vehicle.status]"
+              :class="statusColors[vehicle.computedStatus]"
             ></div>
             
             <div class="relative z-10">
@@ -54,7 +54,7 @@
                     <div v-if="vehicle.image_url" class="h-16 w-16 rounded-2xl overflow-hidden border-2 border-white shadow-md">
                       <img :src="baseUrl + vehicle.image_url" class="h-full w-full object-cover" />
                     </div>
-                    <div v-else class="h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-lg" :class="statusColors[vehicle.status]">
+                    <div v-else class="h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-lg" :class="statusColors[vehicle.computedStatus]">
                       <Truck class="h-8 w-8" />
                     </div>
                     <div>
@@ -62,8 +62,8 @@
                       <CardDescription class="font-bold text-slate-500">{{ vehicle.name }}</CardDescription>
                     </div>
                   </div>
-                  <Badge :class="getStatusBadgeClass(vehicle.status)" class="rounded-full px-3 py-1 font-bold text-[10px] uppercase border-none">
-                    {{ vehicle.status }}
+                  <Badge :class="getStatusBadgeClass(vehicle.computedStatus)" class="rounded-full px-3 py-1 font-bold text-[10px] uppercase border-none">
+                    {{ vehicle.computedStatus }}
                   </Badge>
                 </div>
               </CardHeader>
@@ -336,6 +336,7 @@ import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { useVehicleStore } from '@/stores/vehicle'
 import { useDeliveryStore } from '@/stores/delivery'
 import { useMasterDataStore } from '@/stores/masterData'
+import { useFactoryStore } from '@/stores/factory'
 import apiClient from '@/api/axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card/index'
@@ -359,6 +360,7 @@ import { toast } from 'vue-sonner'
 const vehicleStore = useVehicleStore()
 const deliveryStore = useDeliveryStore()
 const masterStore = useMasterDataStore()
+const factoryStore = useFactoryStore()
 
 const showModal = ref(false)
 const isEditing = ref(false)
@@ -391,13 +393,7 @@ const form = reactive({
 const fetchDrivers = async () => {
   loadingDrivers.value = true
   try {
-    const res = await apiClient.get(`/employees?company_id=${masterStore.selectedBranchCompanyId || ''}`)
-    if (res.data?.data) {
-      drivers.value = res.data.data.filter((emp: any) => {
-        const jobTitle = (emp.job_position?.title || '').toLowerCase()
-        return jobTitle.includes('driver') || jobTitle.includes('sopir') || jobTitle.includes('salesman')
-      })
-    }
+    await masterStore.fetchEmployees()
     await deliveryStore.fetchBatches()
   } finally {
     loadingDrivers.value = false
@@ -405,15 +401,35 @@ const fetchDrivers = async () => {
 }
 
 const driverStatus = computed(() => {
-  return drivers.value.map(driver => {
+  const filteredDrivers = masterStore.employees.filter((emp: any) => {
+    const activeBatch = deliveryStore.batches.find(b => b.driver_id === emp.id && b.status !== 'COMPLETED')
+    const activeTransfer = factoryStore.allTransfers.find((t: any) => t.driver_id === emp.id && (t.status === 'SHIPPED' || t.status === 'ARRIVED'))
+    
+    // Always include if they are actively delivering
+    if (activeBatch || activeTransfer) return true
+
+    // If job title is missing, include them just in case they are assigned
+    if (!emp.job_position?.title) return true
+    const jobTitle = emp.job_position.title.toLowerCase()
+    return jobTitle.includes('driver') || jobTitle.includes('sopir') || jobTitle.includes('salesman') || jobTitle.includes('motoris')
+  })
+
+  const statusArray = filteredDrivers.map(driver => {
     const activeBatch = deliveryStore.batches.find(b => b.driver_id === driver.id && b.status !== 'COMPLETED')
+    const activeTransfer = factoryStore.allTransfers.find((t: any) => t.driver_id === driver.id && (t.status === 'SHIPPED' || t.status === 'ARRIVED'))
+    
     let status = 'AVAILABLE'
     let currentTask = ''
     
-    if (activeBatch) {
+    if (activeTransfer) {
+      status = 'DELIVERING'
+      const from = activeTransfer.from_factory?.name || 'Pabrik'
+      const to = activeTransfer.to_branch?.name || 'Cabang'
+      currentTask = `${activeTransfer.delivery_order_no || 'Pindah Gudang'} (${from} → ${to})`
+    } else if (activeBatch) {
       if (activeBatch.status === 'ON_DELIVERY' || activeBatch.status === 'PICKING') {
         status = 'DELIVERING'
-        currentTask = activeBatch.delivery_order_no || 'Tugas Pengiriman'
+        currentTask = `${activeBatch.delivery_order_no || 'Tugas Pengiriman'} (Cabang → Pelanggan)`
       } else {
         status = 'WORKING'
         currentTask = 'Persiapan / Standby'
@@ -426,16 +442,49 @@ const driverStatus = computed(() => {
       currentTask
     }
   })
+
+  return statusArray.sort((a, b) => {
+    const rank = (s: string) => s === 'DELIVERING' ? 0 : s === 'WORKING' ? 1 : 2
+    return rank(a.computedStatus) - rank(b.computedStatus)
+  })
+})
+
+const computedVehicles = computed(() => {
+  return vehicleStore.vehicles.map(vehicle => {
+    const activeTransfer = factoryStore.allTransfers.find((t: any) => 
+      t.vehicle_id === vehicle.id && (t.status === 'SHIPPED' || t.status === 'ARRIVED')
+    )
+    
+    // We don't have vehicle_id in delivery batch yet but just in case for future proof
+    const activeBatch = deliveryStore.batches.find((b: any) => 
+      b.vehicle_id === vehicle.id && b.status !== 'COMPLETED'
+    )
+    
+    let currentStatus = vehicle.status
+    if (currentStatus === 'AVAILABLE') {
+      if (activeTransfer || (activeBatch && (activeBatch.status === 'ON_DELIVERY' || activeBatch.status === 'PICKING'))) {
+        currentStatus = 'IN_USE'
+      }
+    }
+    
+    return {
+      ...vehicle,
+      computedStatus: currentStatus,
+      activeTask: activeTransfer?.delivery_order_no || activeBatch?.delivery_order_no || ''
+    }
+  })
 })
 
 onMounted(() => {
   vehicleStore.fetchVehicles()
   fetchDrivers()
+  factoryStore.fetchAllTransfers()
 })
 
 watch(() => masterStore.selectedBranchId, () => {
   vehicleStore.fetchVehicles()
   fetchDrivers()
+  factoryStore.fetchAllTransfers()
 })
 
 const selectedVehicle = computed(() => {
