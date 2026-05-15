@@ -201,7 +201,7 @@ class ClockOutSuccessPage extends StatelessWidget {
                                 const SizedBox(height: 24),
                                 _buildInfoRow(
                                   icon: Icons.logout_rounded,
-                                  iconColor: AppColors.primaryRedLight,
+                                  iconColor: AppColors.primaryGreenLight,
                                   label: 'Keluar',
                                   time: checkOutTime,
                                   branch: branchName ?? (attendance.branchName.isNotEmpty ? attendance.branchName : 'Cabang Terdaftar'),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -121,7 +122,7 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
                 'format': 'json',
                 'addressdetails': 1,
               },
-              options: Options(headers: {'User-Agent': 'HRISWowinMobileApp/1.0'}),
+              options: Options(headers: {'User-Agent': 'WowinSuperApp/1.0'}),
             ).timeout(const Duration(seconds: 5));
 
             if (response.statusCode == 200 && response.data != null) {
@@ -175,19 +176,21 @@ class _VisitCheckinPageState extends State<VisitCheckinPage> {
       // Burn watermark onto the captured image using canvas
       final resultBytes = await _burnWatermark(bytes);
       
-      setState(() {
-        _capturedBytes = resultBytes;
-        // For mobile we still save to path for database reference
-        // For web we keep it in memory
-        _capturedPath = 'memory_image'; 
-      });
-
-      if (!kIsWeb) {
+      String pathOrBase64 = '';
+      if (kIsWeb) {
+        // On Web, convert to Base64 for storage in local DB
+        pathOrBase64 = 'data:image/png;base64,${base64Encode(resultBytes)}';
+      } else {
         final dir = await getTemporaryDirectory();
         final outPath = '${dir.path}/checkin_${DateTime.now().millisecondsSinceEpoch}.png';
         await File(outPath).writeAsBytes(resultBytes);
-        setState(() => _capturedPath = outPath);
+        pathOrBase64 = outPath;
       }
+
+      setState(() {
+        _capturedBytes = resultBytes;
+        _capturedPath = pathOrBase64;
+      });
     } catch (e) {
       debugPrint('Camera error: $e');
     } finally {

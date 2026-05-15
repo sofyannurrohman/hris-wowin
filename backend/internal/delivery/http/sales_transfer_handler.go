@@ -11,11 +11,12 @@ import (
 )
 
 type SalesTransferHandler struct {
-	usecase usecase.SalesTransferUsecase
+	usecase      usecase.SalesTransferUsecase
+	salesUsecase usecase.SalesUsecase
 }
 
-func NewSalesTransferHandler(u usecase.SalesTransferUsecase) *SalesTransferHandler {
-	return &SalesTransferHandler{u}
+func NewSalesTransferHandler(u usecase.SalesTransferUsecase, su usecase.SalesUsecase) *SalesTransferHandler {
+	return &SalesTransferHandler{u, su}
 }
 
 func (h *SalesTransferHandler) CreateTransfer(c *gin.Context) {
@@ -198,7 +199,16 @@ func (h *SalesTransferHandler) RegisterRoutes(r *gin.RouterGroup) {
 }
 
 func (h *SalesTransferHandler) RecordAttendance(c *gin.Context) {
-	// For now, let's just return success so the mobile app doesn't error
-	// We will implement the actual storage logic if needed
-	c.JSON(http.StatusOK, gin.H{"message": "Attendance recorded successfully"})
+	var req usecase.RecordVisitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.salesUsecase.RecordVisit(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Visit recorded successfully"})
 }

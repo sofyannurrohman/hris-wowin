@@ -4,7 +4,7 @@ import 'package:hris_app/core/theme/app_colors.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
-    const primaryColor = AppColors.primaryRed;
+    const primaryColor = AppColors.primaryGreen;
     
     return ThemeData(
       useMaterial3: true,
@@ -12,7 +12,7 @@ class AppTheme {
         seedColor: primaryColor,
         primary: primaryColor,
         onPrimary: Colors.white,
-        secondary: AppColors.primaryRedLight,
+        secondary: AppColors.primaryGreenLight,
         onSecondary: Colors.white,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,

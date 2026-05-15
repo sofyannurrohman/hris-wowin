@@ -166,6 +166,11 @@ const router = createRouter({
               component: () => import('@/views/sales/LogisticsDashboard.vue'),
             },
             {
+              path: 'surat-jalan',
+              name: 'suratJalan',
+              component: () => import('@/views/sales/SuratJalanView.vue'),
+            },
+            {
               path: 'penjualan',
               name: 'penjualan',
               component: () => import('@/views/sales/PenjualanView.vue'),

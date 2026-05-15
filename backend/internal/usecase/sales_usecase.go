@@ -321,6 +321,21 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 			return nil, errors.New("employee must be assigned to a branch to create sales orders")
 		}
 
+		// Resolve VisitID to link this SO to the visit record
+		var visitID *uuid.UUID
+		// Use req.TransactionDate if provided, otherwise fallback to now
+		targetDate := req.TransactionDate
+		if targetDate.IsZero() {
+			targetDate = time.Now()
+		}
+		visit, _ := u.visitRepo.FindLatestByEmployeeStoreAndDate(req.EmployeeID, req.StoreID, targetDate)
+		if visit != nil {
+			visitID = &visit.ID
+			fmt.Printf("DEBUG: Found visit %v for SALES_ORDER transaction at %v\n", visit.ID, targetDate)
+		} else {
+			fmt.Printf("DEBUG: No visit found for SALES_ORDER transaction at %v, store %v, emp %v\n", targetDate, req.StoreID, req.EmployeeID)
+		}
+
 		// 2. Map to CreateSORequest
 		// Use BranchID and CompanyID from employee record for maximum reliability
 		soReq := CreateSORequest{
@@ -330,6 +345,7 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 			StoreID:       req.StoreID,
 			StoreCategory: req.StoreCategory,
 			Notes:         req.Notes,
+			VisitID:       visitID,
 		}
 
 		for _, it := range req.Items {
@@ -379,11 +395,19 @@ func (u *salesUsecase) CreateTransaction(req CreateTransactionRequest) (*domain.
 		req.ReceiptNo = fmt.Sprintf("INV-%s-%s-%04d", compCode, req.TransactionDate.Format("20060102"), count+1)
 	}
 
-	// Try to find actual visit for today to link it
-	visit, _ := u.visitRepo.FindTodayByEmployeeAndStore(req.EmployeeID, req.StoreID)
+	// Try to find actual visit to link it
+	// Use req.TransactionDate if provided, otherwise fallback to now
+	targetDate := req.TransactionDate
+	if targetDate.IsZero() {
+		targetDate = time.Now()
+	}
+	visit, _ := u.visitRepo.FindLatestByEmployeeStoreAndDate(req.EmployeeID, req.StoreID, targetDate)
 	var visitID *uuid.UUID
 	if visit != nil {
 		visitID = &visit.ID
+		fmt.Printf("DEBUG: Found visit %v for transaction at %v\n", visit.ID, targetDate)
+	} else {
+		fmt.Printf("DEBUG: No visit found for transaction at %v, store %v, emp %v\n", targetDate, req.StoreID, req.EmployeeID)
 	}
 
 	receiptNo := req.ReceiptNo
@@ -923,6 +947,7 @@ func (u *salesUsecase) GetProductSalesDistribution(productID uuid.UUID, companyI
 
 
 func (u *salesUsecase) RecordVisit(req RecordVisitRequest) error {
+	fmt.Printf("DEBUG: SalesUsecase.RecordVisit called for employee %v and store %v\n", req.EmployeeID, req.StoreID)
 	visit := &domain.SalesVisit{
 		EmployeeID:  req.EmployeeID,
 		StoreID:     req.StoreID,

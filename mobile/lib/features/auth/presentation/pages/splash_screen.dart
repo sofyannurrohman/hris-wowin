@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           Opacity(
             opacity: 1.0,
             child: Image.asset(
-              'assets/splash_premium.png',
+              'assets/splash_bg_green.png',
               fit: BoxFit.cover,
             ),
           ),
@@ -80,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 colors: [
                   Colors.white.withOpacity(0.0),
                   Colors.white.withOpacity(0.2),
-                  AppColors.primaryRed.withOpacity(0.15),
+                  AppColors.primaryGreen.withOpacity(0.15),
                 ],
               ),
             ),
@@ -101,21 +101,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primaryRed.withOpacity(0.15),
+                          color: AppColors.primaryGreen.withOpacity(0.15),
                           blurRadius: 40,
                           offset: const Offset(0, 15),
                         ),
                       ],
                     ),
                     child: Image.asset(
-                      'assets/logo_wowin.png',
+                      'assets/logo_wowin_green.png',
                       width: 90,
                       height: 90,
                     ),
                   ),
                   const SizedBox(height: 54),
                   Text(
-                    'HRIS WOWIN',
+                    'WOWIN SUPER APP',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
@@ -127,15 +127,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryRed.withOpacity(0.08),
+                      color: AppColors.primaryGreen.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'Aplikasi HRIS Karyawan Terintegrasi',
+                      'One Platform for All Your Needs',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.primaryRed,
+                        color: AppColors.primaryGreen,
                         letterSpacing: 2,
                       ),
                     ),
@@ -159,12 +159,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryRed),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                     ),
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    'VERSION 1.0.2 • HRIS WOWIN',
+                    'VERSION 1.0.2 • WOWIN SUPER APP',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary.withOpacity(0.6),
                       fontSize: 10,

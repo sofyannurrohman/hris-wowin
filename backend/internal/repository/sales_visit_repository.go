@@ -13,6 +13,7 @@ type SalesVisitRepository interface {
 	Update(visit *domain.SalesVisit) error
 	FindByID(id uuid.UUID) (*domain.SalesVisit, error)
 	FindTodayByEmployeeAndStore(employeeID, storeID uuid.UUID) (*domain.SalesVisit, error)
+	FindLatestByEmployeeStoreAndDate(employeeID, storeID uuid.UUID, date time.Time) (*domain.SalesVisit, error)
 	FindAllHistory(limit, offset int, employeeID *uuid.UUID, branchID *uuid.UUID, startDate, endDate *time.Time) ([]domain.SalesVisit, error)
 	Delete(id uuid.UUID) error
 }
@@ -35,7 +36,7 @@ func (r *salesVisitRepository) Update(visit *domain.SalesVisit) error {
 
 func (r *salesVisitRepository) FindByID(id uuid.UUID) (*domain.SalesVisit, error) {
 	var visit domain.SalesVisit
-	err := r.db.Preload("Employee.User").Preload("Store").Preload("Transactions").Where("id = ?", id).First(&visit).Error
+	err := r.db.Preload("Employee.User").Preload("Store").Preload("Transactions").Preload("SalesOrders").Where("id = ?", id).First(&visit).Error
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +46,28 @@ func (r *salesVisitRepository) FindByID(id uuid.UUID) (*domain.SalesVisit, error
 func (r *salesVisitRepository) FindTodayByEmployeeAndStore(employeeID, storeID uuid.UUID) (*domain.SalesVisit, error) {
 	var visit domain.SalesVisit
 	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	// Look back 24 hours from now to find the latest visit for this store/employee
+	// This handles cases where a visit crosses the UTC day boundary
+	limit := now.Add(-24 * time.Hour)
+	err := r.db.Where("employee_id = ? AND store_id = ? AND check_in_time >= ? AND check_in_time <= ?", employeeID, storeID, limit, now).
+		Order("check_in_time DESC").
+		First(&visit).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &visit, nil
+}
+
+func (r *salesVisitRepository) FindLatestByEmployeeStoreAndDate(employeeID, storeID uuid.UUID, date time.Time) (*domain.SalesVisit, error) {
+	var visit domain.SalesVisit
+	// Look back 24 hours from the given reference date to find the most recent visit
+	// This is much more robust than strict "same UTC day" matching
+	limit := date.Add(-24 * time.Hour)
 	
-	err := r.db.Where("employee_id = ? AND store_id = ? AND check_in_time >= ?", employeeID, storeID, startOfDay).
+	err := r.db.Where("employee_id = ? AND store_id = ? AND check_in_time <= ? AND check_in_time >= ?", employeeID, storeID, date, limit).
 		Order("check_in_time DESC").
 		First(&visit).Error
 	if err != nil {
@@ -61,14 +81,14 @@ func (r *salesVisitRepository) FindTodayByEmployeeAndStore(employeeID, storeID u
 
 func (r *salesVisitRepository) FindAllHistory(limit, offset int, employeeID *uuid.UUID, branchID *uuid.UUID, startDate, endDate *time.Time) ([]domain.SalesVisit, error) {
 	var visits []domain.SalesVisit
-	query := r.db.Preload("Employee.User").Preload("Employee.Branch").Preload("Store").Preload("Transactions")
+	query := r.db.Model(&domain.SalesVisit{}).Preload("Employee.User").Preload("Employee.Branch").Preload("Store").Preload("Transactions").Preload("SalesOrders")
 	
 	if employeeID != nil && *employeeID != uuid.Nil {
 		query = query.Where("employee_id = ?", *employeeID)
 	}
 	
 	if branchID != nil && *branchID != uuid.Nil {
-		query = query.Joins("JOIN employees ON employees.id = sales_visits.employee_id").Where("employees.branch_id = ?", *branchID)
+		query = query.Where("employee_id IN (SELECT id FROM employees WHERE branch_id = ?)", *branchID)
 	}
 	
 	if startDate != nil {

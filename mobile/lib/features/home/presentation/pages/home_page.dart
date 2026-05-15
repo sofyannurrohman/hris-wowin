@@ -115,7 +115,7 @@ class _HomeViewState extends State<HomeView> {
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primaryRed,
+        selectedItemColor: AppColors.primaryGreen,
         unselectedItemColor: AppColors.textTertiary,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
@@ -168,9 +168,9 @@ class _HomeViewState extends State<HomeView> {
                                   ? profile['face_reference_url'] 
                                   : '${Uri.parse(AppConstants.baseUrl).origin}${profile['face_reference_url'].toString().startsWith('/') ? profile['face_reference_url'] : '/${profile['face_reference_url']}'}',
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 40, color: AppColors.primaryRed),
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 40, color: AppColors.primaryGreen),
                             )
-                          : const Icon(Icons.person, size: 40, color: AppColors.primaryRed),
+                          : const Icon(Icons.person, size: 40, color: AppColors.primaryGreen),
                     ),
                     const SizedBox(height: 16),
                     const Text('MENU UTAMA', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 2)),
@@ -220,7 +220,7 @@ class _HomeViewState extends State<HomeView> {
                       _buildDrawerItem(Icons.verified_user_rounded, 'Approval Panel', () {
                         Navigator.pop(context);
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => BlocProvider(create: (_) => di.sl<ApprovalBloc>(), child: const ApprovalPage())));
-                      }, color: AppColors.primaryRed),
+                      }, color: AppColors.primaryGreen),
                   ],
                 ),
               ),
@@ -273,7 +273,7 @@ class _HomeViewState extends State<HomeView> {
               Navigator.pop(context);
               context.read<AuthBloc>().add(LogoutRequested());
             }, 
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryRed, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: const Text('KELUAR', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
           ),
         ],
@@ -290,7 +290,7 @@ class DashboardTab extends StatelessWidget {
     return BlocBuilder<AttendanceBloc, AttendanceState>(
       builder: (context, state) {
         if (state is AttendanceLoading) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primaryRed));
+          return const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen));
         }
         
         Map<String, dynamic>? profile;
@@ -472,7 +472,7 @@ class DashboardTab extends StatelessWidget {
       expandedHeight: 60,
       floating: false,
       pinned: true,
-      backgroundColor: AppColors.primaryRed,
+      backgroundColor: AppColors.primaryGreen,
       elevation: 0,
       iconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
@@ -526,7 +526,7 @@ class DashboardTab extends StatelessWidget {
                     child: Container(
                       width: 8, 
                       height: 8, 
-                      decoration: const BoxDecoration(color: Colors.yellow, shape: BoxShape.circle, border: Border.fromBorderSide(BorderSide(color: AppColors.primaryRed, width: 1))),
+                      decoration: const BoxDecoration(color: Colors.yellow, shape: BoxShape.circle, border: Border.fromBorderSide(BorderSide(color: AppColors.primaryGreen, width: 1))),
                     ),
                   ),
               ],
@@ -555,7 +555,7 @@ class DashboardTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primaryRed.withOpacity(0.3),
+                color: AppColors.primaryGreen.withOpacity(0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -615,7 +615,7 @@ class DashboardTab extends StatelessWidget {
             _buildActionItem(
               Icons.logout_rounded, 
               'Absen Keluar', 
-              AppColors.primaryRed, 
+              AppColors.primaryGreen, 
               () {
                 if (status == AttendanceStatus.none) {
                   DialogUtils.showError(
@@ -687,13 +687,13 @@ class DashboardTab extends StatelessWidget {
                       MaterialPageRoute(builder: (context) => const NotificationListPage()),
                     );
                   }, 
-                  child: Text('Lihat Semua', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primaryRed))
+                  child: Text('Lihat Semua', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primaryGreen))
                 ),
               ],
             ),
             const SizedBox(height: 12),
             if (state is AnnouncementLoading)
-              const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
+              const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
             else if (state is AnnouncementLoaded && state.announcements.isNotEmpty)
               SizedBox(
                 height: 180,
@@ -726,8 +726,8 @@ class DashboardTab extends StatelessWidget {
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(8), 
-                                  decoration: BoxDecoration(color: AppColors.primaryRed.withOpacity(0.1), shape: BoxShape.circle), 
-                                  child: const Icon(Icons.campaign_rounded, color: AppColors.primaryRed, size: 18)
+                                  decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.1), shape: BoxShape.circle), 
+                                  child: const Icon(Icons.campaign_rounded, color: AppColors.primaryGreen, size: 18)
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(child: Text(ann.title.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textPrimary, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
@@ -740,7 +740,7 @@ class DashboardTab extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(DateFormat('dd MMM yyyy').format(ann.createdAt), style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.w700)),
-                                Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryRed.withOpacity(0.5)),
+                                Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primaryGreen.withOpacity(0.5)),
                               ],
                             ),
                           ],
@@ -782,7 +782,7 @@ class DashboardTab extends StatelessWidget {
               } else if (isClockIn) {
                 statusColor = AppColors.success;
               } else {
-                statusColor = AppColors.primaryRed;
+                statusColor = AppColors.primaryGreen;
               }
 
               IconData statusIcon;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hris_app/features/sales/presentation/pages/delivery_checkout_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -83,7 +84,10 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
 
       if (widget.autoShowMap && mounted) {
         final items = _batchData!['items'] as List;
-        final stores = items.map((i) => StoreModel.fromJson(i['sales_transaction']['store'])).toList();
+        final List<StoreModel> stores = items.map((i) {
+          final storeData = (i['sales_order'] != null) ? i['sales_order']['store'] : i['sales_transaction']['store'];
+          return StoreModel.fromJson(storeData);
+        }).toList();
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => OptimalRouteMapPage(stores: stores)),
@@ -142,7 +146,6 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
               onPressed: () => setState(() {
                 _isScanning = true;
                 _showTasks = false;
-                _batchData = null;
               }),
             ),
         ],
@@ -281,16 +284,15 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
         MobileScanner(
           controller: _scannerController,
           onDetect: (capture) {
+            if (_isLoading) return; // Use existing _isLoading as a lock
             final List<Barcode> barcodes = capture.barcodes;
             for (final barcode in barcodes) {
               final String? code = barcode.rawValue;
               if (code != null) {
                 if (code.startsWith('SJ-')) {
                    _fetchBatch(code);
-                } else if (code.contains('/') || code.startsWith('INV') || code.startsWith('WOW')) {
-                   _confirmByReceipt(code);
                 } else {
-                   _fetchBatch(code);
+                   _openCheckoutForCode(code);
                 }
                 break;
               }
@@ -329,34 +331,49 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
     );
   }
 
-  Future<void> _confirmByReceipt(String receiptNo) async {
+  Future<void> _openCheckoutForCode(String code) async {
     setState(() => _isLoading = true);
-    try {
-      await apiClient.client.post(
-        'delivery/items/confirm-by-receipt',
-        data: {'receipt_no': receiptNo, 'notes': 'Diterima via Scan Nota Universal'},
+    
+    // If we have a batch open, try to find the item in the batch
+    if (_batchData != null) {
+      final items = _batchData!['items'] as List;
+      final matchedItem = items.cast<Map<String, dynamic>>().firstWhere(
+        (item) {
+          final soNumber = item['sales_order']?['so_number'];
+          final invoiceNo = item['sales_transaction']?['invoice_no'];
+          final itemId = item['id'];
+          return soNumber == code || invoiceNo == code || itemId == code;
+        },
+        orElse: () => <String, dynamic>{},
       );
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Nota $receiptNo berhasil dikonfirmasi!'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      
-      if (_batchData != null) {
-        _fetchBatch(_batchData!['delivery_order_no']);
-      } else {
-        _fetchTasks();
+
+      if (matchedItem.isNotEmpty) {
+        setState(() {
+          _isLoading = false;
+          _isScanning = false;
+        });
+        
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DeliveryCheckoutPage(
+              deliveryItem: matchedItem,
+              onSuccess: () => _fetchBatch(_batchData!['delivery_order_no']),
+            ),
+          ),
+        );
+        return;
       }
-    } catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal konfirmasi nota: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      setState(() => _isLoading = false);
     }
+
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Data Nota tidak ditemukan di Surat Jalan ini. Silakan scan Surat Jalan utamanya terlebih dahulu.'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _showUpdateCashDialog(double currentCash) {
@@ -425,7 +442,10 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
 
   Widget _buildBatchDetail() {
     final items = _batchData!['items'] as List;
-    final stores = items.map((i) => StoreModel.fromJson(i['sales_transaction']['store'])).toList();
+    final List<StoreModel> stores = items.map((i) {
+      final storeData = (i['sales_order'] != null) ? i['sales_order']['store'] : i['sales_transaction']['store'];
+      return StoreModel.fromJson(storeData);
+    }).toList();
     final deliveredCount = items.where((i) => i['status'] == 'DELIVERED').length;
     final progress = items.isEmpty ? 0.0 : deliveredCount / items.length;
     final totalCash = (_batchData!['total_cash_collected'] ?? 0.0).toDouble();
@@ -547,64 +567,91 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              final store = item['sales_transaction']['store'];
+              final store = (item['sales_order'] != null) ? item['sales_order']['store'] : item['sales_transaction']['store'];
               final isDelivered = item['status'] == 'DELIVERED';
+              final lat = store['latitude'];
+              final lng = store['longitude'];
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                   border: Border.all(color: isDelivered ? Colors.green.withOpacity(0.2) : Colors.transparent),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isDelivered ? Colors.green.withOpacity(0.1) : const Color(0xFFF1F5F9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w900,
-                            color: isDelivered ? Colors.green : const Color(0xFF64748B),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DeliveryCheckoutPage(
+                            deliveryItem: item,
+                            onSuccess: () => _fetchBatch(_batchData!['delivery_order_no']),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         children: [
-                          Text(store['name'], style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16)),
-                          Text(store['address'], style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: isDelivered ? Colors.green.withOpacity(0.1) : const Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w900,
+                                  color: isDelivered ? Colors.green : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(store['name'] ?? 'Toko Tanpa Nama', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16)),
+                                Text(store['address'] ?? 'Alamat tidak tersedia', style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                          if (lat != null && lng != null)
+                            IconButton(
+                              icon: const Icon(Icons.near_me_rounded, color: Colors.blueAccent, size: 24),
+                              onPressed: () async {
+                                final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+                                if (await canLaunchUrl(Uri.parse(url))) {
+                                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                }
+                              },
+                              tooltip: 'Navigasi ke Toko',
+                            ),
+                          if (!isDelivered)
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFCBD5E1), size: 16)
+                          else
+                            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 32),
                         ],
                       ),
                     ),
-                    if (!isDelivered)
-                      IconButton(
-                        icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.blueAccent, size: 32),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DeliveryCheckoutPage(
-                                deliveryItem: item,
-                                onSuccess: () => _fetchBatch(_batchData!['delivery_order_no']),
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    else
-                      const Icon(Icons.check_circle_rounded, color: Colors.green, size: 32),
-                  ],
+                  ),
                 ),
               );
             },
@@ -613,4 +660,5 @@ class _DeliveryTrackingPageState extends State<DeliveryTrackingPage> {
       ],
     );
   }
+
 }

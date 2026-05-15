@@ -97,14 +97,14 @@ class _LoginPageState extends State<LoginPage> {
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.primaryRed.withOpacity(0.12),
+                                    color: AppColors.primaryGreen.withOpacity(0.12),
                                     blurRadius: 30,
                                     offset: const Offset(0, 15),
                                   ),
                                 ],
                               ),
                               child: Image.asset(
-                                'assets/logo_wowin.png',
+                                'assets/logo_wowin_green.png',
                                 width: 80,
                                 height: 80,
                               ),
@@ -183,7 +183,7 @@ class _LoginPageState extends State<LoginPage> {
                                   child: Checkbox(
                                     value: _rememberMe,
                                     onChanged: (val) => setState(() => _rememberMe = val ?? false),
-                                    activeColor: AppColors.primaryRed,
+                                    activeColor: AppColors.primaryGreen,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                     side: const BorderSide(color: AppColors.grayBorder, width: 1.5),
                                   ),
@@ -207,7 +207,7 @@ class _LoginPageState extends State<LoginPage> {
                               );
                             },
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primaryRed,
+                              foregroundColor: AppColors.primaryGreen,
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                             ),
@@ -239,7 +239,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primaryRed.withOpacity(0.3),
+                                      color: AppColors.primaryGreen.withOpacity(0.3),
                                       blurRadius: 20,
                                       offset: const Offset(0, 10),
                                     ),
@@ -264,8 +264,8 @@ class _LoginPageState extends State<LoginPage> {
                                   label: const Text('MASUK DENGAN SIDIK JARI', style: TextStyle(fontWeight: FontWeight.w800)),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 16),
-                                    side: const BorderSide(color: AppColors.primaryRed),
-                                    foregroundColor: AppColors.primaryRed,
+                                    side: const BorderSide(color: AppColors.primaryGreen),
+                                    foregroundColor: AppColors.primaryGreen,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
                                 ),
@@ -296,7 +296,7 @@ class _LoginPageState extends State<LoginPage> {
                             child: const Text(
                               "Minta Akses",
                               style: TextStyle(
-                                color: AppColors.primaryRed,
+                                color: AppColors.primaryGreen,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -319,7 +319,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 16),
                             const Text(
-                              "VERSION 1.0.2 • HRIS WOWIN",
+                              "VERSION 1.0.2 • WOWIN SUPER APP",
                               style: TextStyle(
                                 color: AppColors.textTertiary,
                                 fontSize: 10,

@@ -26,9 +26,9 @@ const searchQuery = ref('')
 const loading = ref(false)
 const isSubmitting = ref(false)
 const showPODModal = ref(false)
+const showEditModal = ref(false)
 const selectedOrder = ref<any>(null)
-const isEditingBatch = ref(false)
-const editingBatchId = ref<string | null>(null)
+const editingBatch = ref<any>(null)
 
 const drivers = ref<any[]>([])
 const vehicles = ref<any[]>([])
@@ -155,11 +155,45 @@ const cancelEdit = () => {
 }
 
 const handleEditBatch = (batch: any) => {
-  isEditingBatch.value = true
-  editingBatchId.value = batch.id
+  editingBatch.value = JSON.parse(JSON.stringify(batch)) // Deep copy
   batchForm.driver_id = batch.driver_id || ''
   batchForm.vehicle_id = batch.vehicle_id || ''
   selectedOrders.value = batch.items.map((i: any) => i.sales_order_id).filter(Boolean)
+  showEditModal.value = true
+}
+
+const handleUpdateBatch = async () => {
+  if (selectedOrders.value.length === 0) {
+    toast.error('Batch tidak boleh kosong')
+    return
+  }
+  isSubmitting.value = true
+  try {
+    const payload = {
+      company_id: masterStore.selectedBranchCompanyId,
+      branch_id: masterStore.selectedBranchId,
+      driver_id: batchForm.driver_id || null,
+      vehicle_id: batchForm.vehicle_id || null,
+      sales_order_ids: selectedOrders.value
+    }
+    await apiClient.put(`/delivery/batches/${editingBatch.value.id}`, payload)
+    toast.success('Batch berhasil diperbarui!')
+    showEditModal.value = false
+    fetchData()
+  } catch (err: any) {
+    toast.error(err.response?.data?.error || 'Gagal update batch')
+  } finally { isSubmitting.value = false }
+}
+
+const handleDeleteBatch = async (id: string) => {
+  if (!confirm('Apakah Anda yakin ingin menghapus batch ini? Nota di dalamnya akan kembali ke antrean.')) return
+  try {
+    await apiClient.delete(`/delivery/batches/${id}`)
+    toast.success('Batch berhasil dihapus')
+    fetchData()
+  } catch (err: any) {
+    toast.error('Gagal menghapus batch')
+  }
 }
 
 const getBatchStatusColor = (status: string) => {
@@ -346,6 +380,18 @@ watch(() => masterStore.selectedBranchId, fetchData)
             </div>
           </div>
           <div class="flex gap-2">
+            <!-- Edit & Delete Buttons -->
+            <template v-if="batch.status === 'WAITING_APPROVAL' || batch.status === 'SUPERVISOR_APPROVED'">
+              <Button variant="outline" @click="handleEditBatch(batch)" 
+                class="bg-white border-slate-200 text-slate-600 hover:bg-slate-50 rounded-2xl py-5 px-4 font-black">
+                <Pencil class="w-4 h-4" />
+              </Button>
+              <Button variant="outline" @click="handleDeleteBatch(batch.id)" 
+                class="bg-white border-red-100 text-red-500 hover:bg-red-50 rounded-2xl py-5 px-4 font-black">
+                <Trash2 class="w-4 h-4" />
+              </Button>
+            </template>
+
             <Button v-if="batch.status === 'WAITING_APPROVAL'" @click="handleSupervisorApprove(batch.id)" 
               class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl py-5 font-black text-[10px]">
               ✓ Setujui & Terbitkan SJ
@@ -388,6 +434,95 @@ watch(() => masterStore.selectedBranchId, fetchData)
         <Button @click="handleConfirmPOD" :disabled="loading" class="w-full bg-primary text-white rounded-2xl py-7 font-black shadow-xl shadow-primary/20">
           {{ loading ? 'PROSES...' : 'KONFIRMASI TERIMA' }}
         </Button>
+      </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showEditModal = false" />
+      <div class="bg-white rounded-[40px] w-full max-w-2xl relative z-10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 class="text-2xl font-black text-slate-900">Edit Surat Jalan</h3>
+            <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">{{ editingBatch?.delivery_order_no }}</p>
+          </div>
+          <Button variant="ghost" size="icon" @click="showEditModal = false" class="rounded-full">
+            <X class="w-6 h-6" />
+          </Button>
+        </div>
+        
+        <div class="p-8 overflow-y-auto space-y-6 flex-1">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Supir</label>
+              <select v-model="batchForm.driver_id" class="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-2xl px-5 py-4 font-bold text-slate-900 outline-none transition-all">
+                <option value="">— Pilih Supir —</option>
+                <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.first_name }} {{ d.last_name }}</option>
+              </select>
+            </div>
+            <div class="space-y-2">
+              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Armada</label>
+              <select v-model="batchForm.vehicle_id" class="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-2xl px-5 py-4 font-bold text-slate-900 outline-none transition-all">
+                <option value="">— Pilih Armada —</option>
+                <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.license_plate }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-sm font-black text-slate-900 uppercase tracking-wider">Daftar Nota dalam Batch</h4>
+              <span class="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full">{{ selectedOrders.length }} NOTA</span>
+            </div>
+            
+            <div class="space-y-2">
+              <div v-for="orderId in selectedOrders" :key="orderId" class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-[10px] text-primary">
+                    {{ selectedOrders.indexOf(orderId) + 1 }}
+                  </div>
+                  <div>
+                    <p class="text-[10px] font-black text-slate-900">
+                      {{ editingBatch?.items?.find((i: any) => i.sales_order_id === orderId)?.sales_order?.so_number || 
+                         deliveryStore.confirmedOrders.find((o: any) => o.id === orderId)?.so_number || 'NOTA BARU' }}
+                    </p>
+                    <p class="text-[9px] text-slate-500 font-bold">
+                      {{ editingBatch?.items?.find((i: any) => i.sales_order_id === orderId)?.sales_order?.store?.name || 
+                         deliveryStore.confirmedOrders.find((o: any) => o.id === orderId)?.store?.name || '—' }}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" @click="selectedOrders = selectedOrders.filter(id => id !== orderId)" class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl">
+                  <Trash2 class="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100">
+              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Tambah Nota dari Antrean</label>
+              <div class="max-h-40 overflow-y-auto space-y-2 pr-2">
+                <div v-for="q in deliveryStore.confirmedOrders.filter((o: any) => !selectedOrders.includes(o.id))" :key="q.id" 
+                  @click="selectedOrders.push(q.id)"
+                  class="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between cursor-pointer hover:border-primary/50 transition-all">
+                  <div>
+                    <p class="text-[9px] font-black text-primary">{{ q.so_number }}</p>
+                    <p class="text-[10px] font-black text-slate-900">{{ q.store?.name }}</p>
+                  </div>
+                  <PackagePlus class="w-4 h-4 text-slate-300" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-8 bg-slate-50/50 border-t border-slate-100 flex gap-4">
+          <Button variant="outline" @click="showEditModal = false" class="flex-1 rounded-2xl py-6 font-black border-slate-200">
+            BATAL
+          </Button>
+          <Button @click="handleUpdateBatch" :disabled="isSubmitting || selectedOrders.length === 0" class="flex-[2] bg-primary text-white rounded-2xl py-6 font-black shadow-xl shadow-primary/20">
+            {{ isSubmitting ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN' }}
+          </Button>
+        </div>
       </div>
     </div>
   </div>

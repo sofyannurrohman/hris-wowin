@@ -110,6 +110,8 @@ flutter:
     - assets/logo_premium.png
     - assets/logo_wowin.png
     - assets/splash_corporate.png
+    - assets/logo_wowin_green.png
+    - assets/splash_bg_green.png
     - assets/splash_premium.png
     - assets/mobilefacenet.tflite
     - assets/kecap_manis_wowin_1777446817239.png

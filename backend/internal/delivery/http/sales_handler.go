@@ -63,25 +63,42 @@ func (h *SalesHandler) SetupMobileRoutes(router *gin.RouterGroup) {
 		sales.GET("/transactions/due-date", h.GetByDueDate)
 		sales.GET("/transactions/status/:status", h.GetTransactions)
 		sales.POST("/attendance", h.RecordAttendance)
+		sales.POST("/upload", h.UploadPhoto)
 	}
 }
 
 func (h *SalesHandler) RecordAttendance(c *gin.Context) {
+	fmt.Println("DEBUG: SalesHandler.RecordAttendance hit")
 	var req usecase.RecordVisitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
 		return
 	}
 
-	// Resolve EmployeeID from token if empty
+	// 1. Try to get EmployeeID directly from context (set by EmployeeMiddleware)
+	if empID, exists := c.Get("employeeID"); exists {
+		req.EmployeeID = empID.(uuid.UUID)
+		fmt.Printf("DEBUG: Resolved EmployeeID from context: %v\n", req.EmployeeID)
+	}
+
+	// 2. Fallback to resolution from userID if still empty
 	if req.EmployeeID == uuid.Nil {
 		if userIDStr, exists := c.Get("userID"); exists {
 			userID := userIDStr.(uuid.UUID)
 			employee, err := h.employeeUseCase.GetEmployeeByUserID(userID)
 			if err == nil && employee != nil {
 				req.EmployeeID = employee.ID
+				fmt.Printf("DEBUG: Resolved EmployeeID from userID: %v\n", req.EmployeeID)
+			} else {
+				fmt.Printf("DEBUG: Failed to resolve employee from userID %v: %v\n", userID, err)
 			}
 		}
+	}
+
+	// 3. Final check
+	if req.EmployeeID == uuid.Nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "User is not associated with an employee record"})
+		return
 	}
 
 	if req.CheckTime.IsZero() {
@@ -89,7 +106,8 @@ func (h *SalesHandler) RecordAttendance(c *gin.Context) {
 	}
 
 	if err := h.salesUsecase.RecordVisit(req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		fmt.Printf("DEBUG: RecordVisit failed: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record visit: " + err.Error()})
 		return
 	}
 
@@ -303,10 +321,12 @@ func (h *SalesHandler) GetAllTransactions(c *gin.Context) {
 func (h *SalesHandler) CreateTransaction(c *gin.Context) {
 	var req usecase.CreateTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("DEBUG: CreateTransaction binding error: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		fmt.Printf("DEBUG: CreateTransaction binding error: %v, Body: %+v\n", err, req)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
 		return
 	}
+
+	fmt.Printf("DEBUG: CreateTransaction hit. Method: %s, Store: %v, Items: %d\n", req.PaymentMethod, req.StoreID, len(req.Items))
 
 	// Auto-fill EmployeeID from token if empty
 	if req.EmployeeID.String() == "00000000-0000-0000-0000-000000000000" {

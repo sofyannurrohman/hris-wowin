@@ -680,6 +680,7 @@ const openNotaPreview = (sale: any) => {
                     <Printer class="w-5 h-5" />
                   </button>
                   <button 
+                    v-if="sale.status === 'PENDING' || sale.status === 'APPROVED'"
                     @click="handleEdit(sale)"
                     class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-amber-500"
                     title="Edit"
@@ -687,6 +688,7 @@ const openNotaPreview = (sale: any) => {
                     <Pencil class="w-5 h-5" />
                   </button>
                   <button 
+                    v-if="sale.status === 'PENDING' || sale.status === 'APPROVED'"
                     @click="handleDelete(sale.id)"
                     class="p-2 hover:bg-red-50 rounded-xl transition-all text-red-400 hover:text-red-600"
                     title="Hapus"

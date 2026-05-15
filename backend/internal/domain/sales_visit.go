@@ -28,6 +28,7 @@ type SalesVisit struct {
 	Employee     *Employee  `gorm:"foreignKey:EmployeeID" json:"employee,omitempty"`
 	Store        *Store     `gorm:"foreignKey:StoreID" json:"store,omitempty"`
 	Transactions []SalesTransaction `gorm:"foreignKey:VisitID" json:"transactions,omitempty"`
+	SalesOrders  []SalesOrder       `gorm:"foreignKey:VisitID" json:"sales_orders,omitempty"`
 }
 
 func (s *SalesVisit) BeforeCreate(tx *gorm.DB) (err error) {

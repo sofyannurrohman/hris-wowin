@@ -175,6 +175,7 @@
                 <thead>
                   <tr class="bg-slate-50 border-b-2 border-slate-900">
                     <th class="p-2 border-r border-slate-300 font-black text-center w-8">NO</th>
+                    <th class="p-1 border-r border-slate-300 font-black text-center w-12 text-[8px]">QR SCAN</th>
                     <th class="p-2 border-r border-slate-300 font-black">NAMA TOKO / TELP / ALAMAT</th>
                     <th class="p-2 border-r border-slate-300 font-black text-right w-20 bg-amber-50">TAGIHAN</th>
                     
@@ -196,6 +197,9 @@
                   <!-- Data Rows -->
                   <tr v-for="(item, idx) in selectedDO.items" :key="item.id" class="h-8">
                     <td class="p-2 border-r border-slate-300 text-center font-bold">{{ (idx as number) + 1 }}</td>
+                    <td class="p-1 border-r border-slate-300 text-center align-middle">
+                      <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=60x60&margin=0&data=${(item.sales_order || item.sales_transaction)?.so_number || (item.sales_order || item.sales_transaction)?.invoice_no || item.id}`" class="w-8 h-8 mx-auto" />
+                    </td>
                     <td class="p-2 border-r border-slate-300 whitespace-normal">
                       <p class="font-black text-slate-900 leading-none">
                         {{ item.sales_transaction?.store?.name }} 
@@ -220,6 +224,7 @@
                   <tr v-for="n in Math.max(0, 20 - (selectedDO.items?.length || 0))" :key="'blank-'+n" class="h-6 bg-slate-50/10">
                     <td class="p-2 border-r border-slate-300 text-center text-slate-900">{{ (selectedDO.items?.length || 0) + n }}</td>
                     <td class="p-2 border-r border-slate-300"></td>
+                    <td class="p-2 border-r border-slate-300"></td>
                     <td class="p-2 border-r border-slate-300 bg-amber-50/10"></td>
                     <td class="p-2 border-r border-slate-300"></td>
                     <td class="p-2 border-r border-slate-300"></td>
@@ -233,7 +238,7 @@
 
                   <!-- Total Row -->
                   <tr class="bg-slate-50 font-black border-t-2 border-slate-900 h-8">
-                    <td colspan="2" class="p-2 text-right border-r border-slate-300 uppercase tracking-widest text-[8px]">TOTAL BATCH</td>
+                    <td colspan="3" class="p-2 text-right border-r border-slate-300 uppercase tracking-widest text-[8px]">TOTAL BATCH</td>
                     <td class="p-2 text-right border-r border-slate-300 bg-amber-50">{{ formatCurrency(calculateBatchTotal).replace('Rp', '').trim() }}</td>
                     <td colspan="4" class="border-r border-slate-300"></td>
                     <td class="border-r border-slate-300"></td>
@@ -428,7 +433,7 @@ const handleCreateBatch = async () => {
       company_id: companyId,
       driver_id: form.driver_id || null,
       vehicle_id: form.vehicle_id || null,
-      sales_transaction_ids: selectedOrders.value
+      sales_order_ids: selectedOrders.value
     }
 
     if (isEditingBatch.value && editingBatchId.value) {
@@ -455,16 +460,17 @@ const handleEditBatch = (batch: any) => {
   form.vehicle_id = batch.vehicle_id || ''
   
   // Ensure the orders from this batch are in the list so they can be selected
-  batch.items.forEach((item: any) => {
-    if (item.sales_transaction) {
-      const exists = deliveryStore.pendingOrders.find((o: any) => o.id === item.sales_transaction_id)
+  batch.items?.forEach((item: any) => {
+    const so = item.sales_order || item.sales_transaction
+    if (so) {
+      const exists = deliveryStore.pendingOrders.find((o: any) => o.id === so.id)
       if (!exists) {
-        deliveryStore.pendingOrders.unshift(item.sales_transaction)
+        deliveryStore.pendingOrders.unshift(so)
       }
     }
   })
   
-  selectedOrders.value = batch.items.map((i: any) => i.sales_transaction_id)
+  selectedOrders.value = batch.items.map((i: any) => i.sales_order_id || i.sales_transaction_id).filter(Boolean)
   
   // Scroll to top
   window.scrollTo({ top: 0, behavior: 'smooth' })

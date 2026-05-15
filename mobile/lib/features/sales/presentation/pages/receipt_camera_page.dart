@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -50,8 +52,7 @@ class _ReceiptCameraPageState extends State<ReceiptCameraPage> {
     if (mounted) setState(() => _isInitialized = true);
   }
 
-  static Future<bool> _checkBlur(String path) async {
-    final bytes = await File(path).readAsBytes();
+  static Future<bool> _checkBlur(Uint8List bytes) async {
     final image = img.decodeImage(bytes);
     if (image == null) return false;
 
@@ -87,10 +88,19 @@ class _ReceiptCameraPageState extends State<ReceiptCameraPage> {
 
     try {
       final xfile = await _controller!.takePicture();
-      final blurry = await compute(_checkBlur, xfile.path);
+      final bytes = await xfile.readAsBytes();
+      
+      final blurry = await compute(_checkBlur, bytes);
+
+      String pathOrBase64 = '';
+      if (kIsWeb) {
+        pathOrBase64 = 'data:image/png;base64,${base64Encode(bytes)}';
+      } else {
+        pathOrBase64 = xfile.path;
+      }
 
       setState(() {
-        _capturedPath = xfile.path;
+        _capturedPath = pathOrBase64;
         _isBlurry = blurry;
       });
     } catch (e) {
@@ -188,7 +198,13 @@ class _ReceiptCameraPageState extends State<ReceiptCameraPage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          SizedBox.expand(child: Image.file(File(_capturedPath!), fit: BoxFit.contain)),
+          SizedBox.expand(
+            child: _capturedPath!.startsWith('data:') 
+              ? Image.memory(base64Decode(_capturedPath!.split(',').last), fit: BoxFit.contain)
+              : kIsWeb 
+                ? const Center(child: Text('Preview not available on Web (Non-Base64)'))
+                : Image.file(File(_capturedPath!), fit: BoxFit.contain)
+          ),
 
           // Blur warning
           if (_isBlurry)

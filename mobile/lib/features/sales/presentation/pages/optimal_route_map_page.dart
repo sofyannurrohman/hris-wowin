@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:hris_app/features/sales/data/models/store_model.dart';
 import 'dart:math' show cos, sqrt, asin, sin, pi;
+import 'package:url_launcher/url_launcher.dart';
 
 class OptimalRouteMapPage extends StatefulWidget {
   final List<StoreModel> stores;
@@ -59,6 +60,7 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
         double minDistance = double.infinity;
         
         for (var store in unvisited) {
+          if (store.latitude == null || store.longitude == null) continue;
           double dist = _haversineDistance(currentPos, LatLng(store.latitude!, store.longitude!));
           if (dist < minDistance) {
             minDistance = dist;
@@ -66,7 +68,9 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
           }
         }
 
-        ordered.add(nearest!);
+        if (nearest == null) break;
+
+        ordered.add(nearest);
         currentPos = LatLng(nearest.latitude!, nearest.longitude!);
         points.add(currentPos);
         unvisited.remove(nearest);
@@ -92,6 +96,58 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
         cos(p1.latitude * p) * cos(p2.latitude * p) *
             (1 - cos((p2.longitude - p1.longitude) * p)) / 2;
     return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
+  }
+
+  void _showStoreDetails(StoreModel store, int index) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), shape: BoxShape.circle),
+                  child: Text('${index + 1}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(store.name ?? 'Toko Tanpa Nama', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(store.address ?? '-', style: GoogleFonts.outfit(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final url = 'https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}';
+                if (await canLaunchUrl(Uri.parse(url))) {
+                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.near_me_rounded),
+              label: const Text('NAVIGASI KE TOKO'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 54),
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -131,7 +187,9 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
                         Polyline(
                           points: _routePoints,
                           strokeWidth: 4.0,
-                          color: Colors.blueAccent,
+                          color: Colors.blueAccent.withOpacity(0.7),
+                          borderColor: Colors.blueAccent,
+                          borderStrokeWidth: 1.0,
                         ),
                       ],
                     ),
@@ -142,7 +200,14 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
                           point: _currentLocation!,
                           width: 40,
                           height: 40,
-                          child: const Icon(Icons.my_location_rounded, color: Colors.blueAccent, size: 36),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                            ),
+                            child: const Icon(Icons.my_location_rounded, color: Colors.blueAccent, size: 24),
+                          ),
                         ),
                         // Stores
                         for (int i = 0; i < _orderedStores.length; i++)
@@ -150,21 +215,24 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
                             point: LatLng(_orderedStores[i].latitude!, _orderedStores[i].longitude!),
                             width: 60,
                             height: 60,
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.redAccent,
-                                    shape: BoxShape.circle,
+                            child: GestureDetector(
+                              onTap: () => _showStoreDetails(_orderedStores[i], i),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.redAccent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '${i + 1}',
+                                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                                    ),
                                   ),
-                                  child: Text(
-                                    '${i + 1}',
-                                    style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
-                                  ),
-                                ),
-                                const Icon(Icons.location_on_rounded, color: Colors.redAccent, size: 24),
-                              ],
+                                  const Icon(Icons.location_on_rounded, color: Colors.redAccent, size: 24),
+                                ],
+                              ),
                             ),
                           ),
                       ],
@@ -174,3 +242,4 @@ class _OptimalRouteMapPageState extends State<OptimalRouteMapPage> {
     );
   }
 }
+

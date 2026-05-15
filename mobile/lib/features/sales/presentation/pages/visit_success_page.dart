@@ -40,6 +40,8 @@ class _VisitSuccessPageState extends State<VisitSuccessPage> with SingleTickerPr
     final storeName = widget.transaction['store']?['name'] ?? 'Toko';
     final receiptNo = widget.transaction['receipt_no'] ?? 'NO-DATA';
     final isSO = widget.transaction['payment_method'] == 'SALES_ORDER';
+    final items = widget.transaction['items'] as List?;
+    final hasItems = items != null && items.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -64,156 +66,171 @@ class _VisitSuccessPageState extends State<VisitSuccessPage> with SingleTickerPr
           Positioned(bottom: 200, left: 80, child: _dot(Colors.pinkAccent, 6)),
           
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Spacer(),
-                  
-                  // Top notification style badge
-                  ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(100),
-                        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            isSO ? 'SALES ORDER TERSIMPAN!' : 'PEMBAYARAN BERHASIL!', 
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 12, letterSpacing: 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 48),
-                  
-                  // Main Icon
-                  ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.check_circle_rounded, color: Colors.green, size: 80),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  FadeTransition(
-                    opacity: _opacityAnimation,
-                    child: Column(
-                      children: [
-                        Text(
-                          isSO ? 'Order Berhasil Dibuat' : 'Kunjungan Selesai',
-                          style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          isSO 
-                            ? 'Pesanan untuk $storeName telah berhasil disimpan dan menunggu verifikasi admin.'
-                            : 'Kunjungan dan pembayaran untuk $storeName telah berhasil diselesaikan.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.outfit(fontSize: 15, color: Colors.blueGrey, fontWeight: FontWeight.w600, height: 1.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 48),
-                  
-                  // Summary Card
-                  FadeTransition(
-                    opacity: _opacityAnimation,
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _summaryRow('ID Transaksi', receiptNo),
-                          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                          const SizedBox(height: 40),
                           
-                          // Item Details
-                          if (widget.transaction['items'] != null) ...[
-                            ...((widget.transaction['items'] as List).map((item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
+                          // Top notification style badge
+                          ScaleTransition(
+                            scale: _scaleAnimation,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(100),
+                                boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Expanded(child: Text('${item['product_name']}', style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
-                                  Text('x${item['quantity']}', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w800)),
+                                  const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    hasItems 
+                                      ? (isSO ? 'SALES ORDER TERSIMPAN!' : 'PEMBAYARAN BERHASIL!') 
+                                      : 'KUNJUNGAN BERHASIL!', 
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 12, letterSpacing: 1),
+                                  ),
                                 ],
                               ),
-                            ))),
-                            const Divider(height: 24),
-                          ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 48),
+                          
+                          // Main Icon
+                          ScaleTransition(
+                            scale: _scaleAnimation,
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.check_circle_rounded, color: Colors.green, size: 80),
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 32),
+                          
+                          FadeTransition(
+                            opacity: _opacityAnimation,
+                            child: Column(
+                              children: [
+                                Text(
+                                  hasItems 
+                                    ? (isSO ? 'Order Berhasil Dibuat' : 'Pembayaran Berhasil')
+                                    : 'Kunjungan Selesai',
+                                  style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  hasItems
+                                    ? (isSO 
+                                        ? 'Pesanan untuk $storeName telah berhasil disimpan dan menunggu verifikasi admin.'
+                                        : 'Kunjungan dan pembayaran untuk $storeName telah berhasil diselesaikan.')
+                                    : 'Kunjungan untuk $storeName telah berhasil diselesaikan.',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.outfit(fontSize: 15, color: Colors.blueGrey, fontWeight: FontWeight.w600, height: 1.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 48),
+                          
+                          // Summary Card
+                          FadeTransition(
+                            opacity: _opacityAnimation,
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                children: [
+                                  _summaryRow('ID Transaksi', receiptNo),
+                                  const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
+                                  
+                                  // Item Details
+                                  if (widget.transaction['items'] != null) ...[
+                                    ...((widget.transaction['items'] as List).map((item) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(child: Text('${item['product_name']}', style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600))),
+                                          Text('x${item['quantity']}', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w800)),
+                                        ],
+                                      ),
+                                    ))),
+                                    const Divider(height: 24),
+                                  ],
 
-                          _summaryRow('Total Nominal', currency.format(amount), isBold: true),
+                                  _summaryRow('Total Nominal', currency.format(amount), isBold: true),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 40),
+                          
+                          // Buttons
+                          FadeTransition(
+                            opacity: _opacityAnimation,
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 64,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => DigitalReceiptPage(
+                                            transaction: widget.transaction,
+                                            localId: widget.localId,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1E293B),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      elevation: 0,
+                                    ),
+                                    child: Text('LIHAT NOTA DIGITAL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white, letterSpacing: 0.5)),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).popUntil((route) => route.settings.name == '/sales_dashboard'),
+                                  child: Text('KEMBALI KE DASHBOARD', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: Colors.blueAccent, fontSize: 14)),
+                                ),
+                                const SizedBox(height: 40),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  
-                  const Spacer(),
-                  
-                  // Buttons
-                  FadeTransition(
-                    opacity: _opacityAnimation,
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          height: 64,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => DigitalReceiptPage(
-                                    transaction: widget.transaction,
-                                    localId: widget.localId,
-                                  ),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1E293B),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              elevation: 0,
-                            ),
-                            child: Text('LIHAT NOTA DIGITAL', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white, letterSpacing: 0.5)),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).popUntil((route) => route.settings.name == '/sales_dashboard'),
-                          child: Text('KEMBALI KE DASHBOARD', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: Colors.blueAccent, fontSize: 14)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -236,15 +253,8 @@ class _VisitSuccessPageState extends State<VisitSuccessPage> with SingleTickerPr
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.outfit(fontSize: 13, color: Colors.blueGrey, fontWeight: FontWeight.w600)),
-        Text(
-          value, 
-          style: GoogleFonts.outfit(
-            fontSize: isBold ? 16 : 14, 
-            fontWeight: isBold ? FontWeight.w900 : FontWeight.w700, 
-            color: const Color(0xFF1E293B)
-          )
-        ),
+        Text(label, style: GoogleFonts.outfit(color: Colors.blueGrey, fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(value, style: GoogleFonts.outfit(fontWeight: isBold ? FontWeight.w900 : FontWeight.w700, color: const Color(0xFF1E293B), fontSize: isBold ? 18 : 14)),
       ],
     );
   }

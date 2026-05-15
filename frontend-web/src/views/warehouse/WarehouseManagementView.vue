@@ -623,6 +623,21 @@ const masterDataStore = useMasterDataStore()
 const factoryStore = useFactoryStore()
 const UNIT_OPTIONS = ['KARTON', 'DUS', 'BOX', 'KRAT', 'PCS', 'BAL', 'PACK', 'KG', 'GRAM', 'SACHET', 'JERIGEN', 'BOTOL']
 
+// Formatters
+const formatStock = (qty: number, product: any) => {
+  if (qty == null) return '0'
+  const pcsPerUnit = product?.pcs_per_unit || 1
+  
+  if (pcsPerUnit > 1) {
+    const units = Math.floor(qty / pcsPerUnit)
+    const pcs = qty % pcsPerUnit
+    if (units > 0 && pcs > 0) return `${units} ${product.unit || 'UNIT'} ${pcs} PCS`
+    if (units > 0) return `${units} ${product.unit || 'UNIT'}`
+    return `${pcs} PCS`
+  }
+  return `${qty} ${product?.unit || 'PCS'}`
+}
+
 // State
 const activeTab = ref('stock')
 const showAdjustment = ref(false)
@@ -966,18 +981,34 @@ const stockColumns = [
     label: 'Stok Fisik', 
     render: (val: number, item: any) => {
       const isLow = val < (item?.min_limit || 0)
-      return `<div class="flex items-center gap-3">
-        <span class="text-xl font-black ${isLow ? 'text-rose-600' : 'text-slate-900'}">${val}</span>
-        <span class="text-[10px] font-bold text-slate-400 uppercase">${item?.product?.unit || ''}</span>
-        ${isLow ? '<span class="bg-rose-50 text-rose-600 text-[8px] font-black px-2 py-1 rounded-lg border border-rose-100 uppercase animate-pulse">Low</span>' : ''}
+      return `<div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <span class="text-lg font-black ${isLow ? 'text-rose-600' : 'text-slate-900'}">${formatStock(val, item.product)}</span>
+          ${isLow ? '<span class="bg-rose-50 text-rose-600 text-[8px] font-black px-2 py-0.5 rounded-md border border-rose-100 uppercase animate-pulse">Low</span>' : ''}
+        </div>
+        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">${val} TOTAL PCS</span>
       </div>`
     }
   },
-  { key: 'reserved_quantity', label: 'Reserved', render: (v: number) => `<span class="text-xs font-bold text-orange-500">${v}</span>` },
+  { 
+    key: 'reserved_quantity', 
+    label: 'Reserved / Avail', 
+    render: (v: number, item: any) => {
+      const avail = item.quantity - v
+      return `<div class="flex flex-col">
+        <span class="text-[11px] font-black text-orange-500">${v} Reserved</span>
+        <span class="text-[11px] font-black text-emerald-600">${formatStock(avail, item.product)} Avail</span>
+      </div>`
+    }
+  },
   { 
     key: 'updated_at', 
     label: 'Update Terakhir', 
-    render: (v: string) => `<span class="text-[10px] font-bold text-slate-400 uppercase">${new Date(v).toLocaleDateString('id-ID')}</span>` 
+    render: (v: string) => {
+      if (!v) return '-'
+      const date = new Date(v)
+      return `<span class="text-[10px] font-bold text-slate-400 uppercase">${date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span>`
+    }
   }
 ]
 

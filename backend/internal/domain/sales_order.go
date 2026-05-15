@@ -28,8 +28,9 @@ const (
 
 // SalesOrder adalah dokumen Pesanan Order (PO) yang dibuat salesman.
 type SalesOrder struct {
-	ID            uuid.UUID        `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	SONumber      string           `gorm:"type:varchar(50);unique;not null" json:"so_number"`
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	VisitID         *uuid.UUID `gorm:"type:uuid" json:"visit_id"` // Link ke log check-in
+	SONumber        string     `gorm:"type:varchar(50);unique;not null" json:"so_number"`
 	BranchID      uuid.UUID        `gorm:"type:uuid;not null" json:"branch_id"`
 	CompanyID     uuid.UUID        `gorm:"type:uuid;not null" json:"company_id"`
 	EmployeeID    uuid.UUID        `gorm:"type:uuid;not null" json:"employee_id"`

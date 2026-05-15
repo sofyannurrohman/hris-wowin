@@ -28,13 +28,13 @@
           <Boxes class="h-24 w-24 text-slate-900" />
         </div>
         <CardHeader class="pb-2">
-          <CardDescription class="text-xs font-black uppercase tracking-widest text-slate-400">Total Varian Produk</CardDescription>
-          <CardTitle class="text-4xl font-black text-slate-900">{{ warehouseStore.inventory.length }}</CardTitle>
+          <CardDescription class="text-xs font-black uppercase tracking-widest text-slate-400">Total Produk (SKU)</CardDescription>
+          <CardTitle class="text-4xl font-black text-slate-900">{{ distinctSKUCount }}</CardTitle>
         </CardHeader>
         <CardContent>
           <div class="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <span class="text-primary bg-primary/10 px-2 py-0.5 rounded-full">Aktif</span>
-            SKU tersimpan di gudang
+            <span class="text-primary bg-primary/10 px-2 py-0.5 rounded-full">{{ warehouseStore.inventory.length }} Batches</span>
+            Produk tersimpan di gudang
           </div>
         </CardContent>
       </Card>
@@ -252,6 +252,11 @@ const currentDate = computed(() => {
 
 const totalPieces = computed(() => {
   return warehouseStore.inventory.reduce((sum, item) => sum + item.quantity, 0)
+})
+
+const distinctSKUCount = computed(() => {
+  const ids = new Set(warehouseStore.inventory.map(i => i.product_id))
+  return ids.size
 })
 
 const lowStockItems = computed(() => {

@@ -137,6 +137,7 @@ type WarehouseLog struct {
 	ProductID uuid.UUID `gorm:"type:uuid;not null" json:"product_id"`
 	Type      string    `gorm:"type:varchar(20);not null" json:"type"` // IN, OUT
 	Source    string    `gorm:"type:varchar(50)" json:"source"`       // FACTORY_TRANSFER, SALES, OPNAME
+	BatchNo   string    `gorm:"type:varchar(50)" json:"batch_no"`
 	Quantity  int       `gorm:"type:int;not null" json:"quantity"`
 	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
 

@@ -28,6 +28,7 @@ export interface SalesVisit {
     address: string
   }
   transactions?: any[]
+  sales_orders?: any[]
 }
 
 export const useSalesVisitStore = defineStore('salesVisit', {

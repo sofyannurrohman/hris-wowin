@@ -40,7 +40,7 @@ const masterStore = useMasterDataStore()
 
 const searchQuery = ref('')
 const selectedEmployee = ref('ALL')
-const selectedDate = ref(formatDateISO(new Date()))
+const selectedDate = ref('') // Default empty to show all history
 
 const isLoading = ref(false)
 
@@ -48,8 +48,8 @@ const fetchVisits = async () => {
   isLoading.value = true
   try {
     await visitStore.fetchVisits({
-      start_date: selectedDate.value,
-      end_date: selectedDate.value,
+      start_date: selectedDate.value || undefined,
+      end_date: selectedDate.value || undefined,
       employee_id: selectedEmployee.value === 'ALL' ? undefined : selectedEmployee.value,
       branch_id: masterStore.selectedBranchId
     })
@@ -202,8 +202,12 @@ const getStatusColor = (visit: SalesVisit) => {
             type="date" 
             v-model="selectedDate" 
             @change="fetchVisits"
-            class="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 px-3"
+            class="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 px-3 min-w-[150px]"
+            placeholder="Semua Tanggal"
           />
+          <button v-if="selectedDate" @click="selectedDate = ''; fetchVisits()" class="p-1 hover:bg-slate-100 rounded-md transition-all text-slate-400">
+            <XCircle class="w-4 h-4" />
+          </button>
           <div class="w-px h-6 bg-slate-200"></div>
           <button @click="fetchVisits" class="p-2 hover:bg-slate-50 rounded-xl transition-all text-slate-400">
             <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': isLoading }" />
@@ -305,9 +309,11 @@ const getStatusColor = (visit: SalesVisit) => {
               </td>
               <td class="p-6">
                 <div class="flex flex-col gap-1">
-                  <div v-if="visit.transactions?.length" class="flex items-center gap-1.5">
+                  <div v-if="(visit.transactions?.length || 0) + (visit.sales_orders?.length || 0) > 0" class="flex items-center gap-1.5">
                     <CheckCircle2 class="w-3.5 h-3.5 text-emerald-500" />
-                    <span class="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">Order ({{ visit.transactions.length }})</span>
+                    <span class="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">
+                      Order ({{ (visit.transactions?.length || 0) + (visit.sales_orders?.length || 0) }})
+                    </span>
                   </div>
                   <div v-else class="flex items-center gap-1.5 text-slate-400">
                     <XCircle class="w-3.5 h-3.5" />
@@ -484,8 +490,9 @@ const getStatusColor = (visit: SalesVisit) => {
 
           <div>
             <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Hasil / Transaksi</h4>
-            <div v-if="selectedVisit?.transactions?.length" class="space-y-3">
-              <div v-for="t in selectedVisit.transactions" :key="t.id" class="p-4 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center justify-between">
+            <div v-if="(selectedVisit?.transactions?.length || 0) + (selectedVisit?.sales_orders?.length || 0) > 0" class="space-y-3">
+              <!-- Regular Transactions -->
+              <div v-for="t in selectedVisit?.transactions" :key="t.id" class="p-4 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-200">
                     <FileText class="w-5 h-5 text-white" />
@@ -497,9 +504,23 @@ const getStatusColor = (visit: SalesVisit) => {
                 </div>
                 <div class="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black rounded-full uppercase">{{ t.status }}</div>
               </div>
+              
+              <!-- Sales Orders (Task Orders) -->
+              <div v-for="so in selectedVisit?.sales_orders" :key="so.id" class="p-4 bg-blue-50 rounded-3xl border border-blue-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-200">
+                    <FileText class="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p class="font-bold text-slate-900">{{ so.so_number }}</p>
+                    <p class="text-xs font-black text-blue-600">Rp {{ new Intl.NumberFormat('id-ID').format(so.total_amount) }}</p>
+                  </div>
+                </div>
+                <div class="px-3 py-1 bg-blue-500 text-white text-[10px] font-black rounded-full uppercase">{{ so.status }}</div>
+              </div>
             </div>
             <div v-else class="py-10 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-              <p class="text-sm font-bold text-slate-400 italic">Tidak ada transaksi tercatat dalam kunjungan ini.</p>
+              <p class="text-sm font-bold text-slate-400 italic">Tidak ada transaksi atau order tercatat dalam kunjungan ini.</p>
             </div>
           </div>
 

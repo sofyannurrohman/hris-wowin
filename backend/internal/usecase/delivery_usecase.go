@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
+	"gorm.io/gorm"
 )
 
 type DeliveryUsecase interface {
@@ -41,17 +42,21 @@ type CreateBatchRequest struct {
 }
 
 type deliveryUsecase struct {
-	repo      repository.DeliveryRepository
-	salesRepo repository.SalesTransactionRepository
-	soRepo    repository.SalesOrderRepository
+	repo          repository.DeliveryRepository
+	salesRepo     repository.SalesTransactionRepository
+	soRepo        repository.SalesOrderRepository
+	warehouseRepo repository.WarehouseRepository
+	db            *gorm.DB
 }
 
 func NewDeliveryUsecase(
 	repo repository.DeliveryRepository,
 	salesRepo repository.SalesTransactionRepository,
 	soRepo repository.SalesOrderRepository,
+	warehouseRepo repository.WarehouseRepository,
+	db *gorm.DB,
 ) DeliveryUsecase {
-	return &deliveryUsecase{repo, salesRepo, soRepo}
+	return &deliveryUsecase{repo, salesRepo, soRepo, warehouseRepo, db}
 }
 
 func (u *deliveryUsecase) CreateBatch(req CreateBatchRequest) (*domain.DeliveryBatch, error) {
@@ -179,23 +184,90 @@ func (u *deliveryUsecase) AssignArmada(batchID uuid.UUID, driverID uuid.UUID, ve
 }
 
 func (u *deliveryUsecase) StartDelivery(doNo string) error {
-	batch, err := u.repo.GetBatchByDO(doNo)
-	if err != nil {
-		return err
-	}
+	return u.db.Transaction(func(tx *gorm.DB) error {
+		repo := repository.NewDeliveryRepository(tx)
+		wRepo := repository.NewWarehouseRepository(tx)
 
-	if batch.Status != domain.DeliveryBatchPending {
-		return errors.New("pengiriman sudah dimulai atau selesai")
-	}
+		batch, err := repo.GetBatchByDO(doNo)
+		if err != nil {
+			return err
+		}
 
-	now := time.Now()
-	batch.Status = domain.DeliveryBatchOnDelivery
-	batch.StartedAt = &now
+		if batch.Status != domain.DeliveryBatchPending {
+			return errors.New("pengiriman sudah dimulai atau selesai")
+		}
 
-	return u.repo.UpdateBatch(batch)
+		now := time.Now()
+		batch.Status = domain.DeliveryBatchOnDelivery
+		batch.StartedAt = &now
+
+		// 1. Update status batch ke ON_DELIVERY
+		if err := repo.UpdateBatch(batch); err != nil {
+			return err
+		}
+
+		// 2. Potong Stok Gudang secara otomatis
+		if batch.BranchID == nil {
+			return errors.New("branch_id tidak ditemukan dalam batch")
+		}
+
+		for _, di := range batch.Items {
+			if di.SalesOrder == nil {
+				continue
+			}
+
+			for _, soi := range di.SalesOrder.Items {
+				// Gunakan data batch yang ter-reserve untuk pemotongan stok yang akurat
+				for _, b := range soi.Batches {
+					if b.Quantity <= 0 {
+						continue
+					}
+
+					stock, err := wRepo.GetStock(*batch.BranchID, soi.ProductID, "GOOD", b.BatchNo)
+					if err != nil {
+						return err
+					}
+
+					// Kurangi stok fisik
+					stock.Quantity -= b.Quantity
+					if stock.Quantity < 0 {
+						stock.Quantity = 0
+					}
+
+					// Kurangi reserved quantity
+					if stock.ReservedQuantity >= b.Quantity {
+						stock.ReservedQuantity -= b.Quantity
+					} else {
+						stock.ReservedQuantity = 0
+					}
+
+					if err := wRepo.UpdateStock(stock); err != nil {
+						return err
+					}
+
+					// Catat log mutasi barang keluar
+					wRepo.CreateLog(&domain.WarehouseLog{
+						BranchID:  *batch.BranchID,
+						ProductID: soi.ProductID,
+						Type:      "OUT",
+						Source:    fmt.Sprintf("KIRIM: %s", doNo),
+						Quantity:  b.Quantity,
+						BatchNo:   b.BatchNo,
+					})
+				}
+			}
+		}
+
+		return nil
+	})
 }
 
 func (u *deliveryUsecase) ConfirmItemDelivery(itemID uuid.UUID, status domain.DeliveryItemStatus, notes string) error {
+	// Ambil detail item untuk cek status batch
+	// Catatan: Karena itemRepo tidak punya FindByID langsung, kita gunakan repo.GetBatchByID jika perlu,
+	// namun di sini kita asumsikan itemID valid. Untuk keamanan extra, kita bisa menambah method GetItemByID.
+	// Namun sementara kita percayakan pada filtering GetDriverTasks yang sudah kita perketat.
+	
 	now := time.Now()
 	item := &domain.DeliveryItem{
 		ID:          itemID,
@@ -215,6 +287,12 @@ func (u *deliveryUsecase) ConfirmItemByReceipt(receiptNo string, notes string) e
 
 	if item.Status == domain.DeliveryItemDelivered {
 		return errors.New("barang sudah ditandai sebagai terkirim")
+	}
+
+	// Verifikasi status batch
+	batch, err := u.repo.GetBatchByID(item.DeliveryBatchID)
+	if err == nil && batch.Status == domain.DeliveryBatchWaitingApproval {
+		return errors.New("tidak bisa konfirmasi item pada batch yang belum disetujui")
 	}
 
 	now := time.Now()
@@ -261,32 +339,100 @@ func (u *deliveryUsecase) UpdateBatchItems(batchID uuid.UUID, req CreateBatchReq
 		return err
 	}
 
-	// Only allow edit if not started/completed
-	if batch.Status == domain.DeliveryBatchOnDelivery || batch.Status == domain.DeliveryBatchCompleted {
-		return errors.New("tidak bisa mengedit batch yang sedang dikirim atau sudah selesai")
+	// Hanya izinkan edit jika belum sampai status PENDING atau pengiriman dimulai
+	if batch.Status == domain.DeliveryBatchPending || batch.Status == domain.DeliveryBatchOnDelivery || batch.Status == domain.DeliveryBatchCompleted {
+		return errors.New("tidak bisa mengedit batch yang sudah disetujui Admin atau sudah selesai")
+	}
+
+	// 1. Reset status SO lama menjadi CONFIRMED agar kembali ke antrean
+	for _, oldItem := range batch.Items {
+		if oldItem.SalesOrderID != uuid.Nil {
+			so, err := u.soRepo.FindByID(oldItem.SalesOrderID)
+			if err == nil && so != nil {
+				so.Status = domain.SOStatusConfirmed
+				so.DeliveryBatchID = nil
+				so.DeliveryOrderNo = nil
+				_ = u.soRepo.Update(so)
+			}
+		}
 	}
 
 	batch.DriverID = req.DriverID
+	batch.Driver = nil // Reset association agar GORM mengupdate kolom FK
 	batch.VehicleID = req.VehicleID
+	batch.Vehicle = nil // Reset association agar GORM mengupdate kolom FK
 	
 	// Update items: clear existing and add new
-	// In GORM we can use association management
 	items := make([]domain.DeliveryItem, 0)
+	
+	// Tambahkan SO ke dalam batch (alur baru)
+	for i, soID := range req.SalesOrderIDs {
+		soIDCopy := soID
+		items = append(items, domain.DeliveryItem{
+			DeliveryBatchID: batchID,
+			SalesOrderID:    soIDCopy,
+			Sequence:        i + 1,
+			Status:          domain.DeliveryItemPending,
+		})
+	}
+
+	// Legacy: tambahkan SalesTransaction ke batch (backward-compatibility)
 	for i, trxID := range req.SalesTrxIDs {
 		trxIDCopy := trxID
 		items = append(items, domain.DeliveryItem{
 			DeliveryBatchID:    batchID,
 			SalesTransactionID: &trxIDCopy,
-			Sequence:           i + 1,
+			Sequence:           i + 1 + len(req.SalesOrderIDs),
 			Status:             domain.DeliveryItemPending,
 		})
 	}
 	batch.Items = items
 
-	return u.repo.UpdateBatch(batch)
+	if err := u.repo.UpdateBatch(batch); err != nil {
+		return err
+	}
+
+	// 2. Update status SO baru menjadi IN_DELIVERY
+	for _, soID := range req.SalesOrderIDs {
+		so, err := u.soRepo.FindByID(soID)
+		if err == nil && so != nil {
+			batchID := batch.ID
+			so.Status = domain.SOStatusInDelivery
+			so.DeliveryBatchID = &batchID
+			if batch.DeliveryOrderNo != nil {
+				so.DeliveryOrderNo = batch.DeliveryOrderNo
+			}
+			_ = u.soRepo.Update(so)
+		}
+	}
+
+	return nil
 }
 
 func (u *deliveryUsecase) DeleteBatch(id uuid.UUID) error {
+	batch, err := u.repo.GetBatchByID(id)
+	if err != nil {
+		return err
+	}
+
+	// Hanya izinkan hapus jika belum sampai status PENDING atau pengiriman dimulai
+	if batch.Status == domain.DeliveryBatchPending || batch.Status == domain.DeliveryBatchOnDelivery || batch.Status == domain.DeliveryBatchCompleted {
+		return errors.New("tidak bisa menghapus batch yang sudah disetujui Admin atau sedang dalam proses pengiriman")
+	}
+
+	// Reset status SO menjadi CONFIRMED agar bisa dibatch lagi
+	for _, item := range batch.Items {
+		if item.SalesOrderID != uuid.Nil {
+			so, err := u.soRepo.FindByID(item.SalesOrderID)
+			if err == nil && so != nil {
+				so.Status = domain.SOStatusConfirmed
+				so.DeliveryBatchID = nil
+				so.DeliveryOrderNo = nil
+				_ = u.soRepo.Update(so)
+			}
+		}
+	}
+
 	return u.repo.DeleteBatch(id)
 }
 

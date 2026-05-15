@@ -246,18 +246,6 @@ watch(() => masterStore.selectedBranchId, () => {
       </Button>
     </div>
 
-    <!-- Status Flow Indicator -->
-    <div class="bg-gradient-to-r from-slate-50 to-blue-50 border border-slate-200 rounded-3xl p-5 flex items-center gap-3 overflow-x-auto no-scrollbar">
-      <div v-for="(step, i) in [{ label: 'DRAFT', sub: 'Salesman', color: 'bg-slate-200 text-slate-700' }, { label: 'WAITING', sub: 'Gudang', color: 'bg-amber-500 text-white' }, { label: 'SHIPPED', sub: 'Surat Jalan', color: 'bg-indigo-500 text-white' }, { label: 'CONVERTED', sub: 'Faktur/Invoice', color: 'bg-emerald-500 text-white' }]" :key="step.label" class="flex items-center gap-3 shrink-0">
-        <div :class="[step.color, 'rounded-2xl px-4 py-2 text-center min-w-[120px] shadow-sm']">
-          <p class="text-[10px] font-black uppercase tracking-widest">{{ step.label }}</p>
-          <p class="text-[9px] font-medium mt-0.5 opacity-75">{{ step.sub }}</p>
-        </div>
-        <ArrowRight v-if="i < 3" class="w-4 h-4 text-slate-400 shrink-0" />
-      </div>
-    </div>
-
-
     <!-- Filters -->
     <div class="flex flex-col lg:flex-row gap-4">
       <div class="relative flex-1">

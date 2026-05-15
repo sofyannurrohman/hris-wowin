@@ -21,6 +21,18 @@ func main() {
 	// Initialize Database
 	db := config.ConnectDB(cfg)
 
+	// FIX: Ensure missing columns in delivery_items exist BEFORE AutoMigrate
+	log.Println("Checking and fixing delivery_items schema...")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS received_by VARCHAR(100)")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS pod_image_url TEXT")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS payment_collected BOOLEAN DEFAULT FALSE")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS payment_amount DECIMAL(15,2) DEFAULT 0")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)")
+	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS payment_collected_at TIMESTAMP WITH TIME ZONE")
+	db.Exec("ALTER TABLE warehouse_logs ADD COLUMN IF NOT EXISTS batch_no VARCHAR(50)")
+	log.Println("Schema check for delivery_items and warehouse_logs completed.")
+
 	// Run AutoMigrate for critical models to ensure schema sync
 	db.AutoMigrate(
 		&domain.Company{},
@@ -120,14 +132,14 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
-	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, salesRepo, db)
+	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, salesRepo, db, midtransClient)
 	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo, employeeRepo, salesOrderUsecase, salesVisitRepo, midtransClient)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
 	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, salesOrderRepo, db)
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
-	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo, salesOrderRepo)
+	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo, salesOrderRepo, warehouseRepo, db)
 	salesTransferUsecase := usecase.NewSalesTransferUsecase(salesTransferRepo, warehouseRepo, db)
 	salesReturnUsecase := usecase.NewSalesReturnUsecase(salesReturnRepo, salesOrderRepo, salesRepo, warehouseRepo, db)
 
@@ -176,7 +188,7 @@ func main() {
 	notificationHandler := http.NewNotificationHandler(notificationRepo)
 	financeHandler := http.NewFinanceHandler(financeUsecase)
 	deliveryHandler := http.NewDeliveryHandler(deliveryUsecase, employeeUseCase)
-	salesTransferHandler := http.NewSalesTransferHandler(salesTransferUsecase)
+	salesTransferHandler := http.NewSalesTransferHandler(salesTransferUsecase, salesUseCase)
 	salesOrderHandler := http.NewSalesOrderHandler(salesOrderUsecase, employeeUseCase)
 	salesReturnHandler := http.NewSalesReturnHandler(salesReturnUsecase, employeeUseCase)
 

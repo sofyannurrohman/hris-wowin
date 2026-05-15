@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"github.com/sofyan/hris_wowin/backend/internal/repository"
+	"github.com/sofyan/hris_wowin/backend/pkg/midtrans"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +25,7 @@ type SalesOrderUsecase interface {
 
 	// Digunakan Driver (mobile) — konfirmasi pengiriman & tagih pembayaran per nota
 	ConfirmDelivery(req ConfirmDeliveryRequest) error
-	CollectPayment(req CollectPaymentRequest) error
+	CollectPayment(req CollectPaymentRequest) (map[string]interface{}, error)
 
 	// Digunakan semua role (web)
 	GetSOByBranch(branchID uuid.UUID, status string) ([]domain.SalesOrder, error)
@@ -59,7 +60,8 @@ type ConfirmDeliveryRequest struct {
 type CollectPaymentRequest struct {
 	SOID          uuid.UUID `json:"so_id" binding:"required"`
 	Amount        float64   `json:"amount" binding:"required"`
-	PaymentMethod string    `json:"payment_method" binding:"required"` // CASH, MIDTRANS_QRIS, dll
+	PaymentMethod string    `json:"payment_method" binding:"required"` // CASH, QRIS, VA, TEMPO
+	PaymentBank   string    `json:"payment_bank"`                      // For VA: 'bca', 'bni', 'bri'
 	CollectedBy   string    `json:"collected_by"`
 }
 
@@ -84,10 +86,11 @@ type WarehouseItemQty struct {
 
 
 type salesOrderUsecase struct {
-	soRepo        repository.SalesOrderRepository
-	warehouseRepo repository.WarehouseRepository
-	salesRepo     repository.SalesTransactionRepository
-	db            *gorm.DB
+	soRepo         repository.SalesOrderRepository
+	warehouseRepo  repository.WarehouseRepository
+	salesRepo      repository.SalesTransactionRepository
+	db             *gorm.DB
+	midtransClient *midtrans.MidtransClient
 }
 
 func NewSalesOrderUsecase(
@@ -95,8 +98,9 @@ func NewSalesOrderUsecase(
 	warehouseRepo repository.WarehouseRepository,
 	salesRepo repository.SalesTransactionRepository,
 	db *gorm.DB,
+	midtransClient *midtrans.MidtransClient,
 ) SalesOrderUsecase {
-	return &salesOrderUsecase{soRepo, warehouseRepo, salesRepo, db}
+	return &salesOrderUsecase{soRepo, warehouseRepo, salesRepo, db, midtransClient}
 }
 
 // --- Request DTOs ---
@@ -109,6 +113,7 @@ type CreateSORequest struct {
 	StoreCategory string             `json:"store_category"`
 	Notes         string             `json:"notes"`
 	Items         []SOItemRequest    `json:"items" binding:"required,min=1"`
+	VisitID       *uuid.UUID         `json:"visit_id"`
 }
 
 type SOItemRequest struct {
@@ -142,6 +147,7 @@ func (u *salesOrderUsecase) CreateSO(req CreateSORequest) (*domain.SalesOrder, e
 		Status:        domain.SOStatusDraft,
 		Notes:         req.Notes,
 		OrderDate:     now,
+		VisitID:       req.VisitID,
 	}
 
 	var totalAmount float64
@@ -665,35 +671,64 @@ func (u *salesOrderUsecase) ConfirmDelivery(req ConfirmDeliveryRequest) error {
 
 // CollectPayment digunakan Driver untuk mencatat tagihan pembayaran yang diterima dari customer.
 // Status SO berubah DELIVERED → PAID (jika full) atau tetap DELIVERED dengan PaymentStatus PARTIAL.
-func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) error {
+func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (map[string]interface{}, error) {
 	so, err := u.soRepo.FindByID(req.SOID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if so.Status != domain.SOStatusDelivered && so.Status != domain.SOStatusPaid {
-		return errors.New("pembayaran hanya bisa dicatat setelah barang dikonfirmasi diterima customer")
+		return nil, errors.New("pembayaran hanya bisa dicatat setelah barang dikonfirmasi diterima customer")
 	}
 
 	now := time.Now()
+	resData := make(map[string]interface{})
 
-	// 1. Record Partial/Full Payment Log
+	// 1. Midtrans Logic (QRIS / VA)
+	if (req.PaymentMethod == "QRIS" || req.PaymentMethod == "VA") && u.midtransClient != nil {
+		orderID := fmt.Sprintf("PAY-SO-%s-%d", so.SONumber, now.Unix())
+		
+		if req.PaymentMethod == "QRIS" {
+			resp, err := u.midtransClient.CreateQRIS(orderID, int64(req.Amount))
+			if err == nil && resp != nil {
+				for _, action := range resp.Actions {
+					if action.Name == "generate-qr-code" {
+						resData["midtrans_qris_url"] = action.URL
+						break
+					}
+				}
+			}
+		} else if req.PaymentMethod == "VA" && req.PaymentBank != "" {
+			resp, err := u.midtransClient.CreateBankTransfer(orderID, int64(req.Amount), req.PaymentBank)
+			if err == nil && resp != nil {
+				if len(resp.VaNumbers) > 0 {
+					resData["midtrans_va_number"] = resp.VaNumbers[0].VANumber
+					resData["midtrans_bank"] = resp.VaNumbers[0].Bank
+				} else if resp.BillKey != "" {
+					resData["midtrans_bill_key"] = resp.BillKey
+					resData["midtrans_biller_code"] = resp.BillerCode
+					resData["midtrans_bank"] = "mandiri"
+				}
+			}
+		}
+	}
+
+	// 2. Record Payment Log
 	payment := domain.SalesPayment{
 		SalesOrderID:   &so.ID,
 		Amount:         req.Amount,
 		PaymentMethod:  req.PaymentMethod,
 		CollectedBy:    req.CollectedBy,
-		PaymentStatus:  "SUCCESS",
+		PaymentStatus:  "SUCCESS", // Default for cash, digital status handled via webhook
 	}
 	if err := u.soRepo.AddPayment(&payment); err != nil {
-		return err
+		return nil, err
 	}
 
-	// 2. Update SO Totals
+	// 3. Update SO Totals
 	so.PaymentCollectedAmount += req.Amount
 	so.PaymentCollectedAt = &now
 	so.PaymentMethod = req.PaymentMethod
 
-	// 3. Determine Status
 	if so.PaymentCollectedAmount >= so.TotalAmount {
 		so.PaymentStatus = "PAID"
 		so.Status = domain.SOStatusPaid
@@ -701,6 +736,10 @@ func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) error {
 		so.PaymentStatus = "PARTIAL"
 	}
 
-	return u.soRepo.Update(so)
+	if err := u.soRepo.Update(so); err != nil {
+		return nil, err
+	}
+
+	return resData, nil
 }
 

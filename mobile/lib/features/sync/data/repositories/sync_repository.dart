@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:hris_app/core/database/database.dart';
 import 'package:hris_app/core/network/api_client.dart';
@@ -26,30 +29,56 @@ class SyncRepository {
   }
 
   Future<void> syncCheckins() async {
+    print('DEBUG SYNC: syncCheckins started');
     final pending = await (db.select(db.localCheckins)
       ..where((t) => t.syncStatus.equals('pending'))).get();
 
+    print('DEBUG SYNC: Found ${pending.length} pending checkins');
     for (final item in pending) {
+      print('DEBUG SYNC: Processing checkin for store ${item.storeId} at ${item.createdAt}');
       try {
-        await api.client.post('sales/attendance', data: {
+        String selfieUrl = item.selfiePath;
+        print('DEBUG SYNC: Selfie path: $selfieUrl');
+        
+        // Upload selfie if it's a local path
+        if (selfieUrl.isNotEmpty && !selfieUrl.startsWith('http')) {
+          print('DEBUG SYNC: Uploading selfie...');
+          final uploadedUrl = await _uploadFile(selfieUrl);
+          if (uploadedUrl != null) {
+            selfieUrl = uploadedUrl;
+            print('DEBUG SYNC: Selfie uploaded: $selfieUrl');
+          } else {
+            print('DEBUG SYNC: Selfie upload failed (returned null)');
+          }
+        }
+
+        print('DEBUG SYNC: POSTing to sales/attendance...');
+        final response = await api.client.post('sales/attendance', data: {
           'store_id': item.storeId,
           'latitude': item.latitude,
           'longitude': item.longitude,
-          'selfie_url': item.selfiePath,
+          'selfie_url': selfieUrl,
           'type': 'CHECKIN',
-          'check_time': item.createdAt.toIso8601String(),
+          'check_time': item.createdAt.toUtc().toIso8601String(),
         });
         
-        await (db.update(db.localCheckins)..where((t) => t.id.equals(item.id)))
-            .write(LocalCheckinsCompanion(syncStatus: const Value('synced')));
+        print('DEBUG SYNC: POST response: ${response.statusCode}');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          await (db.update(db.localCheckins)..where((t) => t.id.equals(item.id)))
+              .write(const LocalCheckinsCompanion(syncStatus: Value('synced')));
+          print('DEBUG SYNC: Checkin synced successfully in local DB');
+        }
       } catch (e) {
-        // Silently fail for individual items
+        print('DEBUG SYNC: Failed to upload check-in: $e');
+        if (e is DioException) {
+          print('DEBUG SYNC ERROR DATA: ${e.response?.data}');
+        }
       }
     }
   }
 
   Future<void> syncTransactions() async {
-    print('DEBUG SYNC: Checking for pending transactions...');
+    print('DEBUG SYNC: syncTransactions started');
     
     // Debug: count total items in table regardless of status
     final allCount = await db.select(db.localTransactions).get();
@@ -61,13 +90,11 @@ class SyncRepository {
     final pending = await (db.select(db.localTransactions)
       ..where((t) => t.syncStatus.equals('pending'))).get();
 
-    if (pending.isEmpty) {
-      print('DEBUG SYNC: No pending transactions found.');
-      return;
-    }
-    print('DEBUG SYNC: Found ${pending.length} pending transactions to sync');
+    print('DEBUG SYNC: Found ${pending.length} pending transactions');
+    if (pending.isEmpty) return;
 
     for (final tr in pending) {
+      print('DEBUG SYNC: Processing transaction ${tr.localId} for ${tr.storeName}');
       try {
         final items = await (db.select(db.localTransactionItems)
           ..where((t) => t.transactionLocalId.equals(tr.localId))).get();
@@ -100,9 +127,20 @@ class SyncRepository {
           'items': validItems,
         };
 
-        print('DEBUG SYNC PAYLOAD: ${payload}');
+        // 2. Upload receipt image if exists and is a local path or Base64
+        if (tr.receiptPath != null && tr.receiptPath!.isNotEmpty && !tr.receiptPath!.startsWith('http')) {
+          print('DEBUG SYNC: Uploading receipt image...');
+          final imageUrl = await _uploadFile(tr.receiptPath!);
+          if (imageUrl != null) {
+            payload['receipt_image_url'] = imageUrl;
+          }
+        }
+
+        print('DEBUG SYNC: POSTing to sales/transactions...');
+        print('DEBUG SYNC PAYLOAD: $payload');
         final response = await api.client.post('sales/transactions', data: payload);
         
+        print('DEBUG SYNC: POST response: ${response.statusCode}');
         if (response.statusCode == 200 || response.statusCode == 201) {
           final data = response.data is Map && response.data.containsKey('data') ? response.data['data'] : response.data;
           final officialNo = data['receipt_no'];
@@ -335,6 +373,43 @@ class SyncRepository {
       }
     } catch (e) {
       print('DEBUG: pullSalesStock error: $e');
+    }
+  }
+
+  Future<String?> _uploadFile(String filePathOrBase64) async {
+    try {
+      final fileName = 'upload_${DateTime.now().millisecondsSinceEpoch}.png';
+      
+      late MultipartFile multipartFile;
+      if (filePathOrBase64.startsWith('data:')) {
+        print('DEBUG SYNC: Uploading BASE64 image...');
+        final base64String = filePathOrBase64.split(',').last;
+        final bytes = base64Decode(base64String);
+        multipartFile = MultipartFile.fromBytes(bytes, filename: fileName);
+      } else {
+        if (kIsWeb) {
+          print('DEBUG SYNC ERROR: Cannot use fromFile on Web for path: $filePathOrBase64');
+          return null;
+        }
+        print('DEBUG SYNC: Uploading FILE image from path: $filePathOrBase64');
+        multipartFile = await MultipartFile.fromFile(filePathOrBase64, filename: fileName);
+      }
+
+      final formData = FormData.fromMap({
+        'file': multipartFile,
+      });
+
+      final response = await api.client.post('sales/upload', data: formData);
+      if (response.statusCode == 200) {
+        final url = response.data['url'];
+        print('DEBUG SYNC: Upload successful! URL: $url');
+        return url;
+      }
+      print('DEBUG SYNC: Upload failed with status ${response.statusCode}');
+      return null;
+    } catch (e) {
+      print('DEBUG SYNC: _uploadFile error: $e');
+      return null;
     }
   }
 }

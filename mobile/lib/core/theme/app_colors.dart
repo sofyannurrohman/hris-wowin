@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Corporate Red - Refined Crimson
-  static const Color primaryRed = Color(0xFF990000); 
-  static const Color primaryRedLight = Color(0xFFC62828);
-  static const Color primaryRedDark = Color(0xFF7F0000);
+  // Primary Corporate Green - Elegant Emerald
+  static const Color primaryGreen = Color(0xFF059669); 
+  static const Color primaryGreenLight = Color(0xFF10B981);
+  static const Color primaryGreenDark = Color(0xFF064E3B);
+  
+  // Backwards compatibility for now (mapping red to green)
+  static const Color primaryRed = primaryGreen; 
+  static const Color primaryRedLight = primaryGreenLight; 
 
   // Premium Gradients
-  static const List<Color> primaryGradient = [Color(0xFFB71C1C), Color(0xFF7F0000)];
-  static const List<Color> accentGradient = [Color(0xFFD32F2F), Color(0xFFB71C1C)];
+  static const List<Color> primaryGradient = [Color(0xFF059669), Color(0xFF064E3B)];
+  static const List<Color> accentGradient = [Color(0xFF10B981), Color(0xFF059669)];
 
   // Backgrounds
   static const Color background = Color(0xFFFFFFFF);

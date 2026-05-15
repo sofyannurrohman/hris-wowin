@@ -49,11 +49,17 @@ func (h *SalesOrderHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 // SetupMobileRoutes mendaftarkan route SO untuk salesman (mobile app).
 func (h *SalesOrderHandler) SetupMobileRoutes(router *gin.RouterGroup) {
-	so := router.Group("/sales/orders")
+	so := router.Group("/sales-orders") // This matches mobile AppConstants.baseUrl + 'sales-orders/'
 	{
-		so.POST("", h.CreateSO)
-		so.GET("", h.GetByEmployee)
-		so.DELETE("/:id", h.CancelSO)
+		so.POST("/confirm-delivery", h.ConfirmDelivery)
+		so.POST("/collect-payment", h.CollectPayment)
+	}
+
+	orders := router.Group("/sales/orders")
+	{
+		orders.POST("", h.CreateSO)
+		orders.GET("", h.GetByEmployee)
+		orders.DELETE("/:id", h.CancelSO)
 	}
 }
 
@@ -395,18 +401,20 @@ func (h *SalesOrderHandler) AdminRejectSO(c *gin.Context) {
 // =============================================================================
 
 func (h *SalesOrderHandler) ConfirmDelivery(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
-		return
-	}
-
 	var req usecase.ConfirmDeliveryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	req.SOID = id
+
+	// If ID is in param (PATCH /admin/sales-orders/:id/confirm-delivery), override body so_id
+	idStr := c.Param("id")
+	if idStr != "" {
+		id, err := uuid.Parse(idStr)
+		if err == nil {
+			req.SOID = id
+		}
+	}
 
 	if err := h.soUsecase.ConfirmDelivery(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -416,24 +424,31 @@ func (h *SalesOrderHandler) ConfirmDelivery(c *gin.Context) {
 }
 
 func (h *SalesOrderHandler) CollectPayment(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
-		return
-	}
-
 	var req usecase.CollectPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	req.SOID = id
 
-	if err := h.soUsecase.CollectPayment(req); err != nil {
+	// If ID is in param (PATCH /admin/sales-orders/:id/collect-payment), override body so_id
+	idStr := c.Param("id")
+	if idStr != "" {
+		id, err := uuid.Parse(idStr)
+		if err == nil {
+			req.SOID = id
+		}
+	}
+
+	data, err := h.soUsecase.CollectPayment(req)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Pembayaran berhasil dicatat"})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Pembayaran berhasil dicatat",
+		"data":    data,
+	})
 }
 
 // resolveEmployeeID adalah helper untuk mendapatkan employee ID dari JWT token.

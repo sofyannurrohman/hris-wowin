@@ -66,12 +66,18 @@ func (r *deliveryRepository) GetBatchByID(id uuid.UUID) (*domain.DeliveryBatch, 
 }
 
 func (r *deliveryRepository) UpdateBatch(batch *domain.DeliveryBatch) error {
-	// Clear existing items and replace with new ones to avoid orphans
-	if err := r.db.Model(batch).Association("Items").Replace(batch.Items); err != nil {
-		return err
-	}
-	// Save the rest of the fields
-	return r.db.Session(&gorm.Session{FullSaveAssociations: false}).Save(batch).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// If Items are provided, we need to replace them
+		// We manually delete to avoid NOT NULL constraint errors with Association.Replace
+		if batch.Items != nil {
+			if err := tx.Where("delivery_batch_id = ?", batch.ID).Delete(&domain.DeliveryItem{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// Save the batch and its associations
+		return tx.Save(batch).Error
+	})
 }
 
 func (r *deliveryRepository) UpdateItem(item *domain.DeliveryItem) error {
@@ -85,7 +91,7 @@ func (r *deliveryRepository) GetBatchesByDriver(driverID uuid.UUID) ([]domain.De
 		Preload("Items.SalesOrder.Items.Product").
 		Preload("Items.SalesTransaction.Store").
 		Where("driver_id = ? AND status NOT IN ?", driverID,
-			[]domain.DeliveryBatchStatus{domain.DeliveryBatchCompleted}).
+			[]domain.DeliveryBatchStatus{domain.DeliveryBatchCompleted, domain.DeliveryBatchWaitingApproval}).
 		Order("created_at DESC").Find(&batches).Error
 	return batches, err
 }

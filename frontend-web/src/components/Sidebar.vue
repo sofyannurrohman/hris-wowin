@@ -99,6 +99,7 @@ const salesGroups = [
           { to: '/sales/pesanan', name: 'Pesanan (SO)', icon: ShoppingCart },
           { to: '/sales/kunjungan', name: 'Data Kunjungan', icon: MapPin },
           { to: '/sales/delivery', name: 'Manajemen Pengiriman', icon: Truck },
+          { to: '/sales/surat-jalan', name: 'Data Surat Jalan', icon: FileText },
           { to: '/sales/retur', name: 'Retur Penjualan', icon: RotateCcw },
           { to: '/sales/penjualan', name: 'Faktur Penjualan', icon: Banknote },
           { to: '/sales/customers', name: 'Manajemen Toko', icon: Store },
