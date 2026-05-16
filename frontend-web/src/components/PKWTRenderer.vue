@@ -5,13 +5,13 @@ const props = defineProps<{
   data: {
     documentNumber: string
     agreementDay: string
-    agreementDate: string
+    agreementDate: string | undefined
     agreementPlace: string
     representativeName: string
     representativePosition: string
     employee: any
-    startDate: string
-    endDate: string
+    startDate: string | undefined
+    endDate: string | undefined
     jobPosition: string
     basicSalary: number
     allowances: number

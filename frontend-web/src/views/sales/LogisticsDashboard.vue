@@ -29,6 +29,8 @@ const showPODModal = ref(false)
 const showEditModal = ref(false)
 const selectedOrder = ref<any>(null)
 const editingBatch = ref<any>(null)
+const isEditingBatch = ref(false)
+const editingBatchId = ref<string | null>(null)
 
 const drivers = ref<any[]>([])
 const vehicles = ref<any[]>([])

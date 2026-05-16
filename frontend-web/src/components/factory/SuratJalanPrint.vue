@@ -41,7 +41,7 @@
             </thead>
             <tbody class="divide-y border-slate-300">
               <tr v-for="(item, idx) in shipment.items" :key="item.id" class="h-8">
-                <td class="p-3 border-r border-slate-300 text-center font-bold text-slate-400">{{ idx + 1 }}</td>
+                <td class="p-3 border-r border-slate-300 text-center font-bold text-slate-400">{{ Number(idx) + 1 }}</td>
                 <td class="p-3 border-r border-slate-300">
                   <p class="font-black text-slate-900">{{ item.product?.name }}</p>
                   <p class="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{{ item.product?.sku }}</p>
@@ -55,7 +55,7 @@
 
               <!-- Filler Rows -->
               <tr v-for="n in Math.max(0, 8 - (shipment.items?.length || 0))" :key="'filler-'+n" class="h-8 bg-slate-50/10">
-                <td class="p-3 border-r border-slate-300 text-center text-slate-200">{{ (shipment.items?.length || 0) + n }}</td>
+                <td class="p-3 border-r border-slate-300 text-center text-slate-200">{{ (shipment.items?.length || 0) + Number(n) }}</td>
                 <td class="p-3 border-r border-slate-300"></td>
                 <td class="p-3 border-r border-slate-300 bg-slate-50/10"></td>
                 <td class="p-3 border-r border-slate-300"></td>

@@ -86,7 +86,7 @@ onMounted(() => {
   masterData.fetchCompanies()
 })
 
-const handleEmployeeChange = (id: string) => {
+const handleEmployeeChange = (id: any) => {
     const emp = masterData.employees.find(e => e.id === id)
     if (emp) {
         selectedEmployee.value = emp
@@ -464,8 +464,18 @@ const printDocument = () => {
             <div id="pkwt-print-area">
                 <PKWTRenderer 
                     :data="{
-                        ...form,
-                        employee: selectedEmployee
+                        documentNumber: form.documentNumber,
+                        agreementDay: form.agreementDay,
+                        agreementDate: form.agreementDate,
+                        agreementPlace: form.agreementPlace,
+                        representativeName: form.representativeName,
+                        representativePosition: form.representativePosition,
+                        employee: selectedEmployee,
+                        startDate: form.startDate,
+                        endDate: form.endDate,
+                        jobPosition: form.jobPosition,
+                        basicSalary: Number(form.basicSalary),
+                        allowances: Number(form.allowances)
                     }" 
                 />
             </div>
