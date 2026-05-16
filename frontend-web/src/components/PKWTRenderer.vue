@@ -37,66 +37,64 @@ const formatCurrency = (amount: number) => {
 </script>
 
 <template>
-  <div class="pkwt-container bg-white text-[11pt] leading-relaxed font-serif text-black min-h-screen mx-auto max-w-[21cm] shadow-lg print:shadow-none print:p-0 p-4">
+  <div class="pkwt-container bg-white text-[11pt] leading-[1.4] font-serif text-black min-h-screen mx-auto max-w-[21cm] shadow-lg print:shadow-none print:p-0 p-4">
     
-    <!-- PAGE 1: Header & Parties -->
-    <div class="page-container p-[1.5cm]">
-        <div class="text-center mb-8 space-y-1">
-          <h1 class="font-bold underline uppercase text-[12pt]">PERJANJIAN KERJA WAKTU TERTENTU</h1>
-          <p class="font-bold uppercase">ANTARA PT WOWIN PURNOMO PUTERA</p>
-          <p class="font-bold uppercase">DENGAN Sdr/i: {{ props.data.employee?.first_name || '....................' }}</p>
-          <br />
-          <p class="font-bold">NOMOR : {{ props.data.documentNumber || '....' }}/WOWIN.SOLO-PKWT/{{ getYear(props.data.agreementDate) }}</p>
+    <!-- PAGE 1: COVER PAGE -->
+    <div class="page-container p-[1cm] flex flex-col items-center">
+        <h1 class="font-bold text-[18pt] mb-12 uppercase text-center">PERJANJIAN KERJA WAKTU TERTENTU</h1>
+        
+        <div class="mb-12 flex justify-center">
+          <img src="/logo_wowin.png" alt="Logo Wowin" class="h-32 object-contain" />
         </div>
 
-        <div class="mb-6">
-          <p class="font-bold">PERJANJIAN KERJA WAKTU TERTENTU ini dibuat pada:</p>
-          <div class="grid grid-cols-[120px_20px_1fr] mt-1">
-            <span>Hari</span><span>:</span><span class="font-bold">{{ props.data.agreementDay || '....................' }}</span>
-            <span>Tanggal</span><span>:</span><span class="font-bold">{{ formatDate(props.data.agreementDate) }}</span>
-            <span>Bertempat di</span><span>:</span><span class="font-bold">{{ props.data.agreementPlace || '....................' }}</span>
-          </div>
+        <div class="w-[400px] mb-12">
+            <table class="w-full border-collapse border border-black text-[10pt]">
+                <tr>
+                    <td class="border border-black px-2 py-1 w-[80px]">Nomor</td>
+                    <td class="border border-black px-2 py-1 w-[20px] text-center">:</td>
+                    <td class="border border-black px-2 py-1">{{ props.data.documentNumber || '....' }}/WOWIN.SOLO-PKWT/{{ getYear(props.data.agreementDate) }}</td>
+                </tr>
+                <tr>
+                    <td class="border border-black px-2 py-1">Tanggal</td>
+                    <td class="border border-black px-2 py-1 text-center">:</td>
+                    <td class="border border-black px-2 py-1">{{ formatDate(props.data.agreementDate) }}</td>
+                </tr>
+                <tr>
+                    <td class="border border-black px-2 py-1">TMT</td>
+                    <td class="border border-black px-2 py-1 text-center">:</td>
+                    <td class="border border-black px-2 py-1">{{ formatDate(props.data.startDate) }}</td>
+                </tr>
+            </table>
         </div>
 
-        <p class="mb-4">("<span class="font-bold">PERJANJIAN</span>") Oleh dan diantara:</p>
+        <p class="text-center mb-2">Oleh dan diantara:</p>
 
-        <!-- Pihak Pertama -->
-        <div class="grid grid-cols-[30px_120px_20px_1fr] mb-6 gap-y-1">
-          <span>(1)</span><span>Nama</span><span>:</span><span class="font-bold">PT WOWIN PURNOMO PUTERA</span>
-          <span></span><span>Alamat</span><span>:</span>
-          <div class="grid grid-cols-[160px_20px_1fr]">
-            <span>Nama/Nomor Jalan</span><span>:</span><span>Area Sawah Dan Perkebunan</span>
-            <span>Kelurahan</span><span>:</span><span>Pandeyan</span>
-            <span>Kecamatan</span><span>:</span><span>Tasikmadu</span>
-            <span>Kabupaten/Kota</span><span>:</span><span>Karanganyar</span>
-            <span>Provinsi</span><span>:</span><span>Jawa Tengah 57561</span>
-          </div>
-          <div class="col-span-4 mt-2 pl-[30px]">
-            <p class="text-justify">Dalam hal ini diwakili oleh <span class="font-bold">{{ props.data.representativeName }}</span> selaku <span class="font-bold">{{ props.data.representativePosition }}</span> di PT Wowin Purnomo Putera dan menurut jabatannya bertindak untuk dan atas nama Direktur PT Wowin Purnomo Putera sebagai perusahaan pemberi kerja, oleh dan karenanya sah dan berwenang untuk bertindak untuk dan atas nama PT (selanjutnya dalam perjanjian ini disebut "<span class="font-bold">PIHAK PERTAMA</span>").</p>
-          </div>
+        <div class="w-full">
+            <table class="w-full border-collapse border border-black text-[10pt]">
+                <tr class="font-bold uppercase text-center bg-gray-50">
+                    <td colspan="2" class="border border-black py-2 w-1/2">PERUSAHAAN</td>
+                    <td colspan="2" class="border border-black py-2 w-1/2">KARYAWAN</td>
+                </tr>
+                <tr>
+                    <td class="border border-black px-2 py-1 align-top w-[60px]">Nama</td>
+                    <td class="border border-black px-2 py-1 font-bold">: PT WOWIN PURNOMO PUTERA</td>
+                    <td class="border border-black px-2 py-1 align-top w-[60px]">Nama</td>
+                    <td class="border border-black px-2 py-1">: {{ props.data.employee?.first_name }} {{ props.data.employee?.last_name }}</td>
+                </tr>
+                <tr class="h-24">
+                    <td class="border border-black px-2 py-1 align-top">Alamat</td>
+                    <td class="border border-black px-2 py-1 text-[9pt] align-top">
+                        : Area Sawah Dan Perkebunan, Pandeyan,<br />
+                        Tasikmadu, Karanganyar, Jawa Tengah<br />
+                        57722
+                    </td>
+                    <td class="border border-black px-2 py-1 align-top">Alamat</td>
+                    <td class="border border-black px-2 py-1 text-[9pt] align-top">: {{ props.data.employee?.address_ktp || '....................' }}</td>
+                </tr>
+            </table>
         </div>
 
-        <!-- Pihak Kedua -->
-        <div class="grid grid-cols-[30px_120px_20px_1fr] mb-6 gap-y-1">
-          <span>(2)</span><span>Nama</span><span>:</span><span class="font-bold">{{ props.data.employee?.first_name }} {{ props.data.employee?.last_name }}</span>
-          <span></span><span>Tempat/Tanggal Lahir</span><span>:</span><span class="font-bold">{{ props.data.employee?.birth_place }}, {{ formatDate(props.data.employee?.birth_date) }}</span>
-          <span></span><span>Jenis Kelamin</span><span>:</span><span class="font-bold">{{ props.data.employee?.gender }}</span>
-          <span></span><span>Alamat</span><span>:</span>
-          <div class="grid grid-cols-[160px_20px_1fr]">
-            <span>Nama/Nomor Jalan</span><span>:</span><span>{{ props.data.employee?.address_ktp || '....................' }}</span>
-            <span>RT/RW</span><span>:</span><span>....................</span>
-            <span>Kelurahan</span><span>:</span><span>....................</span>
-            <span>Kecamatan</span><span>:</span><span>....................</span>
-            <span>Kabupaten/Kota</span><span>:</span><span>....................</span>
-            <span>Provinsi</span><span>:</span><span>....................</span>
-          </div>
-          <span></span><span>NIK</span><span>:</span><span class="font-bold">{{ props.data.employee?.identity_number || '....................' }}</span>
-          <div class="col-span-4 mt-2 pl-[30px]">
-            <p class="text-justify">(selanjutnya dalam perjanjian ini disebut "<span class="font-bold">PIHAK KEDUA</span>" yang merupakan Penerima Kerja/Karyawan).</p>
-          </div>
-        </div>
-
-        <div class="mt-auto flex justify-end pt-8">
+        <div class="mt-auto flex justify-end">
             <table class="border-collapse border border-black text-[8pt] w-[180px]">
                 <tr><td colspan="2" class="border border-black text-center font-bold py-1 uppercase">PARAF</td></tr>
                 <tr class="h-8">
@@ -111,16 +109,85 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+    <!-- PAGE 2: PARTIES DETAIL -->
+    <div class="page-container p-[1cm]">
+        <div class="text-center mb-4 space-y-1">
+          <h1 class="font-bold underline uppercase text-[12pt]">PERJANJIAN KERJA WAKTU TERTENTU</h1>
+          <p class="font-bold uppercase">ANTARA PT WOWIN PURNOMO PUTERA</p>
+          <p class="font-bold uppercase">DENGAN Sdr/i:</p>
+          <p class="mt-4">NOMOR : {{ props.data.documentNumber || '....' }}/WOWIN.SOLO-PKWT/{{ getYear(props.data.agreementDate) }}</p>
+        </div>
 
-    <!-- PAGE 2: Preamble & Pasal 1 -->
-    <div class="page-container p-[1.5cm]">
-        <p class="mb-4 text-justify">Perusahaan dan Karyawan secara bersama-sama selanjutnya disebut sebagai "<span class="font-bold">PARA PIHAK</span>". <span class="font-bold">PARA PIHAK</span> dengan ini terlebih dahulu menerangkan hal-hal sebagai berikut:</p>
+        <div class="mb-2">
+          <p class="font-bold">PERJANJIAN KERJA WAKTU TERTENTU ini dibuat pada:</p>
+          <div class="grid grid-cols-[120px_20px_1fr] mt-1">
+            <span>Hari</span><span>:</span><span>{{ props.data.agreementDay || '....................' }}</span>
+            <span>Tanggal</span><span>:</span><span>{{ formatDate(props.data.agreementDate) }}</span>
+            <span>Bertempat di</span><span>:</span><span>{{ props.data.agreementPlace || '....................' }}</span>
+          </div>
+        </div>
 
-        <div class="space-y-4 mb-8 text-justify">
+        <p class="mb-2 font-bold">("<span class="uppercase">PERJANJIAN</span>") Oleh dan diantara:</p>
+
+        <!-- Pihak Pertama -->
+        <div class="grid grid-cols-[40px_140px_20px_1fr] mb-4 gap-y-1">
+          <span class="font-bold">(1)</span><span>Nama</span><span>:</span><span class="font-bold uppercase">PT WOWIN PURNOMO PUTERA</span>
+          <span></span><span>Alamat</span><span>:</span>
+          <div class="grid grid-cols-[160px_20px_1fr] col-span-2">
+            <span>Nama/Nomor Jalan</span><span>:</span><span>Area Sawah Dan Perkebunan</span>
+            <span>Kelurahan</span><span>:</span><span>Pandeyan</span>
+            <span>Kecamatan</span><span>:</span><span>Tasikmadu</span>
+            <span>Kabupaten/Kota</span><span>:</span><span>Karanganyar</span>
+            <span>Provinsi</span><span>:</span><span>Jawa Tengah 57561</span>
+          </div>
+          <div class="col-span-4 mt-2 pl-[40px]">
+            <p class="text-justify">Dalam hal ini diwakili oleh <span class="font-bold">{{ props.data.representativeName }}</span> selaku <span class="font-bold uppercase">{{ props.data.representativePosition }}</span> di PT Wowin Purnomo Putera dan menurut jabatannya bertindak untuk dan atas nama Direktur PT Wowin Purnomo Putera sebagai perusahaan pemberi kerja, oleh dan karenanya sah dan berwenang untuk bertindak untuk dan atas nama PT (selanjutnya dalam perjanjian ini disebut "<span class="font-bold uppercase">PIHAK PERTAMA</span>").</p>
+          </div>
+        </div>
+
+        <!-- Pihak Kedua -->
+        <div class="grid grid-cols-[40px_140px_20px_1fr] mb-4 gap-y-1">
+          <span class="font-bold">(2)</span><span>Nama</span><span>:</span><span class="font-bold uppercase">{{ props.data.employee?.first_name }} {{ props.data.employee?.last_name }}</span>
+          <span></span><span>Tempat/Tanggal Lahir</span><span>:</span><span>{{ props.data.employee?.birth_place }}, {{ formatDate(props.data.employee?.birth_date) }}</span>
+          <span></span><span>Jenis Kelamin</span><span>:</span><span>{{ props.data.employee?.gender }}</span>
+          <span></span><span>Alamat</span><span>:</span>
+          <div class="grid grid-cols-[160px_20px_1fr] col-span-2">
+            <span>Nama/Nomor Jalan</span><span>:</span><span>{{ props.data.employee?.address_ktp || '....................' }}</span>
+            <span>RT/RW</span><span>:</span><span>....................</span>
+            <span>Kelurahan</span><span>:</span><span>....................</span>
+            <span>Kecamatan</span><span>:</span><span>....................</span>
+            <span>Kabupaten/Kota</span><span>:</span><span>....................</span>
+            <span>Provinsi</span><span>:</span><span>....................</span>
+          </div>
+          <span></span><span>NIK</span><span>:</span><span>{{ props.data.employee?.identity_number || '....................' }}</span>
+          <div class="col-span-4 mt-2 pl-[40px]">
+            <p class="text-justify">(selanjutnya dalam perjanjian ini disebut "<span class="font-bold uppercase">PIHAK KEDUA</span>" yang merupakan Penerima Kerja/Karyawan).</p>
+          </div>
+        </div>
+
+        <div class="mt-auto flex justify-end">
+            <table class="border-collapse border border-black text-[8pt] w-[180px]">
+                <tr><td colspan="2" class="border border-black text-center font-bold py-1 uppercase">PARAF</td></tr>
+                <tr class="h-8">
+                    <td class="border border-black text-center w-1/2 align-top py-0.5">PIHAK 1</td>
+                    <td class="border border-black text-center w-1/2 align-top py-0.5">PIHAK 2</td>
+                </tr>
+                <tr class="h-10">
+                    <td class="border border-black w-1/2"></td>
+                    <td class="border border-black w-1/2"></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGE 3: PREAMBLE & PASAL 1 -->
+    <div class="page-container p-[1cm]">
+        <p class="mb-4 mt-4 text-justify">Perusahaan dan Karyawan secara bersama-sama selanjutnya disebut sebagai "<span class="font-bold">PARA PIHAK</span>". <span class="font-bold">PARA PIHAK</span> dengan ini terlebih dahulu menerangkan hal-hal sebagai berikut:</p>
+
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
-            <span>Bahwa berdasarkan kebutuhan akan tenaga kerja dan pelaksanaan proses perekrutan Karyawan, <span class="font-bold">PIHAK KEDUA</span> telah mengikuti proses tersebut secara sukarela dengan hasil memenuhi persyaratan umum dan/atau khusus, maka <span class="font-bold">PIHAK PERTAMA</span> menerima <span class="font-bold">PIHAK KEDUA</span> sebagai karyawan dan <span class="font-bold">PIHAK KEDUA</span> menerima maksud tersebut;</span>
+            <span>Bahwa berdasarkan kebutuhan akan tenaga kerja dan pelaksanaan proses perekrutan Karyawan, <span class="font-bold">PIHAK KEDUA</span> telah mengikuti proses tersebut secara sukarela dengan hasil memenuhi persyaratan umum and/atau khusus, maka <span class="font-bold">PIHAK PERTAMA</span> menerima <span class="font-bold">PIHAK KEDUA</span> sebagai karyawan dan <span class="font-bold">PIHAK KEDUA</span> menerima maksud tersebut;</span>
           </div>
           <div class="grid grid-cols-[30px_1fr]">
             <span>2.</span>
@@ -132,13 +199,13 @@ const formatCurrency = (amount: number) => {
           </div>
         </div>
 
-        <p class="mb-6 text-justify">Berdasarkan hal-hal tersebut diatas dan dengan iktikad baik, <span class="font-bold">PARA PIHAK</span> dengan ini sepakat untuk saling mengikatkan diri dalam Perjanjian ini dengan syarat-syarat dan ketentuan-ketentuan sebagai berikut :</p>
+        <p class="mb-3 text-justify">Berdasarkan hal-hal tersebut diatas dan dengan iktikad baik, <span class="font-bold">PARA PIHAK</span> dengan ini sepakat untuk saling mengikatkan diri dalam Perjanjian ini dengan syarat-syarat dan ketentuan-ketentuan sebagai berikut :</p>
 
         <div class="text-center mb-4">
           <p class="font-bold uppercase underline">PASAL 1</p>
           <p class="font-bold uppercase">PENGERTIAN UMUM</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span><span class="font-bold">PIHAK PERTAMA</span> adalah Perusahaan dalam hal ini sebagai pemberi kerja.</span>
@@ -168,15 +235,15 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 3: Pasal 2 & 3 -->
-    <div class="page-container p-[1.5cm]">
+    <div class="page-container p-[1cm]">
         <div class="text-center mb-4">
           <p class="font-bold uppercase underline">PASAL 2</p>
           <p class="font-bold uppercase">JABATAN, TUGAS DAN KOMITMEN</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span><span class="font-bold">PIHAK PERTAMA</span> akan memperkerjakan <span class="font-bold">PIHAK KEDUA</span> di PT Wowin Purnomo Putera beralamat di Area Sawah Dan Perkebunan, Pandeyan, Tasikmadu, Karanganyar, Jawa Tengah 57722, sesuai dengan kompetensi kerjanya, sebagai : <span class="font-bold underline">{{ props.data.jobPosition }}</span> terhitung mulai tanggal <span class="font-bold underline">{{ formatDate(props.data.startDate) }}</span>.</span>
@@ -199,7 +266,7 @@ const formatCurrency = (amount: number) => {
           <p class="font-bold uppercase underline">PASAL 3</p>
           <p class="font-bold uppercase">HARI KERJA, JAM KERJA DAN JAM ISTIRAHAT</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span>Hari kerja, jam kerja dan jam istirahat pada dasarnya berlaku sebagaimana kebutuhan Perusahaan, namun secara umum berlaku, yaitu :</span>
@@ -212,6 +279,18 @@ const formatCurrency = (amount: number) => {
           <div class="grid grid-cols-[30px_1fr]">
             <span>2.</span>
             <span>Perkecualian dari jadwal pada butir (1) pasal ini, yaitu bagi Divisi atau Bagian yang sifat pekerjaannya tidak dapat ditinggalkan ataupun terus menerus semisal 24 (dua puluh empat) jam sehingga perlu pengaturan khusus seperti sistem regu bergilir 2 (dua) atau 3 (tiga) shift, selanjutnya jadwal akan diatur oleh masing-masing Divisi dengan tetap mengacu kepada ketentuan yang berlaku dan memberikan waktu istirahat secukupnya mulai 30 - 60 menit;</span>
+          </div>
+          <div class="grid grid-cols-[30px_1fr]">
+            <span>3.</span>
+            <span>Setiap kehadiran dan pulang kerja <span class="font-bold uppercase">PIHAK KEDUA</span> wajib mencatatkan kehadirannya sesuai dengan jadwal kerja yang telah disetujui.</span>
+          </div>
+          <div class="grid grid-cols-[30px_1fr]">
+            <span>4.</span>
+            <span>Pertukaran dinas dimungkinkan pada kondisi yang mendesak terjadi pada sistem regu bergilir, namun demikian hanya dapat dilaksanakan setelah mendapat persetujuan Manajer/Penanggungjawab Divisi masing-masing;</span>
+          </div>
+          <div class="grid grid-cols-[30px_1fr]">
+            <span>5.</span>
+            <span>Kepada <span class="font-bold uppercase">PIHAK KEDUA</span> diberikan kesempatan secukupnya untuk melaksanakan ibadah wajib .</span>
           </div>
         </div>
 
@@ -228,17 +307,17 @@ const formatCurrency = (amount: number) => {
                 </tr>
             </table>
         </div>
-    </div>
+        </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 4: Pasal 4 -->
-    <div class="page-container p-[1.5cm]">
+    <div class="page-container p-[1cm]">
         <div class="text-center mb-4">
           <p class="font-bold uppercase underline">PASAL 4</p>
           <p class="font-bold uppercase">GAJI DAN FASILITAS</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span>Atas pelaksanaan pekerjaan oleh <span class="font-bold">PIHAK KEDUA</span> sebagaimana tersebut dalam pasal 2 Perjanjian Kerja ini, <span class="font-bold">PIHAK PERTAMA</span> akan memberikan Upah dengan komponen sebagai berikut :</span>
@@ -284,11 +363,11 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 5: Pasal 4 (cont), 5, 6 -->
-    <div class="page-container p-[1.5cm]">
-        <div class="space-y-4 mb-8 text-justify">
+    <div class="page-container p-[1cm]">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>5.</span>
             <span><span class="font-bold">PIHAK KEDUA</span> memahami dan menyetujui bahwa jumlah THP yang diterima dapat berbeda setiap bulannya tergantung pada komponen penghasilan dan potongan yang berlaku.</span>
@@ -315,7 +394,7 @@ const formatCurrency = (amount: number) => {
           <p class="font-bold uppercase underline">PASAL 5</p>
           <p class="font-bold uppercase">JAMINAN KESEHATAN DAN PAJAK PENGHASILAN</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span>Jaminan kesehatan diberikan kepada <span class="font-bold">PIHAK KEDUA</span> sesuai dengan ketentuan yang berlaku di perusahaan;</span>
@@ -330,7 +409,7 @@ const formatCurrency = (amount: number) => {
           <p class="font-bold uppercase underline">PASAL 6</p>
           <p class="font-bold uppercase">HAK DAN KEWAJIBAN PIHAK PERTAMA</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span><span class="font-bold">PIHAK PERTAMA</span> berhak:</span>
@@ -355,19 +434,19 @@ const formatCurrency = (amount: number) => {
                 </tr>
             </table>
         </div>
-    </div>
+        </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 6: Pasal 6 (cont), Pihak 1 Kewajiban, Pasal 7 start -->
-    <div class="page-container p-[1.5cm]">
-        <div class="space-y-4 mb-8 text-justify pl-8">
+    <div class="page-container p-[1cm]">
+        <div class="space-y-4 mb-4 text-justify pl-8">
           <p>4) Melarang <span class="font-bold">PIHAK KEDUA</span> bekerja rangkap selain ditempat <span class="font-bold">PIHAMA PERTAMA</span>, kecuali memperoleh izin tertulis dari <span class="font-bold">PIHAK PERTAMA</span>;</p>
           <p>5) Mencari informasi kepada pihak ketiga mengenai kebenaran keterangan lisan ataupun tertulis <span class="font-bold">PIHAK KEDUA</span> yang diberikan kepada <span class="font-bold">PIHAK PERTAMA</span> baik selama proses rekrutmen sampai diterima sebagai karyawan;</p>
           <p>6) Memberikan teguran lisan dan/atau peringatan tertulis sampai dengan pemutusan hubungan kerja kepada <span class="font-bold">PIHAK KEDUA</span> dalam hal melakukan pelanggaran dan/atau tidak mematuhi dan/atau tidak dapat memenuhi Peraturan Perusahaan dan/atau Perjanjian Kerja ini, dimana mekanismenya diatur dalam Peraturan Perusahaan/Ketentuan yang ada;</p>
         </div>
 
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>2.</span>
             <span><span class="font-bold">PIHAK PERTAMA</span> berkewajiban :</span>
@@ -384,7 +463,7 @@ const formatCurrency = (amount: number) => {
           <p class="font-bold uppercase underline">PASAL 7</p>
           <p class="font-bold uppercase">HAK DAN KEWAJIBAN PIHAK KEDUA</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span><span class="font-bold">PIHAK KEDUA</span> berhak atas :</span>
@@ -411,17 +490,17 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 7: Pasal 7 (cont), Pihak 2 Kewajiban -->
-    <div class="page-container p-[1.5cm]">
-        <div class="space-y-4 mb-8 text-justify pl-8">
+    <div class="page-container p-[1cm]">
+        <div class="space-y-4 mb-4 text-justify pl-8">
           <p>ketentuan Perusahaan;</p>
           <p>4) Perlakuan yang layak sesuai dengan peraturan serta ketentuan yang berlaku di Perusahaan;</p>
           <p>5) Perlindungan hukum terhadap ketidakadilan tindakan sewenang-wenang dari atasan atau Perusahaan.</p>
         </div>
 
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>2.</span>
             <span><span class="font-bold">PIHAK KEDUA</span> berkewajiban :</span>
@@ -454,15 +533,15 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 8: Pasal 8 -->
-    <div class="page-container p-[1.5cm]">
+    <div class="page-container p-[1cm]">
         <div class="text-center mb-4">
           <p class="font-bold uppercase underline">PASAL 8</p>
           <p class="font-bold uppercase">JANGKA WAKTU DAN BERAKHIRNYA PERJANJIAN</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span>Perjanjian kerja ini berlaku terhitung mulai tanggal <span class="font-bold underline">{{ formatDate(props.data.startDate) }}</span> sampai dengan <span class="font-bold underline">{{ formatDate(props.data.endDate) }}</span>, termasuk masa Probation selama ..... Bulan.</span>
@@ -513,15 +592,15 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 9: Pasal 9, 10 & Closing -->
-    <div class="page-container p-[1.5cm]">
+    <div class="page-container p-[1cm]">
         <div class="text-center mb-4">
           <p class="font-bold uppercase underline">PASAL 9</p>
           <p class="font-bold uppercase">PENYELESAIAN MASALAH</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span>Apabila terjadi perselisihan dalam perjanjian kerjasama ini, maka akan diselesaikan secara musyawarah untuk mufakat atau melalui mediasi oleh Divisi HR</span>
@@ -536,7 +615,7 @@ const formatCurrency = (amount: number) => {
           <p class="font-bold uppercase underline">PASAL 10</p>
           <p class="font-bold uppercase">PENUTUP</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span>Agar <span class="font-bold">PIHAK KEDUA</span> memahami maksud dan isi dari Perjanjian Kerja ini maka <span class="font-bold">PIHAK KEDUA</span> sebelum menandatangani agar membaca Perjanjian Kerja ini secara cermat dan seksama;</span>
@@ -555,7 +634,7 @@ const formatCurrency = (amount: number) => {
           </div>
         </div>
 
-        <p class="mb-8 text-justify">Demikian Perjanjian Kerja ini dibuat dengan sesungguhnya dan tidak ada paksaan, yang mana sebelum menandatangani perjanjian ini <span class="font-bold">PARA PIHAK</span> telah membaca, memahami dan menyetujui seluruh isi dari perjanjian kerjasama ini yang memuat sebagian norma dan syarat kerja, serta hak dan kewajiban <span class="font-bold">PARA PIHAK</span>, sehingga untuk dijunjung tinggi dan dilaksanakan secara baik dengan penuh tanggungjawab, yang ditandatangani oleh <span class="font-bold">PARA PIHAK</span> dan dibuat rangkap 2 (dua) masing-masing mempunyai kekuatan hukum yang sama.</p>
+        <p class="mb-4 text-justify">Demikian Perjanjian Kerja ini dibuat dengan sesungguhnya dan tidak ada paksaan, yang mana sebelum menandatangani perjanjian ini <span class="font-bold">PARA PIHAK</span> telah membaca, memahami dan menyetujui seluruh isi dari perjanjian kerjasama ini yang memuat sebagian norma dan syarat kerja, serta hak dan kewajiban <span class="font-bold">PARA PIHAK</span>, sehingga untuk dijunjung tinggi dan dilaksanakan secara baik dengan penuh tanggungjawab, yang ditandatangani oleh <span class="font-bold">PARA PIHAK</span> dan dibuat rangkap 2 (dua) masing-masing mempunyai kekuatan hukum yang sama.</p>
 
         <div class="mt-auto flex justify-end pt-8">
             <table class="border-collapse border border-black text-[8pt] w-[180px]">
@@ -572,10 +651,10 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 10: Signatures Main -->
-    <div class="page-container p-[1.5cm]">
+    <div class="page-container p-[1cm]">
         <div class="grid grid-cols-2 border border-black mt-10 min-h-[300px]">
             <div class="border-r border-black p-4 text-center flex flex-col items-center">
                 <p class="font-bold uppercase mb-16">PIHAK PERTAMA</p>
@@ -600,7 +679,7 @@ const formatCurrency = (amount: number) => {
             </div>
         </div>
 
-        <div class="mt-auto flex justify-end pt-24">
+        <div class="mt-auto flex justify-end pt-8">
             <table class="border-collapse border border-black text-[8pt] w-[180px]">
                 <tr><td colspan="2" class="border border-black text-center font-bold py-1 uppercase">PARAF</td></tr>
                 <tr class="h-8">
@@ -615,19 +694,19 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 11: Addendum Header & Pasal 1 -->
-    <div class="page-container p-[1.5cm]">
-        <div class="text-center mb-8 space-y-1">
+    <div class="page-container p-[1cm]">
+        <div class="text-center mb-4 space-y-1">
           <h1 class="font-bold underline uppercase text-[12pt]">ADDENDUM PERJANJIAN KERJA WAKTU TERTENTU (PKWT)</h1>
           <p class="font-bold">NOMOR : 015/WOWIN.SOLO-ADD-PKWT/{{ getYear(props.data.agreementDate) }}</p>
         </div>
 
-        <p class="mb-6 text-justify">Addendum ini merupakan bagian yang tidak terpisahkan dari PKWT NOMOR {{ props.data.documentNumber }}/WOWIN.SOLO-PKWT/{{ getYear(props.data.agreementDate) }} tanggal {{ formatDate(props.data.agreementDate) }} yang dibuat antara:</p>
+        <p class="mb-3 text-justify">Addendum ini merupakan bagian yang tidak terpisahkan dari PKWT NOMOR {{ props.data.documentNumber }}/WOWIN.SOLO-PKWT/{{ getYear(props.data.agreementDate) }} tanggal {{ formatDate(props.data.agreementDate) }} yang dibuat antara:</p>
 
         <!-- Pihak Pertama Addendum -->
-        <div class="grid grid-cols-[30px_120px_20px_1fr] mb-6 gap-y-1">
+        <div class="grid grid-cols-[30px_120px_20px_1fr] mb-3 gap-y-1">
           <span>(1)</span><span>Nama</span><span>:</span><span class="font-bold">PT WOWIN PURNOMO PUTERA</span>
           <span></span><span>Alamat</span><span>:</span>
           <div class="grid grid-cols-[160px_20px_1fr]">
@@ -643,7 +722,7 @@ const formatCurrency = (amount: number) => {
         </div>
 
         <!-- Pihak Kedua Addendum -->
-        <div class="grid grid-cols-[30px_120px_20px_1fr] mb-6 gap-y-1">
+        <div class="grid grid-cols-[30px_120px_20px_1fr] mb-3 gap-y-1">
           <span>(2)</span><span>Nama</span><span>:</span><span class="font-bold">{{ props.data.employee?.first_name }} {{ props.data.employee?.last_name }}</span>
           <span></span><span>Tempat/Tanggal Lahir</span><span>:</span><span class="font-bold">{{ props.data.employee?.birth_place }}, {{ formatDate(props.data.employee?.birth_date) }}</span>
           <span></span><span>Jenis Kelamin</span><span>:</span><span class="font-bold">{{ props.data.employee?.gender }}</span>
@@ -683,15 +762,15 @@ const formatCurrency = (amount: number) => {
         </div>
     </div>
 
-    <div class="page-break" style="page-break-after: always;"></div>
+
 
     <!-- PAGE 12: Addendum Pasal 2 & Signatures -->
-    <div class="page-container p-[1.5cm]">
+    <div class="page-container p-[1cm]">
         <div class="text-center mb-4">
           <p class="font-bold uppercase underline">PASAL 2</p>
           <p class="font-bold uppercase">KETENTUAN TIDAK MENUNTUT KOMPENSASI</p>
         </div>
-        <div class="space-y-4 mb-8 text-justify">
+        <div class="space-y-4 mb-4 text-justify">
           <div class="grid grid-cols-[30px_1fr]">
             <span>1.</span>
             <span><span class="font-bold">PIHAK KEDUA</span> memahami dan menyetujui bahwa selama masa Perjanjian Kerja Waktu Tertentu (PKWT) berlangsung, <span class="font-bold">PIHAK PERTAMA</span> <span class="font-bold underline">tidak memberlakukan denda kepada PIHAK KEDUA apabila mengundurkan diri sebelum masa kontrak berakhir</span>.</span>
@@ -714,7 +793,7 @@ const formatCurrency = (amount: number) => {
           </div>
         </div>
 
-        <div class="grid grid-cols-2 border border-black mt-10 min-h-[300px]">
+        <div class="grid grid-cols-2 border border-black mt-2 min-h-[300px]">
             <div class="border-r border-black p-4 text-center flex flex-col items-center">
                 <p class="font-bold uppercase mb-16">PIHAK PERTAMA</p>
                 <div class="mt-auto">
@@ -773,7 +852,7 @@ const formatCurrency = (amount: number) => {
     padding: 0;
   }
   .page-container {
-    height: 100vh;
+    min-height: 26cm;
     page-break-after: always;
     display: flex;
     flex-direction: column;
@@ -785,7 +864,7 @@ const formatCurrency = (amount: number) => {
 }
 
 .page-container {
-    min-height: 29.7cm;
+    min-height: 26cm;
     display: flex;
     flex-direction: column;
 }

@@ -22,13 +22,14 @@ type AuthUseCase interface {
 }
 
 type authUseCase struct {
-	userRepo    repository.UserRepository
-	companyRepo repository.CompanyRepository
-	emailSender utils.EmailSender
+	userRepo          repository.UserRepository
+	companyRepo       repository.CompanyRepository
+	employeeShiftRepo repository.EmployeeShiftRepository
+	emailSender       utils.EmailSender
 }
 
-func NewAuthUseCase(userRepo repository.UserRepository, companyRepo repository.CompanyRepository, emailSender utils.EmailSender) AuthUseCase {
-	return &authUseCase{userRepo, companyRepo, emailSender}
+func NewAuthUseCase(userRepo repository.UserRepository, companyRepo repository.CompanyRepository, employeeShiftRepo repository.EmployeeShiftRepository, emailSender utils.EmailSender) AuthUseCase {
+	return &authUseCase{userRepo, companyRepo, employeeShiftRepo, emailSender}
 }
 
 type RegisterRequest struct {
@@ -38,6 +39,7 @@ type RegisterRequest struct {
 	Password      string            `json:"password" binding:"required,min=6"`
 	JobPositionID string            `json:"job_position_id" binding:"required"`
 	BranchID      string            `json:"branch_id" binding:"required"`
+	ShiftID       string            `json:"shift_id"`
 	FaceEmbedding domain.FloatArray `json:"face_embedding"`
 	Selfie        string            `json:"selfie"` // Base64
 }
@@ -122,7 +124,20 @@ func (u *authUseCase) Register(req RegisterRequest) error {
 		}
 	}
 
-	return u.userRepo.CreateWithEmployee(user, employee)
+	// Set permanent default shift if provided
+	if req.ShiftID != "" {
+		shiftID, err := uuid.Parse(req.ShiftID)
+		if err == nil {
+			employee.DefaultShiftID = &shiftID
+		}
+	}
+
+	err = u.userRepo.CreateWithEmployee(user, employee)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u *authUseCase) Login(req LoginRequest, secret string) (*LoginResponse, error) {

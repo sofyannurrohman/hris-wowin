@@ -27,12 +27,9 @@ func (h *BranchHandler) SetupRoutes(r *gin.RouterGroup) {
 }
 
 func (h *BranchHandler) SetupPublicRoutes(r *gin.RouterGroup) {
-	// Keep for backward compat but routes also added under protected
-}
-
-func (h *BranchHandler) SetupProtectedPublicRoutes(r *gin.RouterGroup) {
 	r.GET("/branches", h.GetAll)
 }
+
 
 func (h *BranchHandler) Create(c *gin.Context) {
 	var req usecase.CreateBranchRequest

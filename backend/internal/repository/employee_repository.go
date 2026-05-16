@@ -60,7 +60,17 @@ func (r *employeeRepository) FindByID(id uuid.UUID) (*domain.Employee, error) {
 
 func (r *employeeRepository) FindByUserID(userID uuid.UUID) (*domain.Employee, error) {
 	var employee domain.Employee
-	if err := r.db.Preload("Branch").Preload("User").Preload("Department").Preload("JobPosition").Preload("Company").Where("user_id = ?", userID).First(&employee).Error; err != nil {
+	today := time.Now().Format("2006-01-02")
+	if err := r.db.Preload("Branch").
+		Preload("Branch.DefaultShift").
+		Preload("User").
+		Preload("Department").
+		Preload("JobPosition").
+		Preload("Company").
+		Preload("DefaultShift").
+		Preload("EmployeeShifts", "date = ?", today).
+		Preload("EmployeeShifts.Shift").
+		Where("user_id = ?", userID).First(&employee).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}

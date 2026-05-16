@@ -27,6 +27,7 @@ class RegisterRequested extends AuthEvent {
   final String password;
   final String jobPositionId;
   final String branchId;
+  final String? shiftId;
   final List<double>? embedding;
   final String? selfiePath;
 
@@ -36,13 +37,14 @@ class RegisterRequested extends AuthEvent {
     this.employeeId,
     this.password,
     this.jobPositionId,
-    this.branchId, {
+    this.branchId,
+    this.shiftId, {
     this.embedding,
     this.selfiePath,
   });
 
   @override
-  List<Object> get props => [name, email, employeeId, password, jobPositionId, branchId, embedding ?? [], selfiePath ?? ''];
+  List<Object> get props => [name, email, employeeId, password, jobPositionId, branchId, shiftId ?? '', embedding ?? [], selfiePath ?? ''];
 }
 
 class CheckAuthStatusRequested extends AuthEvent {}

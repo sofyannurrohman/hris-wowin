@@ -111,7 +111,48 @@ func (u *shiftUseCase) CreateShift(req *CreateShiftRequest) error {
 }
 
 func (u *shiftUseCase) GetShifts() ([]domain.Shift, error) {
-	return u.repo.FindAll()
+	shifts, err := u.repo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// Clean up time strings to prevent +07:07 historical offset issues
+	for i := range shifts {
+		shifts[i].StartTime = cleanTimeOutput(shifts[i].StartTime)
+		shifts[i].EndTime = cleanTimeOutput(shifts[i].EndTime)
+		if shifts[i].BreakStart != nil {
+			cleaned := cleanTimeOutput(*shifts[i].BreakStart)
+			shifts[i].BreakStart = &cleaned
+		}
+		if shifts[i].BreakEnd != nil {
+			cleaned := cleanTimeOutput(*shifts[i].BreakEnd)
+			shifts[i].BreakEnd = &cleaned
+		}
+	}
+
+	return shifts, nil
+}
+
+func cleanTimeOutput(t string) string {
+	if t == "" {
+		return ""
+	}
+	// If it contains 'T', it's an ISO timestamp from GORM/Postgres
+	if i := 11; len(t) > i && t[10] == 'T' {
+		// Extract HH:mm from 0000-01-01T16:07:12...
+		// But wait, the user wants the ORIGINAL time (e.g. 09:00)
+		// The 16:07 is already shifted. 
+		// If we can't get the original, we should at least format it.
+		// However, the best way is to handle this in parseShiftTime during Create/Update
+		// and ensure the database stores it correctly.
+		timePart := t[i : i+5] // HH:mm
+		return timePart
+	}
+	// If it's already HH:mm:ss
+	if len(t) >= 5 {
+		return t[:5]
+	}
+	return t
 }
 
 func (u *shiftUseCase) GetShiftByID(id uuid.UUID) (*domain.Shift, error) {

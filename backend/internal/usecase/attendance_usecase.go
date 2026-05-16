@@ -181,14 +181,41 @@ func (u *attendanceUseCase) CheckIn(userID uuid.UUID, req CheckInRequest) (*Atte
 		selfieURL = "/" + filePath
 	}
 
-	// 5. Evaluate 'late' status (e.g. late if > 08:15 UTC local)
-	// Usually checking local time depends on timezone of user, assuming UTC for MVP.
-	now := time.Now().UTC()
-	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 8, 15, 0, 0, time.UTC)
+	// 5. Evaluate 'late' status based on applicable shift
+	// Priority: Specific Date Shift -> Employee Default Shift -> Branch Default Shift
+	var applicableShift *domain.Shift
+	if len(employee.EmployeeShifts) > 0 {
+		applicableShift = employee.EmployeeShifts[0].Shift
+	} else if employee.DefaultShift != nil {
+		applicableShift = employee.DefaultShift
+	} else if employee.Branch != nil && employee.Branch.DefaultShift != nil {
+		applicableShift = employee.Branch.DefaultShift
+	}
 
 	status := "ON_TIME"
-	if now.After(cutoff) {
-		status = "LATE"
+	now := time.Now().UTC()
+	// Convert 'now' to Asia/Jakarta for comparison since shift times are usually local
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	nowLocal := now.In(loc)
+
+	if applicableShift != nil {
+		// Parse shift StartTime (format HH:mm:ss)
+		shiftTime, err := time.Parse("15:04:05", applicableShift.StartTime)
+		if err == nil {
+			// Create a comparison time for today
+			compareTime := time.Date(nowLocal.Year(), nowLocal.Month(), nowLocal.Day(), shiftTime.Hour(), shiftTime.Minute(), shiftTime.Second(), 0, loc)
+			
+			// Late if check-in is after shift start time (with a 15-min grace period)
+			if nowLocal.After(compareTime.Add(15 * time.Minute)) {
+				status = "LATE"
+			}
+		}
+	} else {
+		// Fallback to default 08:15 logic if no shift found
+		cutoff := time.Date(nowLocal.Year(), nowLocal.Month(), nowLocal.Day(), 8, 15, 0, 0, loc)
+		if nowLocal.After(cutoff) {
+			status = "LATE"
+		}
 	}
 
 	attendance := &domain.AttendanceLog{

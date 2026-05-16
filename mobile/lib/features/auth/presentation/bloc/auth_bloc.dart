@@ -109,6 +109,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       event.password,
       event.jobPositionId,
       event.branchId,
+      event.shiftId,
       embedding: event.embedding,
       selfiePath: event.selfiePath,
     );

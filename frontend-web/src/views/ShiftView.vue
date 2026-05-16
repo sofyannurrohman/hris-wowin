@@ -72,18 +72,24 @@ const formatTime = (timeStr: string, isEndTime = false) => {
   return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
 }
 
-const formatTimeForInput = (timeStr: string) => {
+const formatTimeForInput = (timeStr: string, isEndTime = false) => {
   if (!timeStr) return ''
   
   // Handle HH:mm:ss format
   if (timeStr.includes(':') && !timeStr.includes('-') && !timeStr.includes('T')) {
     const parts = timeStr.split(':')
-    return `${(parts[0] || '00').padStart(2, '0')}:${(parts[1] || '00').padStart(2, '0')}`
+    const h = (parts[0] || '00').padStart(2, '0')
+    const m = (parts[1] || '00').padStart(2, '0')
+    if (isEndTime && h === '00' && m === '00') return '24.00'
+    return `${h}.${m}`
   }
 
   const d = new Date(timeStr)
   if (isNaN(d.getTime())) return ''
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+  const h = d.getUTCHours()
+  const m = d.getUTCMinutes()
+  if (isEndTime && h === 0 && m === 0) return '24.00'
+  return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`
 }
 
 const openEditModal = (shift: any) => {
@@ -93,9 +99,9 @@ const openEditModal = (shift: any) => {
     id: shift?.id || '',
     name: shift?.name || '',
     startTime: formatTimeForInput(shift?.start_time || ''),
-    endTime: formatTimeForInput(shift?.end_time || ''),
+    endTime: formatTimeForInput(shift?.end_time || '', true),
     breakStart: shift?.break_start ? formatTimeForInput(shift.break_start) : '',
-    breakEnd: shift?.break_end ? formatTimeForInput(shift.break_end) : '',
+    breakEnd: shift?.break_end ? formatTimeForInput(shift.break_end, true) : '',
     branchId: shift?.branch_id || 'all',
     isFlexible: shift?.is_flexible || false
   }
@@ -123,7 +129,29 @@ const saveShift = async () => {
   try {
     const formatTimeForBackend = (timeStr: string) => {
       if (!timeStr) return null
-      return timeStr
+      // Convert 08.30 to 08:30:00
+      let formatted = timeStr.trim().replace('.', ':')
+      
+      // Ensure HH:mm format
+      if (formatted.includes(':')) {
+        const [hour, minute] = formatted.split(':')
+        const hh = (hour || '00').padStart(2, '0')
+        const mm = (minute || '00').padEnd(2, '0')
+        
+        // Handle 24.00 as 00:00:00
+        if (hh === '24' && mm === '00') {
+          return '00:00:00'
+        }
+        
+        return `${hh}:${mm}:00`
+      }
+      
+      // Handle plain numbers like "8" -> "08:00:00"
+      if (/^\d+$/.test(formatted)) {
+        return `${formatted.padStart(2, '0')}:00:00`
+      }
+
+      return formatted
     }
 
     const payload = {
@@ -289,12 +317,18 @@ const columns = [
           
           <div class="grid grid-cols-2 gap-4">
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Jam Masuk (Start)</label>
-              <Input v-model="newShift.startTime" type="time" class="h-10" />
+              <div class="flex items-center justify-between">
+                <label class="text-[13px] font-medium text-gray-700">Jam Masuk (Start)</label>
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Format: 08.30</span>
+              </div>
+              <Input v-model="newShift.startTime" placeholder="08.30" class="h-10" />
             </div>
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Jam Keluar (End)</label>
-              <Input v-model="newShift.endTime" type="time" class="h-10" />
+              <div class="flex items-center justify-between">
+                <label class="text-[13px] font-medium text-gray-700">Jam Keluar (End)</label>
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Format: 24.00</span>
+              </div>
+              <Input v-model="newShift.endTime" placeholder="17.00 atau 24.00" class="h-10" />
             </div>
           </div>
 
@@ -303,12 +337,18 @@ const columns = [
 
           <div class="grid grid-cols-2 gap-4">
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Mulai Istirahat</label>
-              <Input v-model="newShift.breakStart" type="time" class="h-10" />
+              <div class="flex items-center justify-between">
+                <label class="text-[13px] font-medium text-gray-700">Mulai Istirahat</label>
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Format: 12.00</span>
+              </div>
+              <Input v-model="newShift.breakStart" placeholder="12.00" class="h-10" />
             </div>
             <div class="grid gap-2">
-              <label class="text-[13px] font-medium text-gray-700">Selesai Istirahat</label>
-              <Input v-model="newShift.breakEnd" type="time" class="h-10" />
+              <div class="flex items-center justify-between">
+                <label class="text-[13px] font-medium text-gray-700">Selesai Istirahat</label>
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Format: 13.00</span>
+              </div>
+              <Input v-model="newShift.breakEnd" placeholder="13.00" class="h-10" />
             </div>
           </div>
 

@@ -37,6 +37,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   List<Map<String, dynamic>> _jobPositions = [];
   List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _shifts = [];
+  String? _selectedShiftId;
   bool _isLoadingData = true;
   
   @override
@@ -60,6 +62,12 @@ class _RegisterPageState extends State<RegisterPage> {
       jobsResult.fold(
         (failure) => SnackBarUtils.showError(context, failure.message),
         (data) => setState(() => _jobPositions = data),
+      );
+      
+      final shiftsResult = await repo.getShifts();
+      shiftsResult.fold(
+        (failure) => SnackBarUtils.showError(context, failure.message),
+        (data) => setState(() => _shifts = data),
       );
       
       setState(() => _isLoadingData = false);
@@ -99,6 +107,7 @@ class _RegisterPageState extends State<RegisterPage> {
               _passwordController.text,
               _selectedJobPositionId!,
               _selectedBranchId!,
+              _selectedShiftId,
               embedding: _faceEmbedding,
               selfiePath: _selfiePath,
             ),
@@ -210,6 +219,58 @@ class _RegisterPageState extends State<RegisterPage> {
                                                 )).toList(),
                                           onChanged: (v) => setState(() => _selectedJobPositionId = v),
                                           validator: (v) => v == null ? 'Pilih posisi' : null,
+                                        ),
+                                        const SizedBox(height: 20),
+                                        _buildDropdown(
+                                          label: 'Shift Kerja / Jam Kerja',
+                                          value: _selectedShiftId,
+                                          hint: 'Pilih jam kerja anda',
+                                          icon: Icons.schedule_outlined,
+                                          items: _shifts
+                                              .where((s) => (s['id'] ?? s['ID']) != null)
+                                                .map((s) {
+                                                  final startTime = (s['start_time'] ?? s['StartTime'] ?? '').toString();
+                                                  final endTime = (s['end_time'] ?? s['EndTime'] ?? '').toString();
+                                                  
+                                                  // Robust format function: Use "Wall Time" (direct string extract) 
+                                                  // to avoid unwanted timezone shifts for shift hours.
+                                                  String format(String t) {
+                                                    if (t.isEmpty) return '--.--';
+                                                    try {
+                                                      // Handle ISO strings like 0000-01-01T09:00:12...
+                                                      if (t.contains('T')) {
+                                                        final timePart = t.split('T').last;
+                                                        final parts = timePart.split(':');
+                                                        if (parts.length >= 2) {
+                                                          return '${parts[0]}.${parts[1]}';
+                                                        }
+                                                      }
+                                                      // Handle HH:mm:ss strings
+                                                      final parts = t.split(':');
+                                                      if (parts.length >= 2) {
+                                                        String hour = parts[0];
+                                                        if (hour.contains(' ')) hour = hour.split(' ').last;
+                                                        return '$hour.${parts[1]}';
+                                                      }
+                                                    } catch (e) {
+                                                      // Fallback
+                                                    }
+                                                    return t;
+                                                  }
+
+                                                  final timeRange = '${format(startTime)} sampai ${format(endTime)}';
+                                                  
+                                                  return DropdownMenuItem<String>(
+                                                    value: (s['id'] ?? s['ID']).toString(),
+                                                    child: Text(
+                                                      '${s['name'] ?? s['Name'] ?? 'Shift'} ($timeRange)',
+                                                      overflow: TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                          onChanged: (v) => setState(() => _selectedShiftId = v),
+                                          validator: (v) => v == null ? 'Pilih shift kerja' : null,
                                         ),
                                       ],
                                     ),

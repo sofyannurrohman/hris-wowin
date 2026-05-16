@@ -33,11 +33,13 @@ type Branch struct {
 	Timezone    string     `gorm:"type:varchar(50);default:'Asia/Jakarta'" json:"timezone"`
 	Latitude    float64    `gorm:"type:decimal(10,8)" json:"latitude"`
 	Longitude   float64    `gorm:"type:decimal(11,8)" json:"longitude"`
-	RadiusMeter int        `gorm:"default:100" json:"radius_meter"`
+	RadiusMeter    int        `gorm:"default:100" json:"radius_meter"`
+	DefaultShiftID *uuid.UUID `gorm:"type:uuid" json:"default_shift_id"`
 	CreatedAt   time.Time  `gorm:"default:now()" json:"created_at"`
 	UpdatedAt   time.Time  `gorm:"default:now()" json:"updated_at"`
 
-	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
+	Company      *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
+	DefaultShift *Shift   `gorm:"foreignKey:DefaultShiftID" json:"default_shift,omitempty"`
 }
 
 func (b *Branch) BeforeCreate(tx *gorm.DB) (err error) {

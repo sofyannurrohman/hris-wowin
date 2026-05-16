@@ -20,11 +20,14 @@ func (h *ShiftHandler) SetupRoutes(r *gin.RouterGroup) {
 	shifts := r.Group("/shifts")
 	{
 		shifts.POST("", h.Create)
-		shifts.GET("", h.GetAll)
 		shifts.GET("/:id", h.GetByID)
 		shifts.PUT("/:id", h.Update)
 		shifts.DELETE("/:id", h.Delete)
 	}
+}
+
+func (h *ShiftHandler) SetupPublicRoutes(r *gin.RouterGroup) {
+	r.GET("/shifts", h.GetAll)
 }
 
 func (h *ShiftHandler) Create(c *gin.Context) {

@@ -77,10 +77,11 @@ interface AttendanceStats {
 const displayData = ref<AttendanceRecord[]>([])
 const employeeOptions = ref<any[]>([])
 const selectedBranch = ref<string>('all')
-const filterType = ref<string>('month')
+const filterType = ref<string>('daily')
 const selectedMonth = ref<string>(new Date().toISOString().slice(0, 7)) // default current month: YYYY-MM
 const selectedYear = ref<string>(new Date().getFullYear().toString())
 const selectedDate = ref<string>(new Date().toISOString().split('T')[0] || '') // default today: YYYY-MM-DD
+const selectedLimit = ref<string>('100')
 
 const attendanceStats = computed<AttendanceStats>(() => {
   const data = displayData.value
@@ -115,6 +116,13 @@ const attendanceStats = computed<AttendanceStats>(() => {
     absent,
     earliestToday
   }
+})
+
+const totalDataLabel = computed(() => {
+  if (filterType.value === 'daily') return 'Total Data Harian'
+  if (filterType.value === 'month') return 'Total Data Bulanan'
+  if (filterType.value === 'year') return 'Total Data Tahunan'
+  return 'Total Data'
 })
 
 const isModalOpen = ref(false)
@@ -335,7 +343,7 @@ const saveManualData = async () => {
 
 const fetchAttendance = async () => {
   try {
-    let url = '/attendance/all?limit=50'
+    let url = `/attendance/all?limit=${selectedLimit.value}`
     if (selectedBranch.value && selectedBranch.value !== 'all') {
       url += `&branch_id=${selectedBranch.value}`
     }
@@ -498,6 +506,20 @@ onMounted(() => {
           />
         </div>
 
+        <!-- Limit Filter -->
+        <Select v-model="selectedLimit" @update:modelValue="fetchAttendance">
+          <SelectTrigger class="w-[100px] h-10 rounded-xl border-none bg-white shadow-lg shadow-slate-100/50 font-bold px-4 text-slate-600 focus:ring-2 focus:ring-primary/20 transition-all">
+            <SelectValue placeholder="Limit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="50">50 Data</SelectItem>
+            <SelectItem value="100">100 Data</SelectItem>
+            <SelectItem value="200">200 Data</SelectItem>
+            <SelectItem value="500">500 Data</SelectItem>
+            <SelectItem value="0">Semua</SelectItem>
+          </SelectContent>
+        </Select>
+
         <!-- Export CSV -->
         <Button variant="outline" @click="exportCSV" class="h-10 px-4 rounded-xl font-bold border-2 border-slate-50 bg-white shadow-lg shadow-slate-100/50 text-slate-600 gap-2 hover:bg-slate-50 transition-all active:scale-95">
           <Download class="w-4 h-4" /> EXPORT
@@ -514,7 +536,7 @@ onMounted(() => {
       <!-- Card 1 -->
       <div class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_30px_rgba(153,0,0,0.05)] transition-all duration-500">
         <div class="flex items-start justify-between">
-          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Total Data</p>
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">{{ totalDataLabel }}</p>
           <div class="p-2 bg-primary/5 rounded-xl text-primary transition-transform group-hover:scale-110">
             <FileSpreadsheet class="w-4 h-4" />
           </div>
@@ -572,21 +594,21 @@ onMounted(() => {
       </div>
 
       <!-- Card 5 (NEW) -->
-      <div class="group bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-[0_4px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-500">
+      <div class="group bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_30px_rgba(79,70,229,0.05)] transition-all duration-500">
         <div class="flex items-start justify-between">
-          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Berangkat Terawal</p>
-          <div class="p-2 bg-primary/20 text-primary rounded-xl transition-transform group-hover:scale-110">
+          <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Berangkat Terawal</p>
+          <div class="p-2 bg-indigo-50 text-indigo-600 rounded-xl transition-transform group-hover:scale-110">
             <CalendarClock class="w-4 h-4" />
           </div>
         </div>
         <div v-if="attendanceStats.earliestToday">
-          <h3 class="text-[16px] font-black text-white mt-3 truncate">{{ attendanceStats.earliestToday.name }}</h3>
-          <p class="text-[14px] font-black text-primary mt-1 uppercase">{{ attendanceStats.earliestToday.timeStr }}</p>
-          <p class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Hari ini</p>
+          <h3 class="text-[16px] font-black text-slate-900 mt-3 truncate">{{ attendanceStats.earliestToday.name }}</h3>
+          <p class="text-[14px] font-black text-indigo-600 mt-1 uppercase">{{ attendanceStats.earliestToday.timeStr }}</p>
+          <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Hari ini</p>
         </div>
         <div v-else>
-          <h3 class="text-xl font-black text-slate-600 mt-3">--</h3>
-          <p class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Belum ada data hari ini</p>
+          <h3 class="text-xl font-black text-slate-400 mt-3">--</h3>
+          <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Belum ada data hari ini</p>
         </div>
       </div>
     </div>

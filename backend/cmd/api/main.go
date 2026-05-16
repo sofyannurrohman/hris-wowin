@@ -59,6 +59,12 @@ func main() {
 	db.Exec("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS total_cash_collected DECIMAL(15,2) DEFAULT 0")
 	db.Exec("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS total_transfer_collected DECIMAL(15,2) DEFAULT 0")
 	
+	log.Println("Fixing shift time types...")
+	db.Exec("ALTER TABLE shifts ALTER COLUMN start_time TYPE TIME USING start_time::TIME")
+	db.Exec("ALTER TABLE shifts ALTER COLUMN end_time TYPE TIME USING end_time::TIME")
+	db.Exec("ALTER TABLE shifts ALTER COLUMN break_start TYPE TIME USING break_start::TIME")
+	db.Exec("ALTER TABLE shifts ALTER COLUMN break_end TYPE TIME USING break_end::TIME")
+	
 	log.Println("Schema check completed.")
 
 	// Run AutoMigrate for critical models to ensure schema sync
@@ -97,6 +103,8 @@ func main() {
 		&domain.SalesReturnItem{},
 		&domain.ProductionRecipe{},
 		&domain.ProductionRecipeItem{},
+		&domain.Shift{},
+		&domain.EmployeeShift{},
 	)
 	
 	// Force drop unique constraint if it still exists and replace with non-unique index
@@ -142,7 +150,7 @@ func main() {
 	midtransClient := midtrans.NewMidtransClient()
 
 	// Setup UseCases
-	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo, emailSender)
+	authUseCase := usecase.NewAuthUseCase(userRepo, companyRepo, employeeShiftRepo, emailSender)
 	employeeUseCase := usecase.NewEmployeeUsecase(employeeRepo, userRepo)
 	attendanceUseCase := usecase.NewAttendanceUseCase(attendanceRepo, employeeRepo, employeeShiftRepo, leaveRepo)
 	leaveUseCase := usecase.NewLeaveUseCase(db, leaveRepo, employeeRepo)
@@ -227,6 +235,7 @@ func main() {
 		authHandler.SetupRoutes(v1)
 		branchHandler.SetupPublicRoutes(v1)
 		jobPositionHandler.SetupPublicRoutes(v1)
+		shiftHandler.SetupPublicRoutes(v1)
 		salesHandler.SetupPublicRoutes(v1)
 		v1.Static("/uploads", "./uploads")
 
@@ -248,7 +257,6 @@ func main() {
 			departmentHandler.SetupRoutes(protected)
 			companyHandler.SetupRoutes(protected)
 			branchHandler.SetupRoutes(protected)
-			branchHandler.SetupProtectedPublicRoutes(protected)
 			employeeShiftHandler.SetupRoutes(protected)
 			reimbursementHandler.SetupRoutes(protected)
 			performanceHandler.SetupRoutes(protected)

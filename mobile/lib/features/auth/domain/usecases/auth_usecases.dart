@@ -37,8 +37,8 @@ class RegisterUseCase {
 
   RegisterUseCase(this.repository);
 
-  Future<Either<Failure, void>> call(String name, String email, String employeeId, String password, String jobPositionId, String branchId, {List<double>? embedding, String? selfiePath}) {
-    return repository.register(name, email, employeeId, password, jobPositionId, branchId, embedding: embedding, selfiePath: selfiePath);
+  Future<Either<Failure, void>> call(String name, String email, String employeeId, String password, String jobPositionId, String branchId, String? shiftId, {List<double>? embedding, String? selfiePath}) {
+    return repository.register(name, email, employeeId, password, jobPositionId, branchId, shiftId, embedding: embedding, selfiePath: selfiePath);
   }
 }
 

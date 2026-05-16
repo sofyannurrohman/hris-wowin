@@ -125,7 +125,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, void>> register(String name, String email, String employeeId, String password, String jobPositionId, String branchId, {List<double>? embedding, String? selfiePath}) async {
+  Future<Either<Failure, void>> register(String name, String email, String employeeId, String password, String jobPositionId, String branchId, String? shiftId, {List<double>? embedding, String? selfiePath}) async {
     try {
       String? base64Selfie;
       if (selfiePath != null) {
@@ -143,6 +143,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'password': password,
           'job_position_id': jobPositionId,
           'branch_id': branchId,
+          'shift_id': shiftId,
           'face_embedding': embedding,
           'selfie': base64Selfie,
         },
@@ -286,6 +287,21 @@ class AuthRepositoryImpl implements AuthRepository {
         return Right(data.cast<Map<String, dynamic>>());
       } else {
         return Left(ServerFailure('Failed to fetch job positions'));
+      }
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getShifts() async {
+    try {
+      final response = await apiClient.client.get('shifts');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'];
+        return Right(data.cast<Map<String, dynamic>>());
+      } else {
+        return Left(ServerFailure('Failed to fetch shifts'));
       }
     } catch (e) {
       return Left(ServerFailure(e.toString()));

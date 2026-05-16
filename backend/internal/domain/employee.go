@@ -66,6 +66,7 @@ type Employee struct {
 	EndDate          *time.Time `gorm:"type:date" json:"end_date"`
 	EmploymentStatus string     `gorm:"type:varchar(50)" json:"employment_status"`
 	ManagerID        *uuid.UUID `gorm:"type:uuid" json:"manager_id"`
+	DefaultShiftID   *uuid.UUID `gorm:"type:uuid" json:"default_shift_id"`
 
 	Salary    *float64  `gorm:"type:numeric(15,2)" json:"salary"`
 	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
@@ -78,6 +79,7 @@ type Employee struct {
 	JobPosition *JobPosition `gorm:"foreignKey:JobPositionID" json:"job_position,omitempty"`
 	Manager     *Employee    `gorm:"foreignKey:ManagerID;constraint:OnDelete:SET NULL;" json:"manager,omitempty"`
 	EmployeeShifts []EmployeeShift `gorm:"foreignKey:EmployeeID" json:"employee_shifts,omitempty"`
+	DefaultShift   *Shift          `gorm:"foreignKey:DefaultShiftID" json:"default_shift,omitempty"`
 }
 
 func (e *Employee) BeforeCreate(tx *gorm.DB) (err error) {
