@@ -132,6 +132,11 @@ const router = createRouter({
           component: () => import('@/views/AnnouncementView.vue'),
         },
         {
+          path: 'pkwt',
+          name: 'pkwt',
+          component: () => import('@/views/PKWTView.vue'),
+        },
+        {
           path: 'vehicles',
           name: 'vehicles',
           component: () => import('@/views/VehicleView.vue'),

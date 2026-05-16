@@ -45,6 +45,7 @@ type deliveryUsecase struct {
 	repo          repository.DeliveryRepository
 	salesRepo     repository.SalesTransactionRepository
 	soRepo        repository.SalesOrderRepository
+	branchRepo    repository.BranchRepository
 	warehouseRepo repository.WarehouseRepository
 	db            *gorm.DB
 }
@@ -53,10 +54,11 @@ func NewDeliveryUsecase(
 	repo repository.DeliveryRepository,
 	salesRepo repository.SalesTransactionRepository,
 	soRepo repository.SalesOrderRepository,
+	branchRepo repository.BranchRepository,
 	warehouseRepo repository.WarehouseRepository,
 	db *gorm.DB,
 ) DeliveryUsecase {
-	return &deliveryUsecase{repo, salesRepo, soRepo, warehouseRepo, db}
+	return &deliveryUsecase{repo, salesRepo, soRepo, branchRepo, warehouseRepo, db}
 }
 
 func (u *deliveryUsecase) CreateBatch(req CreateBatchRequest) (*domain.DeliveryBatch, error) {
@@ -74,11 +76,33 @@ func (u *deliveryUsecase) CreateBatch(req CreateBatchRequest) (*domain.DeliveryB
 		Status:          domain.DeliveryBatchWaitingApproval,
 	}
 
-	// Tambahkan SO ke dalam batch (alur baru)
-	for i, soID := range req.SalesOrderIDs {
+	// 1. Resolve Branch Coordinates for Optimization
+	startLat := 0.0
+	startLon := 0.0
+	if req.BranchID != nil {
+		branch, _ := u.branchRepo.FindByID(*req.BranchID)
+		if branch != nil {
+			startLat = branch.Latitude
+			startLon = branch.Longitude
+		}
+	}
+
+	// 2. Fetch and Optimize Sales Orders
+	var ordersToOptimize []domain.SalesOrder
+	for _, soID := range req.SalesOrderIDs {
+		so, err := u.soRepo.FindByID(soID)
+		if err == nil && so != nil {
+			ordersToOptimize = append(ordersToOptimize, *so)
+		}
+	}
+
+	optimizedOrders := u.optimizeRoute(startLat, startLon, ordersToOptimize)
+
+	// 3. Tambahkan SO ke dalam batch (alur baru - optimized)
+	for i, so := range optimizedOrders {
 		batch.Items = append(batch.Items, domain.DeliveryItem{
-			SalesOrderID: soID,
-			BarcodeData:  soID.String(), // Tiap nota punya barcode sendiri
+			SalesOrderID: so.ID,
+			BarcodeData:  so.ID.String(),
 			Sequence:     i + 1,
 			Status:       domain.DeliveryItemPending,
 		})
@@ -362,15 +386,36 @@ func (u *deliveryUsecase) UpdateBatchItems(batchID uuid.UUID, req CreateBatchReq
 	batch.VehicleID = req.VehicleID
 	batch.Vehicle = nil // Reset association agar GORM mengupdate kolom FK
 	
+	// 3. Resolve Branch Coordinates for Optimization
+	startLat := 0.0
+	startLon := 0.0
+	if batch.BranchID != nil {
+		branch, _ := u.branchRepo.FindByID(*batch.BranchID)
+		if branch != nil {
+			startLat = branch.Latitude
+			startLon = branch.Longitude
+		}
+	}
+
+	// 4. Fetch and Optimize Sales Orders
+	var ordersToOptimize []domain.SalesOrder
+	for _, soID := range req.SalesOrderIDs {
+		so, err := u.soRepo.FindByID(soID)
+		if err == nil && so != nil {
+			ordersToOptimize = append(ordersToOptimize, *so)
+		}
+	}
+
+	optimizedOrders := u.optimizeRoute(startLat, startLon, ordersToOptimize)
+
 	// Update items: clear existing and add new
 	items := make([]domain.DeliveryItem, 0)
 	
-	// Tambahkan SO ke dalam batch (alur baru)
-	for i, soID := range req.SalesOrderIDs {
-		soIDCopy := soID
+	// Tambahkan SO ke dalam batch (alur baru - optimized)
+	for i, so := range optimizedOrders {
 		items = append(items, domain.DeliveryItem{
 			DeliveryBatchID: batchID,
-			SalesOrderID:    soIDCopy,
+			SalesOrderID:    so.ID,
 			Sequence:        i + 1,
 			Status:          domain.DeliveryItemPending,
 		})
@@ -436,7 +481,55 @@ func (u *deliveryUsecase) DeleteBatch(id uuid.UUID) error {
 	return u.repo.DeleteBatch(id)
 }
 
-// Haversine distance for route optimization helper (future use)
+// optimizeRoute implements a basic Nearest Neighbor algorithm for route optimization
+func (u *deliveryUsecase) optimizeRoute(startLat, startLon float64, orders []domain.SalesOrder) []domain.SalesOrder {
+	if len(orders) <= 1 {
+		return orders
+	}
+
+	result := make([]domain.SalesOrder, 0, len(orders))
+	visited := make([]bool, len(orders))
+	currentLat, currentLon := startLat, startLon
+
+	for len(result) < len(orders) {
+		nearestIdx := -1
+		minDist := math.MaxFloat64
+
+		for i, order := range orders {
+			if visited[i] {
+				continue
+			}
+
+			// Use store coordinates if available
+			targetLat, targetLon := currentLat, currentLon
+			if order.Store != nil {
+				targetLat = order.Store.Latitude
+				targetLon = order.Store.Longitude
+			}
+
+			dist := haversine(currentLat, currentLon, targetLat, targetLon)
+			if dist < minDist {
+				minDist = dist
+				nearestIdx = i
+			}
+		}
+
+		if nearestIdx != -1 {
+			visited[nearestIdx] = true
+			result = append(result, orders[nearestIdx])
+			if orders[nearestIdx].Store != nil {
+				currentLat = orders[nearestIdx].Store.Latitude
+				currentLon = orders[nearestIdx].Store.Longitude
+			}
+		} else {
+			break
+		}
+	}
+
+	return result
+}
+
+// Haversine distance for route optimization helper
 func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	const R = 6371 // Earth radius in km
 	dLat := (lat2 - lat1) * (math.Pi / 180)

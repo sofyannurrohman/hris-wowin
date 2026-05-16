@@ -45,9 +45,10 @@ type DeliveryBatch struct {
 	StartedAt        *time.Time `json:"started_at,omitempty"`        // Driver mulai kirim
 	FinishedAt       *time.Time `json:"finished_at,omitempty"`       // Semua nota selesai
 
-	// Rekonsiliasi Cash
-	TotalCashCollected float64 `gorm:"type:decimal(15,2);default:0" json:"total_cash_collected"`
-	CashSettledAt      *time.Time `json:"cash_settled_at,omitempty"`
+	// Rekonsiliasi Cash & Digital
+	TotalCashCollected     float64    `gorm:"type:decimal(15,2);default:0" json:"total_cash_collected"`
+	TotalTransferCollected float64    `gorm:"type:decimal(15,2);default:0" json:"total_transfer_collected"`
+	CashSettledAt          *time.Time `json:"cash_settled_at,omitempty"`
 
 	CreatedAt time.Time `gorm:"default:now()" json:"created_at"`
 	UpdatedAt time.Time `gorm:"default:now()" json:"updated_at"`

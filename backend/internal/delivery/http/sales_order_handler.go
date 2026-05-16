@@ -439,7 +439,11 @@ func (h *SalesOrderHandler) CollectPayment(c *gin.Context) {
 		}
 	}
 
-	data, err := h.soUsecase.CollectPayment(req)
+	// Resolve employee ID from token
+	employeeID, _ := h.resolveEmployeeID(c)
+	req.EmployeeID = employeeID
+
+	so, err := h.soUsecase.CollectPayment(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -447,7 +451,7 @@ func (h *SalesOrderHandler) CollectPayment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Pembayaran berhasil dicatat",
-		"data":    data,
+		"data":    so,
 	})
 }
 

@@ -5,6 +5,7 @@ import 'package:hris_app/injection.dart' as di;
 import 'package:intl/intl.dart';
 import './delivery_tracking_page.dart';
 import './delivery_history_page.dart';
+import './cash_settlement_page.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:hris_app/features/profile/presentation/bloc/profile_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -50,12 +51,14 @@ class _DeliveryDashboardPageState extends State<DeliveryDashboardPage> {
     int totalItems = 0;
     int deliveredItems = 0;
     double totalCash = 0;
+    double totalTransfer = 0;
 
     for (var task in _tasks) {
-      final items = task['items'] as List;
+      final List items = task['items'] as List? ?? [];
       totalItems += items.length;
-      deliveredItems += items.where((i) => i['status'] == 'DELIVERED').length;
+      deliveredItems += items.where((i) => (i['status'] ?? '').toString().toUpperCase() == 'DELIVERED').length;
       totalCash += (task['total_cash_collected'] ?? 0.0).toDouble();
+      totalTransfer += (task['total_transfer_collected'] ?? 0.0).toDouble();
     }
 
     final int totalBatches = _tasks.length;
@@ -125,7 +128,7 @@ class _DeliveryDashboardPageState extends State<DeliveryDashboardPage> {
             children: [
               _buildProgressHeader(overallProgress, deliveredItems, totalItems),
               const SizedBox(height: 24),
-              _buildQuickStats(totalBatches, totalCash),
+              _buildQuickStats(totalBatches, totalCash, totalTransfer),
               const SizedBox(height: 32),
               _buildQuickActions(context),
               const SizedBox(height: 32),
@@ -222,30 +225,86 @@ class _DeliveryDashboardPageState extends State<DeliveryDashboardPage> {
     );
   }
 
-  Widget _buildQuickStats(int batches, double cash) {
+  Widget _buildQuickStats(int batches, double cash, double transfer) {
     final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            'TOTAL SJ', 
-            batches.toString(), 
-            Icons.assignment_rounded, 
-            Colors.orange,
-            'Surat Jalan',
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                'TOTAL SJ', 
+                batches.toString(), 
+                Icons.assignment_rounded, 
+                Colors.orange,
+                'Surat Jalan',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                'KAS COD', 
+                formatter.format(cash), 
+                Icons.payments_rounded, 
+                Colors.green,
+                'Uang Tunai',
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'KAS COD', 
-            formatter.format(cash), 
-            Icons.payments_rounded, 
-            Colors.green,
-            'Uang Tunai',
-          ),
+        const SizedBox(height: 16),
+        _buildStatCardFull(
+          'TRANSFER MASUK', 
+          formatter.format(transfer), 
+          Icons.account_balance_wallet_rounded, 
+          Colors.blueAccent,
+          'QRIS & Virtual Account',
         ),
       ],
+    );
+  }
+
+  Widget _buildStatCardFull(String label, String value, IconData icon, Color color, String subLabel) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5)),
+        ],
+        border: Border.all(color: color.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.outfit(color: Colors.blueGrey, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.outfit(color: const Color(0xFF0F172A), fontWeight: FontWeight.w900, fontSize: 20),
+                ),
+                Text(
+                  subLabel,
+                  style: GoogleFonts.outfit(color: Colors.blueGrey.withOpacity(0.6), fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -309,8 +368,8 @@ class _DeliveryDashboardPageState extends State<DeliveryDashboardPage> {
             _buildActionItem(context, Icons.qr_code_scanner_rounded, 'Scan SJ', const Color(0xFF6366F1), () {
                Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage(initialScan: true)));
             }),
-            _buildActionItem(context, Icons.map_rounded, 'Rute Optimal', const Color(0xFFF43F5E), () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage(initialScan: true, autoShowMap: true)));
+            _buildActionItem(context, Icons.payments_rounded, 'Setor Uang', const Color(0xFFF59E0B), () {
+               Navigator.push(context, MaterialPageRoute(builder: (_) => CashSettlementPage(batches: _tasks)));
             }),
             _buildActionItem(context, Icons.local_shipping_rounded, 'Tugas Saya', const Color(0xFF0EA5E9), () {
                Navigator.push(context, MaterialPageRoute(builder: (_) => const DeliveryTrackingPage()));
@@ -373,8 +432,9 @@ class _DeliveryDashboardPageState extends State<DeliveryDashboardPage> {
   Widget _buildTaskCard(BuildContext context, dynamic task) {
     final String doNo = task['delivery_order_no'] ?? 'SJ-PENDING';
     final String status = task['status'] ?? 'WAITING';
-    final int itemsCount = (task['items'] as List).length;
-    final int deliveredCount = (task['items'] as List).where((i) => i['status'] == 'DELIVERED').length;
+    final List items = task['items'] as List? ?? [];
+    final int itemsCount = items.length;
+    final int deliveredCount = items.where((i) => (i['status'] ?? '').toString().toUpperCase() == 'DELIVERED').length;
     
     Color statusColor = Colors.grey;
     if (status == 'ON_DELIVERY') statusColor = Colors.blueAccent;

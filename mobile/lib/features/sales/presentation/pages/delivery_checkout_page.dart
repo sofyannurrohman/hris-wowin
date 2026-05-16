@@ -29,6 +29,7 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
   final ImagePicker _picker = ImagePicker();
   
   bool _isLoading = false;
+  bool _isReadOnly = false;
   XFile? _podImage;
   Map<String, dynamic>? _midtransData;
   
@@ -65,6 +66,8 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
     orderData = widget.deliveryItem['sales_transaction'] ?? widget.deliveryItem['sales_order'];
     _items = orderData['items'] ?? [];
     
+    _initializeReadOnly();
+
     // Calculate and set initial amount
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateAmountFromTotal();
@@ -73,6 +76,36 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
 
   final PageController _pageController = PageController();
   int _currentStep = 0;
+  
+  void _initializeReadOnly() {
+    if (widget.deliveryItem['status'] == 'DELIVERED') {
+      _isReadOnly = true;
+      _currentStep = 3;
+      
+      // Populate existing data
+      _receivedByController.text = widget.deliveryItem['received_by'] ?? '';
+      _notesController.text = widget.deliveryItem['notes'] ?? '';
+      _paymentMethod = widget.deliveryItem['payment_method'] ?? 'CASH';
+      _amountController.text = (widget.deliveryItem['payment_amount'] ?? 0).toString();
+      
+      // Populate returns if any
+      final items = orderData['items'] as List? ?? [];
+      for (var item in items) {
+        final ordered = item['ordered_quantity'] ?? 0;
+        final actual = item['actual_quantity'] ?? ordered;
+        if (actual < ordered) {
+          _returnedQuantities[item['product_id'] ?? item['id']] = ordered - actual;
+        }
+      }
+
+      // Ensure PageController starts at the last step
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(3);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -84,13 +117,13 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
   }
 
   void _nextPage() {
-    if (_currentStep < 3) {
+    if (_pageController.hasClients && _currentStep < 3) {
       _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
   }
 
   void _prevPage() {
-    if (_currentStep > 0) {
+    if (_pageController.hasClients && _currentStep > 0) {
       _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
   }
@@ -266,9 +299,9 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
           ],
         ),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
+      body: Stack(
+        children: [
+          Column(
             children: [
               LinearProgressIndicator(
                 value: (_currentStep + 1) / 4,
@@ -292,8 +325,17 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
               _buildBottomNav(),
             ],
           ),
+          if (_isLoading)
+            Container(
+              color: Colors.white.withOpacity(0.7),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.blueAccent),
+              ),
+            ),
+        ],
+      ),
     );
-  }
+}
 
   Widget _buildStepReview(NumberFormat currencyFormat) {
     return ListView(
@@ -311,7 +353,10 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
                 String pId = item['product_id'] ?? item['id'] ?? '';
                 int ordered = item['ordered_quantity'] ?? 0;
                 int ret = _returnedQuantities[pId] ?? 0;
-                return _buildItemRow(item, ordered, ret, pId);
+                return IgnorePointer(
+                  ignoring: _isReadOnly,
+                  child: _buildItemRow(item, ordered, ret, pId),
+                );
               }).toList(),
             ),
           ),
@@ -398,7 +443,10 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        _buildStepHeader('Konfirmasi Akhir', 'Pastikan semua data sudah benar sebelum menyimpan.'),
+        _buildStepHeader(
+          hasMidtrans ? 'Detail Pembayaran' : 'Konfirmasi Akhir', 
+          hasMidtrans ? 'Informasi pembayaran digital untuk pelanggan.' : 'Pastikan semua data sudah benar sebelum menyimpan.'
+        ),
         const SizedBox(height: 24),
 
         if (hasMidtrans) ...[
@@ -550,23 +598,36 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
                 child: Text('KEMBALI', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: Colors.blueGrey)),
               ),
             ),
-          if (!isFirst) const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: isLast ? _submitCheckout : _validateAndNext,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isLast ? Colors.green : Colors.blueAccent,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-              ),
-              child: Text(
-                isLast ? 'SELESAIKAN & SIMPAN' : 'LANJUT',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+          if (!isFirst && !_isReadOnly) const SizedBox(width: 16),
+          if (!_isReadOnly)
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: isLast ? _submitCheckout : _validateAndNext,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isLast ? Colors.green : Colors.blueAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  isLast ? 'SELESAIKAN & SIMPAN' : 'LANJUT',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+                ),
               ),
             ),
-          ),
+          if (_isReadOnly)
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E293B),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text('TUTUP', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white)),
+              ),
+            ),
         ],
       ),
     );
@@ -620,7 +681,11 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
         }
       }
     }
-    _nextPage();
+    
+    // Use addPostFrameCallback to avoid PageController error when PageView is rebuilding
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nextPage();
+    });
   }
 
   Widget _buildEmptyItemsWarning() {
@@ -710,7 +775,7 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
         ..._paymentOptions.entries.map((e) {
           final isSelected = _paymentMethod == e.key;
           return GestureDetector(
-            onTap: () => setState(() {
+            onTap: _isReadOnly ? null : () => setState(() {
               _paymentMethod = e.key;
               if (e.key != 'VA') _selectedBank = null;
             }),
@@ -775,17 +840,19 @@ class _DeliveryCheckoutPageState extends State<DeliveryCheckoutPage> {
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.grey.shade200)),
             contentPadding: const EdgeInsets.all(24),
           ),
+          readOnly: _isReadOnly,
           onChanged: (v) => setState(() {}),
         ),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton.icon(
-              onPressed: _updateAmountFromTotal,
-              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-              label: Text('Isi Sesuai Tagihan', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-            ),
+            if (!_isReadOnly)
+              TextButton.icon(
+                onPressed: _updateAmountFromTotal,
+                icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                label: Text('Isi Sesuai Tagihan', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              ),
             if ((double.tryParse(_amountController.text) ?? 0) < _calculatedTotal)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

@@ -37,7 +37,8 @@ import {
   RotateCcw,
   ShoppingCart,
   LogOut,
-  ClipboardCheck 
+  ClipboardCheck,
+  FileCheck2 
 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
@@ -65,6 +66,7 @@ const hrisGroups = [
       { to: '/performance-kpi', name: 'Performa & KPI', icon: Target },
       { to: '/payroll', name: 'Penggajian', icon: Wallet },
       { to: '/payroll-settings', name: 'Pengaturan Gaji', icon: Settings },
+      { to: '/pkwt', name: 'Surat PKWT', icon: FileCheck2 },
     ]
   },
   {

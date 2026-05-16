@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sofyan/hris_wowin/backend/internal/domain"
 	"gorm.io/gorm"
@@ -86,12 +88,14 @@ func (r *deliveryRepository) UpdateItem(item *domain.DeliveryItem) error {
 
 func (r *deliveryRepository) GetBatchesByDriver(driverID uuid.UUID) ([]domain.DeliveryBatch, error) {
 	var batches []domain.DeliveryBatch
-	err := r.db.
-		Preload("Items.SalesOrder.Store").
-		Preload("Items.SalesOrder.Items.Product").
-		Preload("Items.SalesTransaction.Store").
-		Where("driver_id = ? AND status NOT IN ?", driverID,
-			[]domain.DeliveryBatchStatus{domain.DeliveryBatchCompleted, domain.DeliveryBatchWaitingApproval}).
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	err := r.preloadBatch(r.db).
+		Where("driver_id = ? AND (status NOT IN ? OR finished_at >= ?)",
+			driverID,
+			[]domain.DeliveryBatchStatus{domain.DeliveryBatchCompleted, domain.DeliveryBatchWaitingApproval},
+			startOfDay).
 		Order("created_at DESC").Find(&batches).Error
 	return batches, err
 }

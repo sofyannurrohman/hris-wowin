@@ -61,6 +61,11 @@ type SalesOrder struct {
 	PaymentCollectedAmount float64    `gorm:"type:decimal(15,2);default:0" json:"payment_collected_amount"`
 	PaymentMethod          string     `gorm:"type:varchar(50)" json:"payment_method"` // CASH, MIDTRANS_QRIS, MIDTRANS_VA
 	MidtransTransactionID  *string    `gorm:"type:varchar(100)" json:"midtrans_transaction_id"`
+	MidtransQRISURL        string     `gorm:"type:text" json:"midtrans_qris_url"`
+	MidtransVANumber       *string    `gorm:"type:varchar(50)" json:"midtrans_va_number"`
+	MidtransBank           *string    `gorm:"type:varchar(20)" json:"midtrans_bank"`
+	MidtransBillKey        *string    `gorm:"type:varchar(50)" json:"midtrans_bill_key"`
+	MidtransBillerCode     *string    `gorm:"type:varchar(20)" json:"midtrans_biller_code"`
 
 	// --- Link ke Invoice setelah lunas ---
 	InvoiceID *uuid.UUID `gorm:"type:uuid" json:"invoice_id"`

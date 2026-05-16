@@ -25,7 +25,7 @@ type SalesOrderUsecase interface {
 
 	// Digunakan Driver (mobile) — konfirmasi pengiriman & tagih pembayaran per nota
 	ConfirmDelivery(req ConfirmDeliveryRequest) error
-	CollectPayment(req CollectPaymentRequest) (map[string]interface{}, error)
+	CollectPayment(req CollectPaymentRequest) (*domain.SalesOrder, error)
 
 	// Digunakan semua role (web)
 	GetSOByBranch(branchID uuid.UUID, status string) ([]domain.SalesOrder, error)
@@ -63,6 +63,7 @@ type CollectPaymentRequest struct {
 	PaymentMethod string    `json:"payment_method" binding:"required"` // CASH, QRIS, VA, TEMPO
 	PaymentBank   string    `json:"payment_bank"`                      // For VA: 'bca', 'bni', 'bri'
 	CollectedBy   string    `json:"collected_by"`
+	EmployeeID    uuid.UUID `json:"employee_id"` // Resolved from token in handler
 }
 
 // --- Request DTOs (Legacy) ---
@@ -88,6 +89,7 @@ type WarehouseItemQty struct {
 type salesOrderUsecase struct {
 	soRepo         repository.SalesOrderRepository
 	warehouseRepo  repository.WarehouseRepository
+	deliveryRepo   repository.DeliveryRepository
 	salesRepo      repository.SalesTransactionRepository
 	db             *gorm.DB
 	midtransClient *midtrans.MidtransClient
@@ -96,11 +98,12 @@ type salesOrderUsecase struct {
 func NewSalesOrderUsecase(
 	soRepo repository.SalesOrderRepository,
 	warehouseRepo repository.WarehouseRepository,
+	deliveryRepo repository.DeliveryRepository,
 	salesRepo repository.SalesTransactionRepository,
 	db *gorm.DB,
 	midtransClient *midtrans.MidtransClient,
 ) SalesOrderUsecase {
-	return &salesOrderUsecase{soRepo, warehouseRepo, salesRepo, db, midtransClient}
+	return &salesOrderUsecase{soRepo, warehouseRepo, deliveryRepo, salesRepo, db, midtransClient}
 }
 
 // --- Request DTOs ---
@@ -620,7 +623,7 @@ func (u *salesOrderUsecase) ConfirmDelivery(req ConfirmDeliveryRequest) error {
 	if err != nil {
 		return err
 	}
-	if so.Status != domain.SOStatusInDelivery {
+	if so.Status != domain.SOStatusInDelivery && so.Status != domain.SOStatusPaid {
 		return fmt.Errorf("pesanan tidak dalam status pengiriman aktif (status saat ini: %s)", so.Status)
 	}
 
@@ -644,6 +647,35 @@ func (u *salesOrderUsecase) ConfirmDelivery(req ConfirmDeliveryRequest) error {
 		// Recalculate subtotal
 		item.Subtotal = float64(item.ActualQuantity * item.PiecesPerUnit) * item.Price
 		newTotalAmount += item.Subtotal
+
+		// 1.1 Real-time Stock Update for Returns
+		if retQty > 0 {
+			remainingToReturn := retQty
+			for j := range item.Batches {
+				if remainingToReturn <= 0 {
+					break
+				}
+				b := &item.Batches[j]
+				// We don't strictly check if retQty <= b.Quantity because it's a return, 
+				// we just want to put it back into the stock record.
+				stock, err := u.warehouseRepo.GetStock(so.BranchID, item.ProductID, "GOOD", b.BatchNo)
+				if err == nil {
+					stock.Quantity += remainingToReturn
+					_ = u.warehouseRepo.UpdateStock(stock)
+
+					// Log the return
+					u.warehouseRepo.CreateLog(&domain.WarehouseLog{
+						BranchID:  so.BranchID,
+						ProductID: item.ProductID,
+						Type:      "IN",
+						Source:    fmt.Sprintf("RETUR (DELIVERY): %s", so.SONumber),
+						Quantity:  remainingToReturn,
+						BatchNo:   b.BatchNo,
+					})
+					remainingToReturn = 0
+				}
+			}
+		}
 	}
 
 	so.TotalAmount = newTotalAmount
@@ -664,20 +696,68 @@ func (u *salesOrderUsecase) ConfirmDelivery(req ConfirmDeliveryRequest) error {
 		}
 	}
 
-	// 3. Save SO (this will save Items if GORM configured to save associations, or we do it explicitly)
-	// For safety, we update SO first, then loop items to save if needed, but since it's a pointer, Save(so) updates associations in GORM by default.
+	// 3. Update Delivery Item & Batch status (if linked)
+	if so.DeliveryBatchID != nil {
+		var di domain.DeliveryItem
+		if err := u.db.Where("sales_order_id = ? AND delivery_batch_id = ?", so.ID, *so.DeliveryBatchID).First(&di).Error; err == nil {
+			di.Status = domain.DeliveryItemDelivered
+			di.DeliveredAt = &now
+			di.ReceivedBy = req.ReceivedBy
+			if req.PODImageURL != "" {
+				di.PODImageURL = req.PODImageURL
+			}
+			di.Notes = req.Notes
+			_ = u.db.Save(&di)
+
+			// Update Batch Status
+			var batch domain.DeliveryBatch
+			if err := u.db.Preload("Items").First(&batch, *so.DeliveryBatchID).Error; err == nil {
+				// If status is still PICKING or SUPERVISOR_APPROVED, move to ON_DELIVERY
+				if batch.Status == domain.DeliveryBatchSupervisorApproved || batch.Status == domain.DeliveryBatchPicking {
+					batch.Status = domain.DeliveryBatchOnDelivery
+					if batch.StartedAt == nil {
+						batch.StartedAt = &now
+					}
+				}
+
+				// Check if all items are completed
+				allCompleted := true
+				for _, item := range batch.Items {
+					// We need to check the one we just updated too, but since we already saved 'di',
+					// we should fetch the items again or manually check.
+					// Since 'di' was just saved, u.db.Preload("Items") might not have the updated status if it was cached.
+					// Let's check status manually.
+					if item.ID == di.ID {
+						continue // This one is already delivered
+					}
+					if item.Status == domain.DeliveryItemPending {
+						allCompleted = false
+						break
+					}
+				}
+
+				if allCompleted {
+					batch.Status = domain.DeliveryBatchCompleted
+					batch.FinishedAt = &now
+				}
+
+				_ = u.db.Save(&batch)
+			}
+		}
+	}
+
 	return u.soRepo.Update(so)
 }
 
 // CollectPayment digunakan Driver untuk mencatat tagihan pembayaran yang diterima dari customer.
 // Status SO berubah DELIVERED → PAID (jika full) atau tetap DELIVERED dengan PaymentStatus PARTIAL.
-func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (map[string]interface{}, error) {
+func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (*domain.SalesOrder, error) {
 	so, err := u.soRepo.FindByID(req.SOID)
 	if err != nil {
 		return nil, err
 	}
-	if so.Status != domain.SOStatusDelivered && so.Status != domain.SOStatusPaid {
-		return nil, errors.New("pembayaran hanya bisa dicatat setelah barang dikonfirmasi diterima customer")
+	if so.Status != domain.SOStatusDelivered && so.Status != domain.SOStatusPaid && so.Status != domain.SOStatusInDelivery && so.Status != domain.SOStatusShipped {
+		return nil, errors.New("pembayaran hanya bisa dicatat setelah barang dikonfirmasi diterima customer atau saat pengiriman")
 	}
 
 	now := time.Now()
@@ -693,6 +773,8 @@ func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (map[strin
 				for _, action := range resp.Actions {
 					if action.Name == "generate-qr-code" {
 						resData["midtrans_qris_url"] = action.URL
+						so.MidtransQRISURL = action.URL
+						so.MidtransTransactionID = &resp.TransactionID
 						break
 					}
 				}
@@ -700,13 +782,24 @@ func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (map[strin
 		} else if req.PaymentMethod == "VA" && req.PaymentBank != "" {
 			resp, err := u.midtransClient.CreateBankTransfer(orderID, int64(req.Amount), req.PaymentBank)
 			if err == nil && resp != nil {
+				so.MidtransTransactionID = &resp.TransactionID
 				if len(resp.VaNumbers) > 0 {
-					resData["midtrans_va_number"] = resp.VaNumbers[0].VANumber
-					resData["midtrans_bank"] = resp.VaNumbers[0].Bank
+					vaNum := resp.VaNumbers[0].VANumber
+					bank := resp.VaNumbers[0].Bank
+					resData["midtrans_va_number"] = vaNum
+					resData["midtrans_bank"] = bank
+					so.MidtransVANumber = &vaNum
+					so.MidtransBank = &bank
 				} else if resp.BillKey != "" {
-					resData["midtrans_bill_key"] = resp.BillKey
-					resData["midtrans_biller_code"] = resp.BillerCode
-					resData["midtrans_bank"] = "mandiri"
+					billKey := resp.BillKey
+					billerCode := resp.BillerCode
+					bank := "mandiri"
+					resData["midtrans_bill_key"] = billKey
+					resData["midtrans_biller_code"] = billerCode
+					resData["midtrans_bank"] = bank
+					so.MidtransBillKey = &billKey
+					so.MidtransBillerCode = &billerCode
+					so.MidtransBank = &bank
 				}
 			}
 		}
@@ -718,6 +811,7 @@ func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (map[strin
 		Amount:         req.Amount,
 		PaymentMethod:  req.PaymentMethod,
 		CollectedBy:    req.CollectedBy,
+		EmployeeID:     req.EmployeeID,
 		PaymentStatus:  "SUCCESS", // Default for cash, digital status handled via webhook
 	}
 	if err := u.soRepo.AddPayment(&payment); err != nil {
@@ -740,6 +834,29 @@ func (u *salesOrderUsecase) CollectPayment(req CollectPaymentRequest) (map[strin
 		return nil, err
 	}
 
-	return resData, nil
+	// 4. Update Delivery Item & Batch Totals (if linked)
+	if so.DeliveryBatchID != nil {
+		var di domain.DeliveryItem
+		if err := u.db.Where("sales_order_id = ? AND delivery_batch_id = ?", so.ID, *so.DeliveryBatchID).First(&di).Error; err == nil {
+			di.PaymentCollected = true
+			di.PaymentAmount += req.Amount
+			di.PaymentMethod = req.PaymentMethod
+			di.PaymentCollectedAt = &now
+			_ = u.db.Save(&di)
+
+			// Update Batch Totals
+			var batch domain.DeliveryBatch
+			if err := u.db.First(&batch, *so.DeliveryBatchID).Error; err == nil {
+				if req.PaymentMethod == "CASH" {
+					batch.TotalCashCollected += req.Amount
+				} else if req.PaymentMethod == "QRIS" || req.PaymentMethod == "VA" {
+					batch.TotalTransferCollected += req.Amount
+				}
+				_ = u.db.Save(&batch)
+			}
+		}
+	}
+
+	return so, nil
 }
 

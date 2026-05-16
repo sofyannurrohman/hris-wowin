@@ -31,7 +31,35 @@ func main() {
 	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)")
 	db.Exec("ALTER TABLE delivery_items ADD COLUMN IF NOT EXISTS payment_collected_at TIMESTAMP WITH TIME ZONE")
 	db.Exec("ALTER TABLE warehouse_logs ADD COLUMN IF NOT EXISTS batch_no VARCHAR(50)")
-	log.Println("Schema check for delivery_items and warehouse_logs completed.")
+	
+	log.Println("Checking and fixing sales_payments schema...")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS sales_order_id UUID")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS sales_transaction_id UUID")
+	
+	// FIX: Drop NOT NULL constraints if they exist to allow EITHER SalesOrderID OR SalesTransactionID
+	db.Exec("ALTER TABLE sales_payments ALTER COLUMN sales_order_id DROP NOT NULL")
+	db.Exec("ALTER TABLE sales_payments ALTER COLUMN sales_transaction_id DROP NOT NULL")
+	
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS employee_id UUID")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS amount DECIMAL(15,2) DEFAULT 0")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'SUCCESS'")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS midtrans_transaction_id VARCHAR(100)")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS notes TEXT")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS collected_by VARCHAR(100)")
+	db.Exec("ALTER TABLE sales_payments ADD COLUMN IF NOT EXISTS payment_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()")
+
+	log.Println("Fixing sales_orders schema for Midtrans details...")
+	db.Exec("ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS midtrans_qris_url TEXT")
+	db.Exec("ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS midtrans_va_number VARCHAR(50)")
+	db.Exec("ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS midtrans_bank VARCHAR(20)")
+	db.Exec("ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS midtrans_bill_key VARCHAR(50)")
+	db.Exec("ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS midtrans_biller_code VARCHAR(20)")
+	
+	db.Exec("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS total_cash_collected DECIMAL(15,2) DEFAULT 0")
+	db.Exec("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS total_transfer_collected DECIMAL(15,2) DEFAULT 0")
+	
+	log.Println("Schema check completed.")
 
 	// Run AutoMigrate for critical models to ensure schema sync
 	db.AutoMigrate(
@@ -132,14 +160,14 @@ func main() {
 	performanceUseCase := usecase.NewPerformanceUseCase(performanceRepo, attendanceRepo, employeeShiftRepo, leaveRepo, attendanceUseCase)
 	payrollConfigUseCase := usecase.NewPayrollConfigUseCase(payrollConfigRepo)
 	announcementUseCase := usecase.NewAnnouncementUseCase(announcementRepo, employeeRepo)
-	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, salesRepo, db, midtransClient)
+	salesOrderUsecase := usecase.NewSalesOrderUsecase(salesOrderRepo, warehouseRepo, deliveryRepo, salesRepo, db, midtransClient)
 	salesUseCase := usecase.NewSalesUsecase(salesRepo, performanceRepo, storeRepo, attendanceRepo, companyRepo, employeeRepo, salesOrderUsecase, salesVisitRepo, midtransClient)
 	bannerOrderUseCase := usecase.NewBannerOrderUseCase(bannerOrderRepo)
 	factoryUseCase := usecase.NewFactoryUsecase(factoryRepo, db)
 	warehouseUseCase := usecase.NewWarehouseUsecase(warehouseRepo, notificationRepo, salesRepo, salesOrderRepo, db)
 	vehicleUseCase := usecase.NewVehicleUsecase(vehicleRepo)
 	financeUsecase := usecase.NewFinanceUsecase(financeRepo)
-	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo, salesOrderRepo, warehouseRepo, db)
+	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, salesRepo, salesOrderRepo, branchRepo, warehouseRepo, db)
 	salesTransferUsecase := usecase.NewSalesTransferUsecase(salesTransferRepo, warehouseRepo, db)
 	salesReturnUsecase := usecase.NewSalesReturnUsecase(salesReturnRepo, salesOrderRepo, salesRepo, warehouseRepo, db)
 

@@ -92,8 +92,9 @@ class _DeliveryHistoryPageState extends State<DeliveryHistoryPage> {
     final String finishedAtStr = task['finished_at'] ?? task['created_at'];
     final DateTime finishedAt = DateTime.parse(finishedAtStr);
     final String dateStr = DateFormat('dd MMM yyyy, HH:mm').format(finishedAt);
-    final int itemsCount = (task['items'] as List).length;
+    final int itemsCount = (task['items'] as List? ?? []).length;
     final double totalCash = (task['total_cash_collected'] ?? 0.0).toDouble();
+    final double totalTransfer = (task['total_transfer_collected'] ?? 0.0).toDouble();
     final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
 
     return Container(
@@ -113,7 +114,7 @@ class _DeliveryHistoryPageState extends State<DeliveryHistoryPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const DeliveryTrackingPage(), // Ideally this would take a specific ID to show detail
+              builder: (_) => DeliveryTrackingPage(deliveryOrderNo: doNo),
             ),
           );
         },
@@ -184,13 +185,17 @@ class _DeliveryHistoryPageState extends State<DeliveryHistoryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'KAS COD',
+                          'TOTAL UANG (TUNAI + DIGITAL)',
                           style: GoogleFonts.outfit(fontSize: 9, color: Colors.blueGrey, fontWeight: FontWeight.w800, letterSpacing: 0.5),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          formatter.format(totalCash),
-                          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
+                          formatter.format(totalCash + totalTransfer),
+                          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                        ),
+                        Text(
+                          'Cash: ${formatter.format(totalCash)} • Trf: ${formatter.format(totalTransfer)}',
+                          style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.blueGrey),
                         ),
                       ],
                     ),
