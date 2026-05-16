@@ -110,6 +110,13 @@ Akses **https://hris.wowinapps.cloud**.
 
 ---
 
+## Langkah 7: Build Mobile App (Production)
+Untuk membuild aplikasi mobile dengan URL production, jalankan perintah berikut di direktori `mobile`:
+
+```bash
+flutter build apk --release --dart-define=BASE_URL=https://hris.wowinapps.cloud/api/v1/
+```
+
 ## Catatan Keamanan
 1. **JWT Secret**: Pastikan Anda mengubah `JWT_SECRET` di file `.env` sebelum menjalankan `docker compose`.
 2. **Database Password**: Gunakan password yang kuat untuk `POSTGRES_PASSWORD`.

@@ -19,6 +19,7 @@ type AuthUseCase interface {
 	Register(req RegisterRequest) error
 	Login(req LoginRequest, secret string) (*LoginResponse, error)
 	ForgotPassword(email string) error
+	RefreshToken(refreshToken, secret string) (*LoginResponse, error)
 }
 
 type authUseCase struct {
@@ -218,4 +219,44 @@ func (u *authUseCase) ForgotPassword(email string) error {
 	}
 
 	return nil
+}
+func (u *authUseCase) RefreshToken(refreshToken, secret string) (*LoginResponse, error) {
+	claims, err := utils.ValidateRefreshToken(refreshToken, secret)
+	if err != nil {
+		return nil, errors.New("invalid refresh token")
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return nil, errors.New("invalid user id in token")
+	}
+
+	user, err := u.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	if !user.IsActive {
+		return nil, errors.New("user is inactive")
+	}
+
+	companyID := uuid.Nil
+	if user.CompanyID != nil {
+		companyID = *user.CompanyID
+	}
+
+	accessToken, newRefreshToken, err := utils.GenerateTokens(user.ID, companyID, string(user.Role), secret)
+	if err != nil {
+		return nil, errors.New("failed to generate token")
+	}
+
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		User: UserResponse{
+			ID:    user.ID.String(),
+			Email: user.Email,
+			Role:  string(user.Role),
+		},
+	}, nil
 }

@@ -350,7 +350,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Silahkan lengkapi data anda untuk\nmengakses portal SIK Wowin.',
+            'Silahkan lengkapi data anda untuk\nmengakses Wowin Super App.',
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,

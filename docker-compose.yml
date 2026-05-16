@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: hris_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-root}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
@@ -21,6 +22,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: hris_redis
+    restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
@@ -38,6 +40,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: hris_backend
+    restart: unless-stopped
     ports:
       - "127.0.0.1:8081:8081"
     environment:
@@ -47,8 +50,8 @@ services:
       - DB_NAME=${POSTGRES_DB:-hris_db}
       - DB_PORT=5432
       - SERVER_PORT=8081
-      - JWT_SECRET=${JWT_SECRET:-supersecretkey_dev}
-      - SKIP_SEED=true
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey_production_change_me}
+      - SKIP_SEED=${SKIP_SEED:-true}
       - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY}
       - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY}
       - MIDTRANS_MERCHANT_ID=${MIDTRANS_MERCHANT_ID}
@@ -75,6 +78,7 @@ services:
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
     container_name: hris_frontend
+    restart: unless-stopped
     ports:
       - "127.0.0.1:3001:80"
     networks:
