@@ -18,6 +18,7 @@ import {
   Building2, 
   Globe, 
   MapPin, 
+  Network,
   ClipboardList, 
   CalendarCheck, 
   Scale, 
@@ -65,7 +66,6 @@ const hrisGroups = [
       { to: '/reimbursements', name: 'Reimbursement', icon: Receipt },
       { to: '/performance-kpi', name: 'Performa & KPI', icon: Target },
       { to: '/payroll', name: 'Penggajian', icon: Wallet },
-      { to: '/payroll-settings', name: 'Pengaturan Gaji', icon: Settings },
       { to: '/pkwt', name: 'Surat PKWT', icon: FileCheck2 },
     ]
   },
@@ -74,23 +74,12 @@ const hrisGroups = [
     items: [
       { to: '/users', name: 'Pengguna Akun', icon: UserCircle },
       { to: '/leave-types', name: 'Tipe Cuti', icon: Calendar },
-      { to: '/branches', name: 'Kantor Cabang', icon: MapPin },
-      { to: '/companies', name: 'Perusahaan Utama', icon: Globe },
-      { to: '/departments', name: 'Departemen', icon: Building2 },
+      { to: '/organization', name: 'Manajemen Organisasi', icon: Network },
       { to: '/job-positions', name: 'Jabatan', icon: Briefcase },
       { to: '/shifts', name: 'Shift Kerja', icon: Clock },
       { to: '/announcements', name: 'Pengumuman', icon: Megaphone },
-      { to: '/vehicles', name: 'Manajemen Kendaraan', icon: Truck },
     ]
   },
-  {
-    title: 'Transaksional',
-    items: [
-      { to: '/employee-shifts', name: 'Penugasan Shift', icon: ClipboardList },
-      { to: '/leave-balances', name: 'Saldo Cuti', icon: Scale },
-      { to: '/attendance-logs', name: 'Log Absensi', icon: History },
-    ]
-  }
 ]
 
 const salesGroups = [

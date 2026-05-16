@@ -67,39 +67,14 @@ const router = createRouter({
           component: () => import('@/views/UserView.vue'),
         },
         {
-          path: 'departments',
-          name: 'departments',
-          component: () => import('@/views/DepartmentView.vue'),
-        },
-        {
-          path: 'companies',
-          name: 'companies',
-          component: () => import('@/views/CompanyView.vue'),
-        },
-        {
-          path: 'branches',
-          name: 'branches',
-          component: () => import('@/views/BranchView.vue'),
-        },
-        {
-          path: 'employee-shifts',
-          name: 'employeeShifts',
-          component: () => import('@/views/EmployeeShiftView.vue'),
+          path: 'organization',
+          name: 'organization',
+          component: () => import('@/views/OrganizationView.vue'),
         },
         {
           path: 'leave-requests',
           name: 'leaveRequests',
           component: () => import('@/views/LeaveRequestView.vue'),
-        },
-        {
-          path: 'leave-balances',
-          name: 'leaveBalances',
-          component: () => import('@/views/LeaveBalanceView.vue'),
-        },
-        {
-          path: 'attendance-logs',
-          name: 'attendanceLogs',
-          component: () => import('@/views/AttendanceLogView.vue'),
         },
         {
           path: 'reimbursements',
@@ -120,11 +95,6 @@ const router = createRouter({
           path: 'audit-logs',
           name: 'auditLogs',
           component: () => import('@/views/AuditLogView.vue'),
-        },
-        {
-          path: 'payroll-settings',
-          name: 'payrollSettings',
-          component: () => import('@/views/PayrollSettingsView.vue'),
         },
         {
           path: 'announcements',

@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
-import { Pencil, Trash2, Wallet, Plus, X, Landmark, TrendingUp, ShieldAlert, Banknote, Download } from 'lucide-vue-next'
+import { 
+  Pencil, Trash2, Wallet, Plus, X, Landmark, TrendingUp, 
+  ShieldAlert, Banknote, Download, Clock, Scale, CalendarDays, 
+  History, Timer, CheckCircle2
+} from 'lucide-vue-next'
 import apiClient from '@/api/axios'
 import DataTable from '@/components/DataTable.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
@@ -63,6 +68,29 @@ const isSalarySubmitting = ref(false)
 const newSalarySetting = ref({
   component_id: '',
   amount: 0
+})
+
+// Shift Settings State
+const isShiftModalOpen = ref(false)
+const shiftAssignments = ref<any[]>([])
+const allShifts = ref<any[]>([])
+const isShiftSubmitting = ref(false)
+const newShiftAssignment = ref({
+    shiftId: '',
+    date: new Date().toISOString().split('T')[0],
+    isOffDay: false
+})
+
+// Leave Balance State
+const isLeaveModalOpen = ref(false)
+const leaveBalances = ref<any[]>([])
+const leaveTypes = ref<any[]>([])
+const isLeaveSubmitting = ref(false)
+const newLeaveBalance = ref({
+    leave_type_id: '',
+    year: new Date().getFullYear(),
+    balance_total: 0,
+    balance_used: 0
 })
 
 const openAddModal = () => {
@@ -183,6 +211,106 @@ const addSalarySetting = async () => {
     }
 }
 
+// SHIFT MANAGEMENT
+const openShiftModal = async (user: any) => {
+    currentEmployee.value = user
+    isShiftModalOpen.value = true
+    fetchShiftAssignments(user.id)
+}
+
+const fetchShiftAssignments = async (empID: string) => {
+    try {
+        const res = await apiClient.get(`/employee-shifts?employee_id=${empID}`)
+        shiftAssignments.value = res.data.data || []
+    } catch (e) {
+        toast.error('Gagal memuat jadwal shift.')
+    }
+}
+
+const addShiftAssignment = async () => {
+    if (!newShiftAssignment.value.shiftId || !newShiftAssignment.value.date) return
+    isShiftSubmitting.value = true
+    try {
+        await apiClient.post(`/employee-shifts`, {
+            employeeId: currentEmployee.value.id,
+            shiftId: newShiftAssignment.value.shiftId,
+            date: new Date(newShiftAssignment.value.date).toISOString(),
+            isOffDay: newShiftAssignment.value.isOffDay
+        })
+        toast.success('Shift berhasil ditugaskan.')
+        fetchShiftAssignments(currentEmployee.value.id)
+        fetchEmployees() // Update shift column in table
+    } catch (e) {
+        toast.error('Gagal menugaskan shift.')
+    } finally {
+        isShiftSubmitting.value = false
+    }
+}
+
+const deleteShiftAssignment = async (id: string) => {
+    try {
+        await apiClient.delete(`/employee-shifts/${id}`)
+        toast.success('Penugasan shift dihapus.')
+        fetchShiftAssignments(currentEmployee.value.id)
+        fetchEmployees()
+    } catch (e) {
+        toast.error('Gagal menghapus shift.')
+    }
+}
+
+// LEAVE BALANCE MANAGEMENT
+const openLeaveModal = async (user: any) => {
+    currentEmployee.value = user
+    isLeaveModalOpen.value = true
+    fetchLeaveBalances(user.id)
+}
+
+const fetchLeaveBalances = async (empID: string) => {
+    try {
+        const res = await apiClient.get(`/leave-balances?employee_id=${empID}`)
+        leaveBalances.value = res.data.data || []
+    } catch (e) {
+        toast.error('Gagal memuat saldo cuti.')
+    }
+}
+
+const saveLeaveBalance = async () => {
+    if (!newLeaveBalance.value.leave_type_id) return
+    isLeaveSubmitting.value = true
+    try {
+        await apiClient.put('/time-off/manage/balances', {
+            employee_id: currentEmployee.value.id,
+            leave_type_id: newLeaveBalance.value.leave_type_id,
+            year: newLeaveBalance.value.year,
+            balance_total: Number(newLeaveBalance.value.balance_total),
+            balance_used: Number(newLeaveBalance.value.balance_used)
+        })
+        toast.success('Saldo cuti diperbarui.')
+        fetchLeaveBalances(currentEmployee.value.id)
+    } catch (e: any) {
+        toast.error('Gagal menyimpan saldo cuti.')
+    } finally {
+        isLeaveSubmitting.value = false
+    }
+}
+
+const deleteLeaveBalance = async (row: any) => {
+    if (!confirm('Hapus saldo cuti ini?')) return
+    try {
+        await apiClient.delete('/time-off/manage/balances', {
+            data: {
+                employee_id: currentEmployee.value.id,
+                leave_type_id: row.leave_type_id,
+                year: row.year
+            }
+        })
+        toast.success('Saldo cuti dihapus.')
+        fetchLeaveBalances(currentEmployee.value.id)
+    } catch (e) {
+        toast.error('Gagal menghapus saldo cuti.')
+    }
+}
+
 const closeAddModal = () => {
   isModalOpen.value = false
 }
@@ -233,6 +361,20 @@ const fetchPayrollComponents = async () => {
     } catch (e) {}
 }
 
+const fetchShifts = async () => {
+    try {
+        const res = await apiClient.get('/shifts')
+        allShifts.value = res.data.data || []
+    } catch (e) {}
+}
+
+const fetchLeaveTypes = async () => {
+    try {
+        const res = await apiClient.get('/leave-types')
+        leaveTypes.value = res.data.data || []
+    } catch (e) {}
+}
+
 const saveEmployee = async () => {
   isSubmitting.value = true
   const payload = { 
@@ -276,6 +418,8 @@ const deleteEmployee = async (id: string) => {
 onMounted(() => {
   fetchEmployees()
   fetchPayrollComponents()
+  fetchShifts()
+  fetchLeaveTypes()
   masterData.fetchDepartments()
   masterData.fetchJobPositions()
   masterData.fetchBranches()
@@ -422,15 +566,28 @@ const columns = [
       return h('div', { class: 'flex items-center gap-1' }, [
         h(Button, { 
             variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-primary hover:bg-primary/5 rounded-lg',
-            onClick: () => openSalaryModal(user)
+            onClick: () => openShiftModal(user),
+            title: 'Penugasan Shift'
+        }, () => h(Clock, { class: 'w-4 h-4' })),
+        h(Button, { 
+            variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-primary hover:bg-primary/5 rounded-lg',
+            onClick: () => openLeaveModal(user),
+            title: 'Saldo Cuti'
+        }, () => h(Scale, { class: 'w-4 h-4' })),
+        h(Button, { 
+            variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-primary hover:bg-primary/5 rounded-lg',
+            onClick: () => openSalaryModal(user),
+            title: 'Struktur Gaji'
         }, () => h(Wallet, { class: 'w-4 h-4' })),
         h(Button, { 
             variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg',
-            onClick: () => openEditModal(user)
+            onClick: () => openEditModal(user),
+            title: 'Edit Personal'
         }, () => h(Pencil, { class: 'w-4 h-4' })),
         h(Button, { 
             variant: 'ghost', size: 'sm', class: 'h-8 px-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg',
-            onClick: () => deleteEmployee(user.id)
+            onClick: () => deleteEmployee(user.id),
+            title: 'Hapus Karyawan'
         }, () => h(Trash2, { class: 'w-4 h-4' }))
       ])
     }
@@ -568,6 +725,199 @@ const columns = [
         
         <div class="p-8 pt-0 bg-white border-t border-slate-50 flex justify-end">
             <Button variant="ghost" @click="isSalaryModalOpen = false" class="rounded-2xl h-12 px-10 font-black text-slate-400">SELESAI</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    
+    <!-- Shift Assignment Modal -->
+    <Dialog v-model:open="isShiftModalOpen">
+      <DialogContent class="sm:max-w-2xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-10 text-white relative shrink-0">
+            <button @click="isShiftModalOpen = false" class="absolute top-6 right-6 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-20">
+                <X class="w-5 h-5 text-white" />
+            </button>
+            <DialogHeader>
+                <div class="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-6 border border-white/20">
+                    <Clock class="w-8 h-8 text-primary" />
+                </div>
+                <DialogTitle class="text-2xl font-black tracking-tight text-white">Penugasan Shift</DialogTitle>
+                <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[11px] tracking-[0.2em] border-l-4 border-primary pl-4">
+                    {{ currentEmployee?.first_name }} • {{ currentEmployee?.job_position?.title }}
+                </DialogDescription>
+            </DialogHeader>
+            <CalendarDays class="absolute -right-10 -bottom-10 w-48 h-48 opacity-10" />
+        </div>
+
+        <div class="p-10 bg-white grid grid-cols-1 md:grid-cols-12 gap-10 overflow-y-auto custom-scrollbar flex-1">
+            <!-- Left: Add New Assignment -->
+            <div class="md:col-span-5 space-y-6">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Assign Shift</h3>
+                
+                <div class="space-y-4">
+                    <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Pilih Shift</label>
+                    <Select v-model="newShiftAssignment.shiftId">
+                        <SelectTrigger class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-bold focus:ring-0 focus:border-primary px-6">
+                            <SelectValue placeholder="Pilih Shift..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem v-for="s in allShifts" :key="s.id" :value="s.id">
+                                {{ s.name }} ({{ s.start_time }} - {{ s.end_time }})
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Tanggal Berlaku</label>
+                    <Input type="date" v-model="newShiftAssignment.date" class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-black px-6" />
+                </div>
+
+                <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <input type="checkbox" id="isOffDay" v-model="newShiftAssignment.isOffDay" class="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary" />
+                    <label for="isOffDay" class="text-[13px] font-bold text-slate-700">Tandai sebagai Hari Libur</label>
+                </div>
+
+                <Button @click="addShiftAssignment" :disabled="isShiftSubmitting" class="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black shadow-lg transform active:scale-95 transition-all">
+                    {{ isShiftSubmitting ? 'MENYIMPAN...' : 'TUGASKAN SHIFT' }}
+                </Button>
+            </div>
+
+            <!-- Right: List History -->
+            <div class="md:col-span-7 space-y-6">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2 flex items-center gap-2">
+                    <History class="w-4 h-4" /> Log Penugasan
+                </h3>
+                
+                <div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                    <div v-if="shiftAssignments.length === 0" class="py-12 text-center text-slate-300 font-bold flex flex-col items-center">
+                        <Timer class="w-10 h-10 mb-2 opacity-20" />
+                        BELUM ADA DATA
+                    </div>
+                    <div v-for="sa in shiftAssignments" :key="sa.id" class="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100/50 hover:border-primary/20 transition-all group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-slate-100 shadow-sm text-primary font-black text-xs">
+                                {{ new Date(sa.date).getDate() }}
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[13px] font-black text-slate-900 uppercase tracking-tight">{{ sa.shift?.name || 'OFF' }}</span>
+                                    <span v-if="sa.is_off_day" class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-[9px] font-black border border-orange-100">LIBUR</span>
+                                </div>
+                                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{{ new Date(sa.date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }) }}</span>
+                            </div>
+                        </div>
+                        <button @click="deleteShiftAssignment(sa.id)" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-600 transition-all">
+                            <Trash2 class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-8 pt-0 bg-white border-t border-slate-50 flex justify-end">
+            <Button variant="ghost" @click="isShiftModalOpen = false" class="rounded-2xl h-12 px-10 font-black text-slate-400">TUTUP</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Leave Balance Modal -->
+    <Dialog v-model:open="isLeaveModalOpen">
+      <DialogContent class="sm:max-w-2xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+        <div class="bg-slate-900 p-10 text-white relative shrink-0">
+            <button @click="isLeaveModalOpen = false" class="absolute top-6 right-6 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-20">
+                <X class="w-5 h-5 text-white" />
+            </button>
+            <DialogHeader>
+                <div class="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-6 border border-white/20">
+                    <Scale class="w-8 h-8 text-primary" />
+                </div>
+                <DialogTitle class="text-2xl font-black tracking-tight text-white">Manajemen Saldo Cuti</DialogTitle>
+                <DialogDescription class="text-slate-400 font-bold mt-2 uppercase text-[11px] tracking-[0.2em] border-l-4 border-primary pl-4">
+                    {{ currentEmployee?.first_name }} • Jatah Cuti Tahunan
+                </DialogDescription>
+            </DialogHeader>
+            <CheckCircle2 class="absolute -right-10 -bottom-10 w-48 h-48 opacity-10" />
+        </div>
+
+        <div class="p-10 bg-white grid grid-cols-1 md:grid-cols-12 gap-10 overflow-y-auto custom-scrollbar flex-1">
+            <!-- Left: Set Balance -->
+            <div class="md:col-span-5 space-y-6">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2 text-white/0">Update Saldo</h3>
+                
+                <div class="space-y-4">
+                    <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Jenis Cuti</label>
+                    <Select v-model="newLeaveBalance.leave_type_id">
+                        <SelectTrigger class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-bold focus:ring-0 focus:border-primary px-6">
+                            <SelectValue placeholder="Pilih Jenis..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem v-for="lt in leaveTypes" :key="lt.id" :value="lt.id">{{ lt.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1">Tahun</label>
+                    <Input type="number" v-model="newLeaveBalance.year" class="h-14 rounded-2xl border-2 border-slate-50 bg-slate-50 font-black px-6" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-4">
+                        <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1 text-emerald-600">Total Jatah</label>
+                        <Input type="number" v-model="newLeaveBalance.balance_total" class="h-14 rounded-2xl border-2 border-emerald-50 bg-emerald-50 font-black px-6 text-emerald-700" />
+                    </div>
+                    <div class="space-y-4">
+                        <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest block ml-1 text-rose-600">Terpakai</label>
+                        <Input type="number" v-model="newLeaveBalance.balance_used" class="h-14 rounded-2xl border-2 border-rose-50 bg-rose-50 font-black px-6 text-rose-700" />
+                    </div>
+                </div>
+
+                <Button @click="saveLeaveBalance" :disabled="isLeaveSubmitting" class="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg transform active:scale-95 transition-all">
+                    {{ isLeaveSubmitting ? 'MENYIMPAN...' : 'SIMPAN SALDO' }}
+                </Button>
+            </div>
+
+            <!-- Right: List Current Balances -->
+            <div class="md:col-span-7 space-y-6">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Status Saldo Saat Ini</h3>
+                
+                <div class="space-y-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                    <div v-if="leaveBalances.length === 0" class="py-12 text-center text-slate-300 font-bold flex flex-col items-center">
+                        <Scale class="w-10 h-10 mb-2 opacity-20" />
+                        TIDAK ADA SALDO
+                    </div>
+                    <div v-for="lb in leaveBalances" :key="lb.leave_type_id + lb.year" class="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 relative group overflow-hidden transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-100">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h4 class="text-[13px] font-black text-slate-900 uppercase tracking-tight">{{ lb.leave_type?.name }}</h4>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tahun {{ lb.year }}</p>
+                            </div>
+                            <button @click="deleteLeaveBalance(lb)" class="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-600 transition-all shrink-0">
+                                <Trash2 class="w-4 h-4" />
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="flex flex-col bg-white p-3 rounded-xl border border-slate-100">
+                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</span>
+                                <span class="text-sm font-black text-slate-900">{{ lb.balance_total }} hr</span>
+                            </div>
+                            <div class="flex flex-col bg-white p-3 rounded-xl border border-slate-100">
+                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Used</span>
+                                <span class="text-sm font-black text-rose-600">{{ lb.balance_used }} hr</span>
+                            </div>
+                            <div class="flex flex-col bg-emerald-600 p-3 rounded-xl text-white">
+                                <span class="text-[9px] font-black text-emerald-100 uppercase tracking-widest mb-1">Sisa</span>
+                                <span class="text-sm font-black">{{ lb.balance_total - lb.balance_used }} hr</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-8 pt-0 bg-white border-t border-slate-50 flex justify-end">
+            <Button variant="ghost" @click="isLeaveModalOpen = false" class="rounded-2xl h-12 px-10 font-black text-slate-400">SELESAI</Button>
         </div>
       </DialogContent>
     </Dialog>
