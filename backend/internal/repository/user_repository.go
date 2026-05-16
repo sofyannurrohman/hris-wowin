@@ -12,6 +12,7 @@ type UserRepository interface {
 	Create(user *domain.User) error
 	CreateWithEmployee(user *domain.User, employee *domain.Employee) error
 	FindByEmail(email string) (*domain.User, error)
+	FindByID(id uuid.UUID) (*domain.User, error)
 	Update(user *domain.User) error
 	Delete(id uuid.UUID) error
 }
@@ -46,6 +47,17 @@ func (r *userRepository) CreateWithEmployee(user *domain.User, employee *domain.
 func (r *userRepository) FindByEmail(email string) (*domain.User, error) {
 	var user domain.User
 	err := r.db.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+func (r *userRepository) FindByID(id uuid.UUID) (*domain.User, error) {
+	var user domain.User
+	err := r.db.First(&user, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
