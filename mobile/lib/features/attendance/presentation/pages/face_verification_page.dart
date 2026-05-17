@@ -95,6 +95,11 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   DateTime _now = DateTime.now();
   bool _isBiometricEnabled = false;
   
+  // Shift Info
+  String _shiftName = "SHIFT PAGI";
+  String _shiftStartTime = "07:30";
+  String _shiftEndTime = "16:30";
+  
   // Geofencing & Branch Info
   Map<String, dynamic>? _assignedBranch;
   double _distanceToBranch = -1;
@@ -180,6 +185,60 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                 });
               }
             } catch (_) {}
+          }
+
+          // Extract applicable shift details dynamically from the preloaded GORM relations
+          Map<String, dynamic>? applicableShift;
+          
+          final empShifts = profile['employee_shifts'] ?? profile['EmployeeShifts'];
+          if (empShifts != null && empShifts is List && empShifts.isNotEmpty) {
+            final firstShift = empShifts[0];
+            if (firstShift != null) {
+              final shiftObj = firstShift['shift'] ?? firstShift['Shift'];
+              if (shiftObj != null && shiftObj is Map) {
+                applicableShift = Map<String, dynamic>.from(shiftObj);
+              }
+            }
+          }
+          
+          if (applicableShift == null) {
+            final defShift = profile['default_shift'] ?? profile['DefaultShift'];
+            if (defShift != null && defShift is Map) {
+              applicableShift = Map<String, dynamic>.from(defShift);
+            }
+          }
+          
+          if (applicableShift == null) {
+            final branchObj = profile['branch'] ?? profile['Branch'];
+            if (branchObj != null && branchObj is Map) {
+              final branchDefShift = branchObj['default_shift'] ?? branchObj['DefaultShift'];
+              if (branchDefShift != null && branchDefShift is Map) {
+                applicableShift = Map<String, dynamic>.from(branchDefShift);
+              }
+            }
+          }
+
+          if (applicableShift != null) {
+            final name = applicableShift['name'] ?? applicableShift['Name'];
+            final startTime = applicableShift['start_time'] ?? applicableShift['StartTime'];
+            final endTime = applicableShift['end_time'] ?? applicableShift['EndTime'];
+
+            String formatTime(String? timeStr) {
+              if (timeStr == null || timeStr.isEmpty) return "";
+              final parts = timeStr.split(':');
+              if (parts.length >= 2) {
+                return "${parts[0]}:${parts[1]}";
+              }
+              return timeStr;
+            }
+
+            if (mounted) {
+              setState(() {
+                if (name != null) _shiftName = name.toString();
+                if (startTime != null) _shiftStartTime = formatTime(startTime.toString());
+                if (endTime != null) _shiftEndTime = formatTime(endTime.toString());
+              });
+            }
           }
 
           branchesResult.fold(
@@ -677,6 +736,9 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                   ? ClockInSuccessPage(
                       attendance: state.attendance,
                       branchName: _assignedBranch?['name'] ?? _assignedBranch?['Name'] ?? 'Lokasi Terdaftar',
+                      shiftName: _shiftName,
+                      shiftStartTime: _shiftStartTime,
+                      shiftEndTime: _shiftEndTime,
                     )
                   : ClockOutSuccessPage(
                       attendance: state.attendance,
@@ -743,9 +805,9 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                             color: AppColors.primaryRed.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            'SHIFT PAGI (07:30)',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.primaryRed),
+                          child: Text(
+                            '${_shiftName.toUpperCase()} ($_shiftStartTime${_shiftEndTime.isNotEmpty ? ' - $_shiftEndTime' : ''})',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.primaryRed),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -972,7 +1034,13 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                                     child: SizedBox(
                                       width: constraints.maxWidth,
                                       height: constraints.maxWidth * _cameraController!.value.aspectRatio,
-                                      child: CameraPreview(_cameraController!),
+                                      child: _cameraController!.description.lensDirection == CameraLensDirection.front
+                                          ? Transform(
+                                              alignment: Alignment.center,
+                                              transform: Matrix4.rotationY(3.141592653589793),
+                                              child: CameraPreview(_cameraController!),
+                                            )
+                                          : CameraPreview(_cameraController!),
                                     ),
                                   )
                                 : const Center(child: CircularProgressIndicator()),

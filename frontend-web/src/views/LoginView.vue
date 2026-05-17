@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { LogIn, Mail, Lock, AlertCircle, Loader2, ShieldCheck, ChevronRight } from 'lucide-vue-next'
-import logo from '@/assets/logo.svg'
+import logo from '@/assets/logo_wowin.png'
 import { toast } from 'vue-sonner'
 
 const email = ref("sofyan@sentraweb.id")

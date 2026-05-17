@@ -163,7 +163,7 @@ const menuGroups = computed(() => {
     <div class="py-8 transition-all duration-500" :class="[layoutStore.isSidebarCollapsed ? 'px-0' : 'px-6']">
       <div class="flex items-center overflow-hidden whitespace-nowrap transition-all duration-500" :class="[layoutStore.isSidebarCollapsed ? 'justify-center gap-0' : 'gap-3.5']">
         <div class="bg-primary/5 p-2 rounded-2xl border border-primary/10 shadow-sm shadow-primary/5 shrink-0 transition-all duration-500" :class="{ 'scale-90': layoutStore.isSidebarCollapsed }">
-          <img src="@/assets/logo.svg" alt="Logo" class="w-8 h-8 shrink-0" />
+          <img src="@/assets/logo_wowin.png" alt="Logo" class="w-8 h-8 shrink-0" />
         </div>
         <div 
           class="flex flex-col transition-all duration-500 origin-left"

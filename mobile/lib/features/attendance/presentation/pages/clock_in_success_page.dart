@@ -10,11 +10,17 @@ import 'package:hris_app/core/utils/constants.dart';
 class ClockInSuccessPage extends StatelessWidget {
   final Attendance attendance;
   final String? branchName;
+  final String? shiftName;
+  final String? shiftStartTime;
+  final String? shiftEndTime;
 
   const ClockInSuccessPage({
     super.key, 
     required this.attendance,
     this.branchName,
+    this.shiftName,
+    this.shiftStartTime,
+    this.shiftEndTime,
   });
 
   @override
@@ -256,7 +262,9 @@ class ClockInSuccessPage extends StatelessWidget {
                                     const Icon(Icons.schedule_rounded, size: 16, color: AppColors.textSecondary),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Shift: Pagi (07:30)',
+                                      shiftName != null && shiftStartTime != null && shiftEndTime != null
+                                          ? 'Shift: $shiftName ($shiftStartTime - $shiftEndTime)'
+                                          : 'Shift: Pagi (07:30)',
                                       style: GoogleFonts.outfit(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,

@@ -93,50 +93,67 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               scale: _scaleAnimation,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                   Container(
-                    padding: const EdgeInsets.all(28),
+                  Container(
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primaryGreen.withOpacity(0.15),
-                          blurRadius: 40,
-                          offset: const Offset(0, 15),
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 30,
+                          offset: const Offset(0, 12),
                         ),
                       ],
                     ),
                     child: Image.asset(
-                      'assets/logo_wowin_green.png',
+                      'assets/logo_wowin.png',
                       width: 90,
                       height: 90,
                     ),
                   ),
-                  const SizedBox(height: 54),
-                  Text(
-                    'WOWIN SUPER APP',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
-                      letterSpacing: 4,
+                  const SizedBox(height: 48),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4), // Balance the letterSpacing of 4 for perfect alignment
+                    child: Text(
+                      'WOWIN SUPER APP',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F172A), // High contrast slate/black
+                        letterSpacing: 4,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      'One Platform for All Your Needs',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryGreen,
-                        letterSpacing: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 2), // Balance the letterSpacing of 2
+                      child: Text(
+                        'One Platform for All Your Needs',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1E293B), // High contrast text
+                          letterSpacing: 2,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
@@ -163,13 +180,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     ),
                   ),
                   const SizedBox(height: 32),
-                  Text(
-                    'VERSION 1.0.2 • WOWIN SUPER APP',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary.withOpacity(0.6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2), // Balance the letterSpacing of 2
+                    child: Text(
+                      'VERSION 1.0.2 • WOWIN SUPER APP',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF475569), // Darker, highly readable slate
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ],

@@ -166,7 +166,13 @@ class _ReusableCameraWidgetState extends State<ReusableCameraWidget>
               child: Center(
                 child: AspectRatio(
                   aspectRatio: _controller!.value.aspectRatio,
-                  child: CameraPreview(_controller!),
+                  child: _controller!.description.lensDirection == CameraLensDirection.front
+                      ? Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.rotationY(3.141592653589793),
+                          child: CameraPreview(_controller!),
+                        )
+                      : CameraPreview(_controller!),
                 ),
               ),
             ),

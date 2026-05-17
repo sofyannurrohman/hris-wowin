@@ -103,18 +103,6 @@ class _ActivityHistoryPageState extends State<ActivityHistoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundAlt,
-      appBar: AppBar(
-        title: const Text('RIWAYAT AKTIVITAS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: AppColors.textPrimary)),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Navigator.of(context).canPop() 
-          ? IconButton(
-              icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
-            )
-          : null,
-      ),
       body: SafeArea(
         child: Container(
           decoration: BoxDecoration(color: AppColors.backgroundAlt),

@@ -294,7 +294,13 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
                                 child: SizedBox(
                                   width: constraints.maxWidth,
                                   height: constraints.maxWidth * _cameraController!.value.aspectRatio,
-                                  child: CameraPreview(_cameraController!),
+                                  child: _cameraController!.description.lensDirection == CameraLensDirection.front
+                                      ? Transform(
+                                          alignment: Alignment.center,
+                                          transform: Matrix4.rotationY(3.141592653589793),
+                                          child: CameraPreview(_cameraController!),
+                                        )
+                                      : CameraPreview(_cameraController!),
                                 ),
                               ),
                       );
